@@ -1,0 +1,8 @@
+azure-1
+5rftuD2W4MsxoWcxaQZ27ZREkMnzzNhqqpOQbKTZ9tO8jEu1HUuNJQQJ99ALAC5RqLJXJ3w3AAABACOGiNAz
+
+azure-2
+5AJTXyrUBmtdVJizmLAfUcVBtfUWfhYY63epCs39SUgo2b33haOyJQQJ99ALAC5RqLJXJ3w3AAABACOGam0Y
+
+westeurope
+https://instancia-ai-demo.openai.azure.com/

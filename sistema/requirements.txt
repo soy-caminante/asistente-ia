@@ -1,0 +1,11 @@
+faiss-cpu
+langchain
+lamini
+openai
+numpy
+tqdm
+sentence-transformers
+pytorch
+transformers
+PyPDF2
+requests
