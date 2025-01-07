@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Búsqueda de Pacientes</title>
+    <!-- Estilos comunes -->
+    <link rel="stylesheet" href="/static/css/common.css">
+    <!-- Estilos específicos de la pantalla de selección -->
+    <link rel="stylesheet" href="/static/css/index.css">
+</head>
+<body>
+    <div class="container">
+        <div class="search-box">
+            <h1>Gestión de Pacientes</h1>
+            <p>Introduce el DNI, Apellidos o Nombre del paciente para buscarlo.</p>
+            <input type="text" id="searchInput" placeholder="Introduce DNI, Apellidos o Nombre">
+            <button class="search-btn" onclick="searchPatient()">Buscar</button>
+        </div>
+
+        <div class="results-section">
+            <h2>Resultados de la Búsqueda</h2>
+            <div id="results" class="results-list">
+                <!-- Los pacientes se generarán dinámicamente aquí -->
+            </div>
+        </div>
+    </div>
+    <script src="/static/js/scripts.js"></script>
+</body>
+</html>
