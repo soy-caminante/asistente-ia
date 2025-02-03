@@ -65,6 +65,14 @@ function getPatientId()
 
 async function loadPatientData() 
 {
+    if (typeof marked !== "undefined") {
+        console.log("Marked está disponible");
+        const html = marked("# Hola Mundo!");
+        console.log(html);
+      } else {
+        console.error("Marked no está disponible");
+      }
+
     try
     {
         const patientId = getPatientId()
@@ -133,7 +141,10 @@ async function askChat()
 
         const answerDiv         = document.createElement("div");
         answerDiv.className     = "answer";
-        answerDiv.textContent   = data.response;
+        const response_info     = data.response.replace(/````markdown\n([\s\S]*?)````/g, "$1");
+        const generationTime    = "<em><small>" + data.generation + "</small></em>"
+        const markdownHTML      = marked(response_info + "\r\n" + generationTime);
+        answerDiv.innerHTML     = markdownHTML;
 
         responseDiv.appendChild(questionDiv);
         responseDiv.appendChild(answerDiv);

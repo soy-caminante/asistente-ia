@@ -13,9 +13,9 @@ class ChatRequest(BaseModel):
 
 @router.post("/")
 def chat_with_ai(chat_request: ChatRequest, backend: BackendService = Depends(get_service_instance)):
-    response = backend.chat(chat_request.ref_id, chat_request.question)
+    response, gen_time = backend.chat(chat_request.ref_id, chat_request.question)
 
     if response is None:
-        return { "response": "El paciente no existe"}
-    return { "response": response }
+        return { "response": "El paciente no existe", "generation": gen_time }
+    return { "response": response, "generation": gen_time }
 #--------------------------------------------------------------------------------------------------

@@ -20,6 +20,11 @@ class BackendService:
         self._pacientes_db      = DbPacienteMngr(self._db)
     #----------------------------------------------------------------------------------------------
 
+    @staticmethod
+    def get_generation_time(ref_ts):
+        return elapsed_time_to_str(time.time() - ref_ts)
+    #----------------------------------------------------------------------------------------------
+
     def log_callback(self, info):
         if isinstance(info, Exception): 
             print(info)
@@ -40,6 +45,7 @@ class BackendService:
     #----------------------------------------------------------------------------------------------
 
     def chat(self, ref_id, question):
+        start_ts = time.time()
         paciente = self._pacientes_db.get_paciente(ref_id)
         
         if paciente is None: return None
@@ -51,21 +57,21 @@ class BackendService:
                 self._oai_context.full_context += "\n"
             self._oai_context.full_context += doc["contenido"]
 
+        self._oai_context.full_context += "\nSi la pregunta es poco concreta, se detallado."
+        self._oai_context.full_context += "\nDame la respuesta en markdown pero no uses bloques de código."
         self._oai_context.update_chunks()
 
         if len(self._oai_context.chunks) == 0:
-            return "No hay información para responder a la pregunta"
+            return "No hay información para responder a la pregunta", self.get_generation_time(start_ts)
 
         prompts  = [ ]
 
         for chunk in self._oai_context.chunks:
             prompts.append(Prompt(chunk, question))
 
-        current_ts  = time.time()
         response    = self._oai_context.chat(prompts)
-        gen_time    = elapsed_time_to_str(time.time() - current_ts)
-        
-        return f"Tiempo de generación: {gen_time}\n{response}"
+       
+        return response, self.get_generation_time(start_ts)
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 

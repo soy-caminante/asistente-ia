@@ -53,8 +53,8 @@ class Prompt:
         if question:    self._question  = question
 
         prompt  = f"Contexto: {self._context}\r\n"
-        prompt += "Si no encuentras la repsuesta en el contexto responde: No puedo encontrar la respuesta\r\n"
         prompt += f"Pregunta: {self._question}\r\n"
+        prompt += "Si no hay respuesta o no la conoces dime: No encuentro la respuesta\r\n"
         prompt += "Respuesta:"
 
         return prompt

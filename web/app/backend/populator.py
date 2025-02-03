@@ -76,12 +76,12 @@ class DocPopulator:
                         for chunk in self._oai_context.chunks:
                             tag_prompts.append(Prompt(chunk, "Dame una lista exhaustiva de tags que sirvan para clasificar este documento"))
                             kw_prompts.append(Prompt(chunk, "Dame una lista exhaustiva de keywords que sirvan para clasificar este documento"))
-                            medicacion_prompts.append(Prompt(chunk, "Qúe medicación tiene pautada este paciente. En texto plano, sin usar markdown. Por cada medicamento una línea con formato Fecha (dd-mm-YYYY) Medicamento. Si no hay nada o no encuentras la respuesta dímo DATOS NO ENCONTRADOS"))
-                            antecedentes_prompts.append(Prompt(chunk, "Qúe antecedentes médicos de interés tiene este paciente. En texto plano, sin usar markdown. Un antecedente por línea. Si no hay nada o no encuentras la respuesta dímo DATOS NO ENCONTRADOS"))
-                            alergias_prompts.append(Prompt(chunk, "Qúe alergias tiene este paciente. Una alergia por línea. En texto plano, sin usar markdown. Una alergia por lína. Si no hay nada o no encuentras la respuesta dímo DATOS NO ENCONTRADOS"))
-                            riesgo_prompts.append(Prompt(chunk, "Qúe factores de riesgo cardiovascular tiene este paciente. En texto plano, sin usar markdown. Un factor de riesgo por línea. Si no hay nada o no encuentras la respuesta dímo DATOS NO ENCONTRADOS"))
-                            visitas_prompts.append(Prompt(chunk, "Lista de fechas de las visitas del paciente. En texto plano, sin usar markdown. Por cada visita una línea con formato Fecha (dd-mm-YYYY) y el motivo de la visita. Si no hay nada o no encuentras la respuesta dímo DATOS NO ENCONTRADOS"))
-                            ingresos_promts.append(Prompt(chunk, "Lista de fechas de los ingresos del paciente. En texto plano, sin usar markdown. Por cada ingreso una línea con formato Fecha (dd-mm-YYYY) y el motivo de la visita. Si no hay nada o no encuentras la respuesta dímo DATOS NO ENCONTRADOS"))
+                            medicacion_prompts.append(Prompt(chunk, "Qúe medicación tiene pautada este paciente. En texto plano, sin usar markdown. Por cada medicamento una línea con formato Fecha (dd-mm-YYYY) Medicamento."))
+                            antecedentes_prompts.append(Prompt(chunk, "Qúe antecedentes médicos de interés tiene este paciente. En texto plano, sin usar markdown. Un antecedente por línea."))
+                            alergias_prompts.append(Prompt(chunk, "Qúe alergias tiene este paciente. Una alergia por línea. En texto plano, sin usar markdown. Una alergia por lína."))
+                            riesgo_prompts.append(Prompt(chunk, "Qúe factores de riesgo cardiovascular tiene este paciente. En texto plano, sin usar markdown. Un factor de riesgo por línea."))
+                            visitas_prompts.append(Prompt(chunk, "Lista de fechas de las visitas del paciente. En texto plano, sin usar markdown. Por cada visita una línea con formato Fecha (dd-mm-YYYY) y el motivo de la visita."))
+                            ingresos_promts.append(Prompt(chunk, "Lista de fechas de los ingresos del paciente. En texto plano, sin usar markdown. Por cada ingreso una línea con formato Fecha (dd-mm-YYYY) y el motivo de la visita."))
 
                         tags             = self._oai_context.chat(tag_prompts)
                         keywords         = self._oai_context.chat(kw_prompts)
@@ -92,22 +92,22 @@ class DocPopulator:
                         visitas_c        = self._oai_context.chat(visitas_prompts)
                         ingresos_c       = self._oai_context.chat(ingresos_promts)
 
-                        if not "datos no encontrados" in medicacion_c.lower():
+                        if not "no encuentro la respuesta" in medicacion_c.lower():
                             if medicacion != "": medicacion += "\n"
                             medicacion      += medicacion_c
-                        if not "datos no encontrados" in antecedentes_c.lower():
+                        if not "no encuentro la respuesta" in antecedentes_c.lower():
                             if antecedentes != "": antecedentes += "\n"
                             antecedentes    += antecedentes_c
-                        if not "datos no encontrados" in alergias_c.lower():
+                        if not "no encuentro la respuesta" in alergias_c.lower():
                             if alergias != "": alergias += "\n"
                             alergias        += alergias_c
-                        if not "datos no encontrados" in riesgo_c.lower():
+                        if not "no encuentro la respuesta" in riesgo_c.lower():
                             if riesgo != "": riesgo += "\n"
                             riesgo          += riesgo_c
-                        if not "datos no encontrados" in visitas_c.lower():
+                        if not "no encuentro la respuesta" in visitas_c.lower():
                             if visitas != "": visitas += "\n"
                             visitas         += visitas_c
-                        if not "datos no encontrados" in ingresos_c.lower():
+                        if not "no encuentro la respuesta" in ingresos_c.lower():
                             if ingresos != "": ingresos += "\n"
                             ingresos        += ingresos_c
 

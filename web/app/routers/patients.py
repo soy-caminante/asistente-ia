@@ -24,6 +24,18 @@ def get_patient_age(fecha_nacimiento):
     return edad
 #--------------------------------------------------------------------------------------------------
 
+def clean_list(src_list, sort=False):
+    ret = [ ]
+
+    for d in src_list:
+        if "no encuentro la respuesta" in d.lower(): continue
+        if d in ret: continue
+        ret.append(d)
+
+    if sort: ret.sort()
+    return ret
+#--------------------------------------------------------------------------------------------------
+
 @router.get("/search")
 def search_patient(pattern:str, backend: BackendService = Depends(get_service_instance)):
     pacientes: list[Paciente]   = backend.get_pacientes(pattern)
@@ -47,12 +59,12 @@ def get_patient_details(ref_id: str, backend: BackendService = Depends(get_servi
             "dni":          paciente.ref_id,
             "edad":         get_patient_age(paciente.fecha_nacimiento),
             "sexo":         paciente.sexo,
-            "visitas":      paciente.visitas,
-            "antecedentes": paciente.antecedentes,
-            "riesgo":       paciente.factores_riesgo,
-            "medicacion":   paciente.medicacion,
-            "alergias":     paciente.alergias,
-            "ingresos":     paciente.ingresos
+            "visitas":      clean_list(paciente.visitas, True),
+            "antecedentes": clean_list(paciente.antecedentes),
+            "riesgo":       clean_list(paciente.factores_riesgo),
+            "medicacion":   clean_list(paciente.medicacion, True),
+            "alergias":     clean_list(paciente.alergias),
+            "ingresos":     clean_list(paciente.ingresos, True)
         }
 
         return ret
