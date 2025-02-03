@@ -162,7 +162,7 @@ cython_debug/
 #.idea/
 
 # Datos
-data/src-docs/
+web/data/src-docs/
 .vscode/
 .iA.code-workspace
 *.tmp
