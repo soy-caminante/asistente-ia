@@ -1,5 +1,5 @@
-from .routers               import patients, chat
-from .backend.service       import *
+from routers                import patients, chat
+from backend.service        import *
 from fastapi                import FastAPI, Request, Depends
 from fastapi.responses      import RedirectResponse
 from fastapi.staticfiles    import StaticFiles
