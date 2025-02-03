@@ -1,5 +1,5 @@
-from routers                import patients, chat
 from backend.service        import *
+from frontend.routers       import patients, chat
 from fastapi                import FastAPI, Request, Depends
 from fastapi.responses      import RedirectResponse
 from fastapi.staticfiles    import StaticFiles
@@ -11,7 +11,7 @@ app = FastAPI()
 
 # Routers
 app.include_router(patients.router, prefix="/api/patients", tags=["patients"])
-app.include_router(chat.router, prefix="/api/chat", tags=["chat"])
+app.include_router(chat.router,     prefix="/api/chat",     tags=["chat"])
 #--------------------------------------------------------------------------------------------------
 
 # Montar archivos estáticos

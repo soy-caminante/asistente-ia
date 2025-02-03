@@ -1,7 +1,7 @@
 import  datetime
 
-from    ..backend.service      import *
-from    fastapi                import APIRouter, HTTPException, Query, Depends
+from    backend.service     import *
+from    fastapi             import APIRouter, HTTPException, Query, Depends
 #--------------------------------------------------------------------------------------------------
 
 router = APIRouter()

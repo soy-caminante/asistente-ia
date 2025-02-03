@@ -3,12 +3,12 @@ import  os
 import  pathlib
 import  re
 
-from    app.backend.db                  import *
-from    app.backend.ia.inferenceclient  import *
-from    app.backend.ia.prompt           import *
+from    backend.db                  import *
+from    backend.ia.inferenceclient  import *
+from    backend.ia.prompt           import *
 #--------------------------------------------------------------------------------------------------
 
-STORAGE_PATH = (pathlib.Path(__file__).parent / "../../data").resolve()
+STORAGE_PATH = (pathlib.Path(__file__).parent / "../data").resolve()
 #--------------------------------------------------------------------------------------------------
 
 class DocPopulator:

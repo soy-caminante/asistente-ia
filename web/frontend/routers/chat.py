@@ -1,5 +1,5 @@
-from app.backend.service    import *
-from fastapi                import APIRouter, HTTPException, Depends
+from backend.service        import *
+from fastapi                import APIRouter, Depends
 from pydantic               import BaseModel
 #--------------------------------------------------------------------------------------------------
 

@@ -1,4 +1,4 @@
-from app.backend.populator import *
+from backend.populator import *
 #--------------------------------------------------------------------------------------------------
 
 def run_populator():
