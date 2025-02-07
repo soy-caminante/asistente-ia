@@ -1,0 +1,127 @@
+import flet as ft
+import pathlib
+#--------------------------------------------------------------------------------------------------
+
+class CircularButton(ft.Container):
+    def __init__(self, icon, tooltip, on_click, visible, style_color):
+        super().__init__\
+        (
+            content         = ft.IconButton(icon=icon, tooltip=tooltip, on_click=on_click),
+            padding         = 5,
+            visible         = visible,
+            border          = ft.border.all(2, style_color),
+            border_radius   = ft.border_radius.all(30),
+        )
+    #----------------------------------------------------------------------------------------------
+
+    def set_on_click(self, on_click):
+        button          = ft.IconButton(self.content)
+        button.on_click = on_click
+    #----------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
+
+class ButtonFactory:
+    def __init__(self, style_color="#DAA520"):
+        self._style_color = style_color
+    #----------------------------------------------------------------------------------------------
+    
+    def move_up_button(self, on_click, visible):
+        return CircularButton(ft.icons.ARROW_UPWARD, "Mover arriba", on_click, visible, self._style_color)
+    #----------------------------------------------------------------------------------------------
+
+    def move_down_button(self, on_click, visible):
+        return CircularButton(ft.icons.ARROW_DOWNWARD, "Mover abajo", on_click, visible, self._style_color)
+    #----------------------------------------------------------------------------------------------
+
+    def delete_button(self, on_click, visible):
+        return CircularButton(ft.icons.DELETE, "Eliminar el elemento seleccionado", on_click, visible, self._style_color)
+    #----------------------------------------------------------------------------------------------
+
+    def save_button(self, on_click, visible):
+        return CircularButton(ft.icons.SAVE, "Guardar los cambios", on_click, visible, self._style_color)
+    #----------------------------------------------------------------------------------------------
+
+    def add_button(self, on_click, visible):
+        return CircularButton(ft.icons.ADD, "Agregar un nuevo elemento", on_click, visible, self._style_color)
+    #----------------------------------------------------------------------------------------------
+
+    def back_button(self, on_click, visible):
+        return CircularButton(ft.icons.ARROW_BACK, "Volver al inicio", on_click, visible, self._style_color)
+    #----------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
+
+class TextFactory:
+    def __init__(self, style_color="blue"):
+        self._style_color = style_color
+    #----------------------------------------------------------------------------------------------
+
+    def mosaic_title(self, text):
+        return ft.Text(text, weight=ft.FontWeight.BOLD, color=self._style_color, size=24)
+    #----------------------------------------------------------------------------------------------
+
+    def container_title(self, text):
+        return ft.Text(text, weight=ft.FontWeight.BOLD, color=self._style_color, size=32)
+    #----------------------------------------------------------------------------------------------
+
+    def row_title(self, text):
+        return ft.Text(text, weight=ft.FontWeight.BOLD, size=16)
+    #----------------------------------------------------------------------------------------------
+
+    def row_text(self, text):
+        return ft.Text(text, size=16)
+    #----------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
+
+text_factory = TextFactory()
+#--------------------------------------------------------------------------------------------------
+
+def set_text_factory(factory: TextFactory):
+    global text_factory
+    text_factory = factory
+#--------------------------------------------------------------------------------------------------
+
+def get_text_factory(): return text_factory
+#--------------------------------------------------------------------------------------------------
+
+class IconFactory:
+    @staticmethod
+    def green_check_mark(text):
+        return ft.Row \
+        (
+            controls=[text_factory.row_text(text), ft.Icon(ft.Icons.CHECK, size=20, color=ft.Colors.GREEN) ]
+        )
+    #----------------------------------------------------------------------------------------------
+
+    @staticmethod
+    def red_cross(text):
+        return ft.Row \
+        (
+            controls=[text_factory.row_text(text), ft.Icon(ft.Icons.CLOSE, size=20, color=ft.Colors.RED) ]
+        )
+    #----------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
+
+class LogoFactory:
+    @staticmethod
+    def buil_logo(page: ft.Page, logo_path: pathlib.Path):
+        screen_height       = page.height
+        logo_height         = screen_height * 0.3 # Máximo 20% de la pantalla
+        logo                = ft.Image \
+        (
+            src     = logo_path,
+            width   = logo_height * (2500 / 2500),  # Manteniendo la proporción
+            height  = logo_height,
+            fit     = ft.ImageFit.CONTAIN
+        )
+
+        logo_container = ft.Container \
+        (
+            content         = logo,
+            border          = ft.border.all(5, ft.colors.BLUE),  # Borde azul de 5px
+            border_radius   = 5,  # Bordes redondeados
+            padding         = 10,  # Espacio interno
+        )
+
+        return logo_container
+    #----------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------

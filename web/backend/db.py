@@ -1,5 +1,6 @@
 import  re
 import  transaction
+import  unicodedata
 
 from    models.models       import *
 from    persistent.mapping  import PersistentMapping
@@ -56,20 +57,27 @@ class DbPacienteMngr:
     #----------------------------------------------------------------------------------------------
 
     def get_pacientes(self, pattern) -> list[Paciente]:
+        def normalize(text):
+            return unicodedata.normalize("NFKD", text).encode("ASCII", "ignore").decode("utf-8")
+
         ret = [ ]
+
+        if pattern == "": return ret
 
         if pattern in self._db.root:
             paciente = self._db.root[pattern]
             ret.append(paciente)
         else:
             index   = self._db.root['indice_por_letra']
-            patron  = re.compile(pattern, re.IGNORECASE)
+            patron  = re.compile(normalize(pattern), re.IGNORECASE)
 
             letter      = pattern[0].lower()
             subindex    = index.get(letter, { })
 
+            if pattern == "pé":
+                pass
             for key, ref_id in subindex.items():
-                if patron.search(key):
+                if patron.search(normalize(key)):
                     paciente = self._db.root.get(ref_id)
                     ret.append(paciente)
 
