@@ -1,4 +1,5 @@
 import  flet                        as ft 
+import  os 
 import  sys
 
 from    environment.environment     import  Environment
@@ -18,7 +19,8 @@ class Booter:
         if run_console:
             ft.app(target=self.run_app, assets_dir="static")
         else:
-            ft.app(target=self.run_app, assets_dir="static", view=ft.WEB_BROWSER, port=8080)
+            PORT = int(os.getenv("PORT", 8080))
+            ft.app(target=self.run_app, assets_dir="static", view=ft.WEB_BROWSER, port=PORT)
     #----------------------------------------------------------------------------------------------
 
 
