@@ -117,7 +117,6 @@ class PatitentView(AppView):
     #----------------------------------------------------------------------------------------------
 
     def show_view(self):
-
         patitent_id = self.page.session.get("paciente")
 
         if patitent_id is not None:
@@ -196,8 +195,6 @@ class PatitentView(AppView):
             spacing=5
         )
 
-
-
         datos_personales_container = ft.Container \
         (
             content         = self._datos_paciente,
@@ -266,15 +263,16 @@ class PatitentView(AppView):
                     self._alergias,
                     self._ultimas_visitas,
                     self._ingresos,
-                    ft.Container(expand=True)
                 ],
-                expand = True,
-                spacing= 10
+                spacing = 10,
+                expand  = True,
+                scroll  = ft.ScrollMode.AUTO
             ),
             expand          = 1,
             padding         = 10,
             border          = ft.border.all(1, ft.colors.GREY_300),
-            border_radius   = 10
+            border_radius   = 10,
+            alignment       = ft.alignment.top_left  
         )
 
         self._chat_list = ft.ListView \
