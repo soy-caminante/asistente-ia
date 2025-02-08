@@ -123,6 +123,7 @@ class PatitentView(AppView):
             paciente: Paciente = self._backend.get_paciente_info(patitent_id)
 
             if paciente is not None:
+                self._chat_list.controls.clear()
                 self._datos_paciente.controls           = self._ctrl_paciente.update(paciente)
                 self._medicacion.controls               = self._ctrl_medicacion.update(paciente.medicacion)
                 self._alergias.controls                 = self._ctrl_alergias.update(paciente.alergias)
@@ -145,23 +146,33 @@ class PatitentView(AppView):
             reversed_msg = msg[::-1]  # Invierte el mensaje
 
             # 🟢 MENSAJE DEL USUARIO (66% del ancho, fondo gris)
-            user_message = ft.Container(
-                content=ft.Text(msg, size=16, color="black"),
-                bgcolor=ft.colors.GREY_300,
-                padding=10,
-                border_radius=10,
-                width=self.page.width * 0.66,  # Ocupa el 66% del ancho del chat
-                alignment=ft.alignment.center_right
+            user_message = ft.Row \
+            (
+                controls= \
+                [
+                    ft.Container(expand=1),  # Espacio vacío (1 parte)
+                    ft.Container \
+                    (
+                        content= ft.Container
+                        (  # 🔹 Contenedor interno para que el fondo solo enmarque el texto
+                            content         = ft.Text(msg, size=16, color="black", no_wrap=False),
+                            bgcolor         = ft.colors.GREY_300,  # Fondo gris solo en el texto
+                            padding         = 10,  # Margen interno
+                            border_radius   = 10,  # Bordes redondeados
+                        ),
+                        alignment   = ft.alignment.center_right,
+                        expand      = 3,  # El contenedor del mensaje ocupa 2 partes
+                    )
+                ],
+                expand=True  # Hace que la fila ocupe todo el espacio disponible            
             )
 
             # 🔵 RESPUESTA INVERTIDA DEL BOT (100% del ancho)
-            bot_message = ft.Container(
-                content=ft.Text(f"Bot: {reversed_msg}", size=16, color="black"),
-                bgcolor=ft.colors.BLUE_100,
-                padding=10,
-                border_radius=10,
-                width=self.page.width * 0.66,  # Ocupa el 66% del ancho del chat
-                alignment=ft.alignment.center_left
+            bot_message = ft.Container \
+            (
+                content         = ft.Text(f"Bot: {reversed_msg}", size=16, color="black"),
+                padding         = 10,
+                alignment       = ft.alignment.center_left
             )
 
             # Agregar mensajes a la lista de chat
@@ -279,7 +290,6 @@ class PatitentView(AppView):
         (
             expand      = True,
             spacing     = 10,
-            auto_scroll = True,  # Desplaza automáticamente cuando hay nuevos mensajes
             reverse     = True  # Rellena la lista de abajo hacia arriba
         )
 
@@ -288,19 +298,41 @@ class PatitentView(AppView):
         (
             hint_text   = "Escribe un mensaje...",
             expand      = True,
+            multiline   = True,
+            border      = ft.InputBorder.NONE,
             on_submit   = self.send_chat_question  # Permite enviar con "Enter"
         )
 
         # Botón de enviar
         send_button = ft.IconButton \
         (
-            icon        = ft.icons.SEND,
+            icon        = ft.icons.ARROW_UPWARD,
             tooltip     = "Enviar",
             on_click    = self.send_chat_question
         )
 
         # Contenedor inferior con campo de entrada + botón
-        input_row = ft.Row([ self._input_chat_field, send_button ])
+        input_conatiner = ft.Card \
+        (
+            ft.Container \
+            (
+                content = ft.Column \
+                (
+                    [
+                        self._input_chat_field,
+                        ft.Row \
+                        (
+                            controls    = [ send_button ],
+                            alignment   = ft.MainAxisAlignment.END
+                        )
+                    ]
+                ),
+                padding         = 10,
+                border          = ft.border.all(1, ft.colors.GREY_300),
+                border_radius   = 10
+            ),
+            elevation=2
+        )
 
         chat_container = ft.Container \
         (
@@ -309,7 +341,7 @@ class PatitentView(AppView):
                 controls = \
                 [
                     self._chat_list,
-                    input_row  # Input siempre abajo
+                    input_conatiner  # Input siempre abajo
                 ],
                 expand      = True,
                 alignment   = ft.MainAxisAlignment.SPACE_BETWEEN  # Mantiene el input abajo
