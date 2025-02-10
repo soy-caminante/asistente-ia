@@ -198,9 +198,15 @@ class PatitentView(AppView):
 
             self._nav_ctlr.hide_wait_ctrl()
 
+            md_style = ft.MarkdownStyleSheet \
+            (
+                p_text_style        = ft.TextStyle(size=20, color="grey"),
+                strong_text_style   = ft.TextStyle(size=22, color="black")
+            )
+            
             bot_message = ft.Container \
             (
-                content         = ft.Markdown(f"{bot_msg}", size=20, color="grey"),
+                content         = ft.Markdown(f"{bot_msg}", md_style_sheet=md_style),
                 padding         = 10,
                 alignment       = ft.alignment.center_left
             )
@@ -294,6 +300,7 @@ class PatitentView(AppView):
             hint_text   = "Escribe un mensaje...",
             expand      = True,
             multiline   = True,
+            text_size   = 20,
             border      = ft.InputBorder.NONE,
             on_submit   = self.send_chat_question  # Permite enviar con "Enter"
         )
