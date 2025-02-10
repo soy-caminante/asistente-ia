@@ -11,7 +11,7 @@ class SearchView(AppView):
         super().__init__(page=env._page, route=route)
         self._env           = env
         self._backend       = env._backend
-        self._build_ui_ctrl = True
+        self._is_mobile     = True
         self._build_ui()
     #----------------------------------------------------------------------------------------------
 
@@ -30,40 +30,48 @@ class SearchView(AppView):
     #----------------------------------------------------------------------------------------------
 
     def _get_result_item(self, paciente:Paciente):
-        return ft.Card \
-        (
-            content=ft.Container \
+        if self._is_mobile:
+            return ft.Card \
             (
-                content=ft.Row \
+                content=ft.Container \
                 (
-                    [
-                        ft.Text(f"{paciente.apellidos} {paciente.nombre} - {paciente.ref_id}", size=18),
-                        ft.ElevatedButton("Ver", on_click=self._show_patitent_details, data=paciente.ref_id)
-                    ], 
-                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+                    content = ft.ElevatedButton(f"{paciente.apellidos} {paciente.nombre} - {paciente.ref_id}", on_click=self._show_patitent_details, data=paciente.ref_id),
+                    padding = 10,
                 ),
-                padding=10,
-            ),
-            elevation=2,
-        )
+                elevation=2,
+            )
+        else:
+            return ft.Card \
+            (
+                content=ft.Container \
+                (
+                    content=ft.Row \
+                    (
+                        [
+                            ft.Text(f"{paciente.apellidos} {paciente.nombre} - {paciente.ref_id}", size=18),
+                            ft.ElevatedButton("Ver", on_click=self._show_patitent_details, data=paciente.ref_id)
+                        ], 
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+                    ),
+                    padding=10,
+                ),
+                elevation=2,
+            )
     #----------------------------------------------------------------------------------------------
 
     def _build_ui(self):
-        is_mobile   = self.page.platform in ["ios", "android"]
-        is_tablet   = self.page.window.width < 1024 and is_mobile
-        is_desktop  = not is_mobile and not is_tablet
-
+        self._is_mobile     = self.page.platform.name in [ ft.PagePlatform.ANDROID.name, ft.PagePlatform.IOS.name ]
         logo_container      = LogoFactory.buil_logo(self.page, self._env._locations._logo_path)
         self._results       = ft.Column()
         self._search_box    = ft.TextField \
         (
-            label=f"Buscar... {self.page.platform} {is_mobile}", 
+            label       = "Buscar...", 
             on_change   = self._search, 
             autofocus   = True, 
             expand      = True
         )
 
-        if is_mobile:
+        if self._is_mobile:
             search_column = ft.Column \
             (
                 [
@@ -124,4 +132,84 @@ class SearchView(AppView):
             )
 
         self.controls = [ ft.Container(content=main_layout) ]
+    #----------------------------------------------------------------------------------------------
+
+    def _build_ui_2(self):
+        is_mobile   = self.page.platform in ["ios", "android"]
+        is_tablet   = self.page.window.width < 1024 and is_mobile
+        is_desktop  = not is_mobile and not is_tablet
+
+        logo_container      = LogoFactory.buil_logo(self.page, self._env._locations._logo_path)
+        self._results       = ft.Column()
+        self._search_box    = ft.TextField \
+        (
+            label=f"Buscar... {self.page.platform} {is_mobile}", 
+            on_change   = self._search, 
+            autofocus   = True, 
+            expand      = True
+        )
+
+        if is_mobile:
+            search_column = ft.Column \
+            (
+                [
+                    self._search_box,
+                    ft.Divider(),
+                    self._results
+                ],
+                alignment   = ft.MainAxisAlignment.START,
+                expand      = True,
+                scroll      = ft.ScrollMode.ALWAYS
+            )
+            main_layout = ft.Column \
+            (
+                [
+                    logo_container,
+                    search_column,
+                ],
+                spacing = 20,
+                expand  = True,
+                scroll  = ft.ScrollMode.AUTO
+            )
+        
+        # Diseño para tabletas y escritorio (centra elementos)
+        else:
+            search_row = ft.Row \
+            (
+                [ 
+                    ft.Container(expand=1, bgcolor="transparent"),
+                    ft.Container \
+                    (
+                        ft.Column \
+                        (
+                            [
+                                self._search_box,
+                                ft.Divider(),
+                                self._results
+                            ]
+                        ),
+                        expand=2,
+                        alignment=ft.alignment.center
+                    ),
+                    ft.Container(expand=1, bgcolor="transparent"),
+                ],
+                alignment   = ft.MainAxisAlignment.CENTER,
+                expand      = True
+            )
+            
+            main_layout = ft.Column \
+            (
+                controls= \
+                [
+                    logo_container,
+                    search_row,
+                    ft.Container(expand=True)
+                ],
+                alignment               = ft.MainAxisAlignment.START,
+                horizontal_alignment    = ft.CrossAxisAlignment.CENTER,
+                spacing                 = 20,
+            )
+
+        self.controls = [ ft.Container(content=main_layout) ]
+
 #--------------------------------------------------------------------------------------------------

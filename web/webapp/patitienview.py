@@ -242,9 +242,7 @@ class PatitentView(AppView):
         """Construye la UI de manera adaptable según el tipo de dispositivo."""
 
         # 🔹 DETECTAR DISPOSITIVO
-        is_mobile   = self.page.platform in ["ios", "android"]
-        is_tablet   = self.page.window.width < 1024 and is_mobile
-        is_desktop  = not is_mobile and not is_tablet
+        self._is_mobile     = self.page.platform.name in [ ft.PagePlatform.ANDROID.name, ft.PagePlatform.IOS.name ]
 
         # 🔹 LOGO Y HEADER
         logo_container              = LogoFactory.buil_logo(self.page, self._env._locations._logo_path)
@@ -361,7 +359,7 @@ class PatitentView(AppView):
         )
 
         # 🔹 DISEÑO RESPONSIVO
-        if is_mobile:
+        if self._is_mobile:
             layout = ft.Column(
                 controls=[
                     header,  # Datos personales y logo en una sola fila
