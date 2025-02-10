@@ -11,6 +11,7 @@ class SearchView(AppView):
         super().__init__(page=env._page, route=route)
         self._env           = env
         self._backend       = env._backend
+        self._build_ui_ctrl = True
         self._build_ui()
     #----------------------------------------------------------------------------------------------
 
@@ -48,56 +49,79 @@ class SearchView(AppView):
     #----------------------------------------------------------------------------------------------
 
     def _build_ui(self):
+        is_mobile   = self.page.platform in ["ios", "android"]
+        is_tablet   = self.page.window.width < 1024 and is_mobile
+        is_desktop  = not is_mobile and not is_tablet
+
         logo_container      = LogoFactory.buil_logo(self.page, self._env._locations._logo_path)
         self._results       = ft.Column()
         self._search_box    = ft.TextField \
         (
             label="Buscar...", 
-            on_change=self._search, 
-            autofocus=True, 
-            expand=True
+            on_change   = self._search, 
+            autofocus   = True, 
+            expand      = True
         )
 
-        search_row          = ft.Row \
-        (
-            [ 
-                ft.Container(expand=1, bgcolor="transparent"),
-                ft.Container \
-                (
-                    ft.Column \
-                    (
-                        [
-                            self._search_box,
-                            ft.Divider(),
-                            self._results
-                        ]
-                    ),
-                    expand=2,
-                    alignment=ft.alignment.center
-                ),
-                ft.Container(expand=1, bgcolor="transparent"),
-            ],
-            alignment=ft.MainAxisAlignment.CENTER,
-            expand=True
-        )
-        
-        self.controls.append \
-        (
-            ft.Container \
+        if is_mobile:
+            search_column = ft.Column \
             (
-                content= ft.Column \
-                (
-                    controls= \
-                    [
-                        logo_container,
-                        search_row,
-                        ft.Container(expand=True)
-                    ],
-                    alignment               = ft.MainAxisAlignment.START,
-                    horizontal_alignment    = ft.CrossAxisAlignment.CENTER,
-                    spacing                 = 20,
-
-                )
+                [
+                    self._search_box,
+                    ft.Divider(),
+                    self._results
+                ],
+                alignment   = ft.MainAxisAlignment.START,
+                expand      = True
             )
-        )
+            main_layout = ft.Column \
+            (
+                [
+                    logo_container,
+                    search_column,
+                ],
+                spacing = 20,
+                expand  = True,
+                scroll  = ft.ScrollMode.AUTO
+            )
+        
+        # Diseño para tabletas y escritorio (centra elementos)
+        else:
+            search_row = ft.Row \
+            (
+                [ 
+                    ft.Container(expand=1, bgcolor="transparent"),
+                    ft.Container \
+                    (
+                        ft.Column \
+                        (
+                            [
+                                self._search_box,
+                                ft.Divider(),
+                                self._results
+                            ]
+                        ),
+                        expand=2,
+                        alignment=ft.alignment.center
+                    ),
+                    ft.Container(expand=1, bgcolor="transparent"),
+                ],
+                alignment   = ft.MainAxisAlignment.CENTER,
+                expand      = True
+            )
+            
+            main_layout = ft.Column \
+            (
+                controls= \
+                [
+                    logo_container,
+                    search_row,
+                    ft.Container(expand=True)
+                ],
+                alignment               = ft.MainAxisAlignment.START,
+                horizontal_alignment    = ft.CrossAxisAlignment.CENTER,
+                spacing                 = 20,
+            )
+
+        self.controls = [ ft.Container(content=main_layout) ]
 #--------------------------------------------------------------------------------------------------
