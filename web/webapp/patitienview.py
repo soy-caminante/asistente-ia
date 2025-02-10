@@ -167,7 +167,7 @@ class PatitentView(AppView):
             self._nav_ctlr.show_home_view()
         
         Logger.info(f"Paciente {patitent_id}")
-        
+
         msg = self._input_chat_field.value.strip()
 
         if msg:
@@ -180,7 +180,7 @@ class PatitentView(AppView):
                     (
                         content= ft.Container
                         (  # 🔹 Contenedor interno para que el fondo solo enmarque el texto
-                            content         = ft.Text(msg, size=16, color="black", no_wrap=False),
+                            content         = ft.Text(msg, size=20, color="black", no_wrap=False),
                             bgcolor         = ft.colors.GREY_300,  # Fondo gris solo en el texto
                             padding         = 10,  # Margen interno
                             border_radius   = 10,  # Bordes redondeados
@@ -200,7 +200,7 @@ class PatitentView(AppView):
 
             bot_message = ft.Container \
             (
-                content         = ft.Text(f"{bot_msg}", size=16, color="black"),
+                content         = ft.Markdown(f"{bot_msg}", size=20, color="grey"),
                 padding         = 10,
                 alignment       = ft.alignment.center_left
             )

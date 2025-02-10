@@ -43,7 +43,7 @@ class Logger:
         cls.BASE_DIR    = base_dir
         handler         = RotatingFileHandler(path,  maxBytes=10e6, backupCount=5)
 
-        logging.basicConfig(handlers    = [ handler,
+        logging.basicConfig(handlers    = [ #handler,
                                             logging.StreamHandler() ],
                                             format      = "%(asctime)s - %(filename)s:%(lineno)d %(message)s", 
                                             datefmt     = "%d-%m-%y %H:%M:%S",
