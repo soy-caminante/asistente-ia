@@ -57,7 +57,7 @@ class SearchView(AppView):
         self._results       = ft.Column()
         self._search_box    = ft.TextField \
         (
-            label="Buscar...", 
+            label=f"Buscar... {self.page.platform} {is_mobile}", 
             on_change   = self._search, 
             autofocus   = True, 
             expand      = True

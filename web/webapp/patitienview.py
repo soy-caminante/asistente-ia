@@ -132,7 +132,7 @@ class PatitentView(AppView):
         self._backend                               = env._backend
         self._button_factory                        = ButtonFactory(ft.colors.BLUE)
         self._ctrl_paciente                         = self.DatosPaciente()
-        self._build_ui()
+        self._build_ui_2()
     #----------------------------------------------------------------------------------------------
 
     def show_view(self):
@@ -237,6 +237,150 @@ class PatitentView(AppView):
     def _go_back(self, e:ft.ControlEvent):
         self._nav_ctlr.show_home_view()
     #----------------------------------------------------------------------------------------------
+
+    def _build_ui_2(self):
+        """Construye la UI de manera adaptable según el tipo de dispositivo."""
+
+        # 🔹 DETECTAR DISPOSITIVO
+        is_mobile   = self.page.platform in ["ios", "android"]
+        is_tablet   = self.page.window.width < 1024 and is_mobile
+        is_desktop  = not is_mobile and not is_tablet
+
+        # 🔹 LOGO Y HEADER
+        logo_container              = LogoFactory.buil_logo(self.page, self._env._locations._logo_path)
+        logo_container.alignment    = ft.alignment.top_right
+        logo_container.expand       = False
+
+        back_button = self._button_factory.back_button(self._go_back, True)
+
+        self._datos_paciente = ft.Column(
+            controls=[
+                self._ctrl_paciente._nombre,
+                self._ctrl_paciente._edad,
+                self._ctrl_paciente._sexo,
+                self._ctrl_paciente._id,
+            ],
+            spacing=5
+        )
+
+        datos_personales_container = ft.Container(
+            content=self._datos_paciente,
+            padding=10,
+            border=ft.border.all(1, ft.colors.GREY_300),
+            border_radius=10,
+            expand=True
+        )
+
+        header = ft.Row(
+            controls=[datos_personales_container, logo_container],
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            expand=1
+        )
+
+        # 🔹 SECCIONES DE INFORMACIÓN
+        self._medicacion = self.SideCard("Medicación pautada")
+        self._riesgo_cardiovascular = self.SideCard("Factores de riesgo cardiovascular")
+        self._alergias = self.SideCard("Alergias")
+        self._ultimas_visitas = self.SideCard("Últimas visitas")
+        self._ingresos = self.SideCard("Historial de ingresos")
+
+        datos_paciente_container = ft.Container(
+            content=ft.Column(
+                controls=[
+                    back_button,
+                    self._medicacion,
+                    self._riesgo_cardiovascular,
+                    self._alergias,
+                    self._ultimas_visitas,
+                    self._ingresos,
+                ],
+                spacing=10,
+                expand=True,
+                scroll=ft.ScrollMode.AUTO
+            ),
+            expand=1,
+            padding=10,
+            border=ft.border.all(1, ft.colors.GREY_300),
+            border_radius=10,
+            alignment=ft.alignment.top_left
+        )
+
+        # 🔹 CHAT
+        self._chat_list = ft.ListView(
+            expand=True,
+            spacing=10,
+            reverse=True  # Para que los mensajes nuevos aparezcan abajo
+        )
+
+        self._input_chat_field = ft.TextField(
+            hint_text="Escribe un mensaje...",
+            expand=True,
+            multiline=True,
+            text_size=20,
+            border=ft.InputBorder.NONE,
+            on_submit=self.send_chat_question
+        )
+
+        send_button = ft.IconButton(
+            icon=ft.icons.ARROW_UPWARD,
+            tooltip="Enviar",
+            on_click=self.send_chat_question
+        )
+
+        input_container = ft.Card(
+            ft.Container(
+                content=ft.Column(
+                    [
+                        self._input_chat_field,
+                        ft.Row(
+                            controls=[send_button],
+                            alignment=ft.MainAxisAlignment.END
+                        )
+                    ]
+                ),
+                padding=10,
+                border=ft.border.all(1, ft.colors.GREY_300),
+                border_radius=10
+            ),
+            elevation=2
+        )
+
+        chat_container = ft.Container(
+            ft.Column(
+                controls=[
+                    self._chat_list,
+                    input_container  # Input siempre abajo
+                ],
+                expand=True,
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+            ),
+            expand=2,
+            padding=10,
+            border=ft.border.all(1, ft.colors.GREY_300),
+            border_radius=10
+        )
+
+        # 🔹 DISEÑO RESPONSIVO
+        if is_mobile:
+            layout = ft.Column(
+                controls=[
+                    header,  # Datos personales y logo en una sola fila
+                    datos_paciente_container,  # Info personal arriba
+                    chat_container  # Chat abajo
+                ],
+                expand=True
+            )
+        else:  # Escritorio o Tablet
+            layout = ft.Column(
+                controls=[
+                    header,
+                    ft.Row([datos_paciente_container, chat_container], expand=4)  # Dos columnas
+                ],
+                expand=True
+            )
+
+        self.controls = [layout]
+        self.page.update()
 
     def _build_ui(self):
         logo_container              = LogoFactory.buil_logo(self.page, self._env._locations._logo_path)
