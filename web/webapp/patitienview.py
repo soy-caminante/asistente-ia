@@ -2,6 +2,7 @@ import  datetime
 import  flet                        as      ft
 
 from    environment.environment     import  Environment
+from    environment.logger          import  Logger
 from    fuzzywuzzy import           fuzz
 from    models.models               import  *
 from    webapp.factories            import  *
@@ -164,7 +165,9 @@ class PatitentView(AppView):
         if patitent_id is None:
             self._nav_ctlr.show_error("Paciente no definido")
             self._nav_ctlr.show_home_view()
-            
+        
+        Logger.info(f"Paciente {patitent_id}")
+        
         msg = self._input_chat_field.value.strip()
 
         if msg:

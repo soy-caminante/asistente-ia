@@ -1,5 +1,7 @@
 import  flet                        as      ft
+import  pathlib
 
+from    environment.logger          import  Logger
 from    webapp.factories            import  text_factory
 from    backend.service             import  BackendService, get_service_instance
 #--------------------------------------------------------------------------------------------------
@@ -27,12 +29,16 @@ class Environment:
         text_factory.set_container_size(24)
         text_factory.set_row_title_size(20)
         text_factory.set_row_text_size(20)
+
+        Logger.setup(pathlib.Path(__file__).parent.parent / "data/logs/logger.log")
     #----------------------------------------------------------------------------------------------
 
     def set_page(self, page: ft.Page, console):
         self._console       = console
         self._page          = page
         self._locations     = Locations.load(page)
+
+        Logger.info("Sistema funcionando")
     #----------------------------------------------------------------------------------------------        
 #--------------------------------------------------------------------------------------------------
         

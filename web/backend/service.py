@@ -6,6 +6,7 @@ from    backend.db                  import *
 from    backend.ia.inferenceclient  import *
 from    backend.ia.prompt           import *
 from    backend.tools               import *
+from    environment.logger          import Logger
 #--------------------------------------------------------------------------------------------------
 
 STORAGE_PATH = (pathlib.Path(__file__).parent / "../data").resolve()
@@ -45,34 +46,41 @@ class BackendService:
     #----------------------------------------------------------------------------------------------
 
     def chat(self, ref_id, question):
-        start_ts = time.time()
-        paciente = self._pacientes_db.get_paciente(ref_id)
+        try:
+            Logger.info("Accediendo a la IA")
+
+            start_ts = time.time()
+            paciente = self._pacientes_db.get_paciente(ref_id)
+            
+            if paciente is None: return None
+
+            self._oai_context.full_context = ""
+
+            for doc in paciente.documentos:
+                if self._oai_context.full_context != "": 
+                    self._oai_context.full_context += "\n"
+                self._oai_context.full_context += doc["contenido"]
+
+            self._oai_context.full_context += "\nResponde usando solo con la información propprcionada."
+            self._oai_context.full_context += "\nNo hagas suposiciones. Se específico y detallado."
+            self._oai_context.full_context += "\nDame la respuesta en markdown pero no uses bloques de código."
+            self._oai_context.update_chunks()
+
+            if len(self._oai_context.chunks) == 0:
+                return "No hay información para responder a la pregunta", self.get_generation_time(start_ts)
+
+            prompts  = [ ]
+
+            for chunk in self._oai_context.chunks:
+                prompts.append(Prompt(chunk, question))
+
+            response = self._oai_context.chat(prompts)
+
+            Logger.info("Respuesta generada")
         
-        if paciente is None: return None
-
-        self._oai_context.full_context = ""
-
-        for doc in paciente.documentos:
-            if self._oai_context.full_context != "": 
-                self._oai_context.full_context += "\n"
-            self._oai_context.full_context += doc["contenido"]
-
-        self._oai_context.full_context += "\nResponde usando solo con la información propprcionada."
-        self._oai_context.full_context += "\nNo hagas suposiciones. Se específico y detallado."
-        self._oai_context.full_context += "\nDame la respuesta en markdown pero no uses bloques de código."
-        self._oai_context.update_chunks()
-
-        if len(self._oai_context.chunks) == 0:
-            return "No hay información para responder a la pregunta", self.get_generation_time(start_ts)
-
-        prompts  = [ ]
-
-        for chunk in self._oai_context.chunks:
-            prompts.append(Prompt(chunk, question))
-
-        response    = self._oai_context.chat(prompts)
-       
-        return response, self.get_generation_time(start_ts)
+            return response, self.get_generation_time(start_ts)
+        except Exception as ex:
+            Logger.exception(ex)
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
