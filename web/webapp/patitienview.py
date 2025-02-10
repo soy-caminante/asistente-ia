@@ -10,19 +10,18 @@ from    webapp.navmanger            import  *
 
 class PatitentView(AppView):
     class DatosPaciente:
-        def __init__(self, tf: TextFactory): 
-            self._tf        = tf
-            self._nombre    = tf.row_title("")
-            self._edad      = tf.row_text("")
-            self._sexo      = tf.row_text("")
-            self._id        = tf.row_text("")
+        def __init__(self): 
+            self._nombre    = text_factory.row_title("")
+            self._edad      = text_factory.row_text("")
+            self._sexo      = text_factory.row_text("")
+            self._id        = text_factory.row_text("")
         #------------------------------------------------------------------------------------------
 
         def clear(self):
-            self._nombre    = self._tf.row_title("")
-            self._edad      = self._tf.row_text("")
-            self._sexo      = self._tf.row_text("")
-            self._id        = self._tf.row_text("")
+            self._nombre    = text_factory.row_title("")
+            self._edad      = text_factory.row_text("")
+            self._sexo      = text_factory.row_text("")
+            self._id        = text_factory.row_text("")
         #------------------------------------------------------------------------------------------
 
         def update(self, paciente: Paciente):
@@ -51,16 +50,16 @@ class PatitentView(AppView):
             return self.get_controls()
         #------------------------------------------------------------------------------------------
 
-        def set_nombre(self, value): self._nombre = self._tf.row_title(value)
+        def set_nombre(self, value): self._nombre = text_factory.row_title(value)
         #------------------------------------------------------------------------------------------
 
-        def set_edad(self, value):  self._edad = self._tf.row_text(value)
+        def set_edad(self, value):  self._edad = text_factory.row_text(value)
         #------------------------------------------------------------------------------------------
 
-        def set_sexo(self, value):  self._sexo = self._tf.row_text(value)
+        def set_sexo(self, value):  self._sexo = text_factory.row_text(value)
         #------------------------------------------------------------------------------------------
 
-        def set_id(self, value):  self._id = self._tf.row_text(value)
+        def set_id(self, value):  self._id = text_factory.row_text(value)
         #------------------------------------------------------------------------------------------
 
         def get_controls(self): return [ self._nombre, self._edad, self._sexo, self._id ]
@@ -68,8 +67,7 @@ class PatitentView(AppView):
     #----------------------------------------------------------------------------------------------
 
     class DatosLista:
-        def __init__(self, tf: TextFactory):
-            self._tf    = tf
+        def __init__(self):
             self._rows  = [ ]
         #------------------------------------------------------------------------------------------
 
@@ -89,30 +87,50 @@ class PatitentView(AppView):
 
             for m in info_list:
                 if "no encuentro la respuesta" in m.lower(): continue
-                self._rows.append(ft.ListTile(title=self._tf.row_text(m.lstrip("!@#$%^&*()-+=<>?,.;:'\" "))))
+                self._rows.append(ft.ListTile(title=text_factory.row_text(m.lstrip("!@#$%^&*()-+=<>?,.;:'\" "))))
 
             if len(self._rows) == 0:
-                self._rows.append(ft.ListTile(title=self._tf.row_text("No hay registros")))
+                self._rows.append(ft.ListTile(title=text_factory.row_text("No hay registros")))
 
             return self._rows
         #------------------------------------------------------------------------------------------
 
         def add(self, info):
-            self._rows.append(ft.ListTile(title=self._tf.row_text(info)))
+            self._rows.append(ft.ListTile(title=text_factory.row_text(info)))
         #------------------------------------------------------------------------------------------
+    #----------------------------------------------------------------------------------------------
+
+    class SideCard(ft.Card):
+        def __init__(self, title):
+            super().__init__()
+            ft.Theme()
+            self._data_ctrl         = PatitentView.DatosLista()
+            self._expansion_tile    = ft.ExpansionTile \
+            (
+                title               = text_factory.container_title(title),
+                affinity            = ft.TileAffinity.PLATFORM,
+                maintain_state      = True,
+                controls            = self._data_ctrl._rows
+            )
+
+            self.content = ft.Container \
+            (
+                content = self._expansion_tile,
+                padding=ft.padding.all(10),
+                border=None,
+                animate_size=300  # Duración de la animación en milisegundos
+            )
+        #------------------------------------------------------------------------------------------
+
+        def update_data(self, data:list[str]): self._expansion_tile.controls = self._data_ctrl.update(data)
     #----------------------------------------------------------------------------------------------
 
     def __init__(self, route, env:Environment):
         super().__init__(page=env._page, route=route)
-        self._env                   = env
-        self._backend               = env._backend
-        self._button_factory        = ButtonFactory(ft.colors.BLUE)
-        self._ctrl_paciente         = self.DatosPaciente(get_text_factory())
-        self._ctrl_medicacion       = self.DatosLista(get_text_factory())
-        self._ctrl_alergias         = self.DatosLista(get_text_factory())
-        self._ctrl_cardiovascular   = self.DatosLista(get_text_factory())
-        self._ctrl_visitas          = self.DatosLista(get_text_factory())
-        self._ctrl_ingresos         = self.DatosLista(get_text_factory())
+        self._env                                   = env
+        self._backend                               = env._backend
+        self._button_factory                        = ButtonFactory(ft.colors.BLUE)
+        self._ctrl_paciente                         = self.DatosPaciente()
         self._build_ui()
     #----------------------------------------------------------------------------------------------
 
@@ -124,12 +142,12 @@ class PatitentView(AppView):
 
             if paciente is not None:
                 self._chat_list.controls.clear()
-                self._datos_paciente.controls           = self._ctrl_paciente.update(paciente)
-                self._medicacion.controls               = self._ctrl_medicacion.update(paciente.medicacion)
-                self._alergias.controls                 = self._ctrl_alergias.update(paciente.alergias)
-                self._riesgo_cardiovascular.controls    = self._ctrl_cardiovascular.update(paciente.factores_riesgo)
-                self._ultimas_visitas.controls          = self._ctrl_visitas.update(paciente.visitas)
-                self._ingresos.controls                 = self._ctrl_ingresos.update(paciente.ingresos)
+                self._datos_paciente.controls = self._ctrl_paciente.update(paciente)
+                self._medicacion.update_data(paciente.medicacion)
+                self._alergias.update_data(paciente.alergias)
+                self._riesgo_cardiovascular.update_data(paciente.factores_riesgo)
+                self._ultimas_visitas.update_data(paciente.visitas)
+                self._ingresos.update_data(paciente.ingresos)
                 self.page.update()
 
             else:
@@ -141,11 +159,15 @@ class PatitentView(AppView):
     #----------------------------------------------------------------------------------------------
 
     def send_chat_question(self, e: ft.ControlEvent):
-        msg = self._input_chat_field.value.strip()
-        if msg:
-            reversed_msg = msg[::-1]  # Invierte el mensaje
+        patitent_id = self.page.session.get("paciente")
 
-            # 🟢 MENSAJE DEL USUARIO (66% del ancho, fondo gris)
+        if patitent_id is None:
+            self._nav_ctlr.show_error("Paciente no definido")
+            self._nav_ctlr.show_home_view()
+            
+        msg = self._input_chat_field.value.strip()
+
+        if msg:
             user_message = ft.Row \
             (
                 controls= \
@@ -167,10 +189,15 @@ class PatitentView(AppView):
                 expand=True  # Hace que la fila ocupe todo el espacio disponible            
             )
 
-            # 🔵 RESPUESTA INVERTIDA DEL BOT (100% del ancho)
+            self._nav_ctlr.show_wait_ctrl()
+
+            bot_msg, gen_time = self._backend.chat(patitent_id, msg)
+
+            self._nav_ctlr.hide_wait_ctrl()
+
             bot_message = ft.Container \
             (
-                content         = ft.Text(f"Bot: {reversed_msg}", size=16, color="black"),
+                content         = ft.Text(f"{bot_msg}", size=16, color="black"),
                 padding         = 10,
                 alignment       = ft.alignment.center_left
             )
@@ -189,7 +216,6 @@ class PatitentView(AppView):
     #----------------------------------------------------------------------------------------------
 
     def _build_ui(self):
-        text_factory                = get_text_factory()
         logo_container              = LogoFactory.buil_logo(self.page, self._env._locations._logo_path)
         logo_container.alignment    = ft.alignment.top_right
         logo_container.expand       = False
@@ -222,45 +248,11 @@ class PatitentView(AppView):
             expand      = 1
         )
 
-        self._medicacion            = ft.ExpansionTile \
-        (
-            title                   = text_factory.container_title("Medicación pautada"),
-            affinity                = ft.TileAffinity.PLATFORM,
-            maintain_state          = True,
-            controls                = self._ctrl_medicacion._rows,
-        )
-
-        self._riesgo_cardiovascular = ft.ExpansionTile \
-        (
-            title                   = text_factory.container_title("Factores de riesgo cardiovascular"),
-            affinity                = ft.TileAffinity.PLATFORM,
-            maintain_state          = True,
-            controls                = self._ctrl_cardiovascular._rows
-        )
-
-        self._alergias              = ft.ExpansionTile \
-        (
-            title                   = text_factory.container_title("Alergias"),
-            affinity                = ft.TileAffinity.PLATFORM,
-            maintain_state          = True,
-            controls                = self._ctrl_alergias._rows
-        )
-
-        self._ultimas_visitas       = ft.ExpansionTile \
-        (
-            title                   = text_factory.container_title("Últimas visitas"),
-            affinity                = ft.TileAffinity.PLATFORM,
-            maintain_state          = True,
-            controls                = self._ctrl_visitas._rows
-        )
-
-        self._ingresos              = ft.ExpansionTile \
-        (
-            title                   = text_factory.container_title("Historial de ingresos"),
-            affinity                = ft.TileAffinity.PLATFORM,
-            maintain_state          = True,
-            controls                = self._ctrl_ingresos._rows
-        )
+        self._medicacion            = self.SideCard("Medicación pautada")
+        self._riesgo_cardiovascular = self.SideCard("Factores de riesgo cardiovascular")
+        self._alergias              = self.SideCard("Alergias")
+        self._ultimas_visitas       = self.SideCard("Últimas visitas")
+        self._ingresos              = self.SideCard("Historial de ingresos")
 
         datos_paciente_container = ft.Container \
         (

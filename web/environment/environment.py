@@ -1,6 +1,6 @@
 import  flet                        as      ft
-import  pathlib
 
+from    webapp.factories            import  text_factory
 from    backend.service             import  BackendService, get_service_instance
 #--------------------------------------------------------------------------------------------------
 
@@ -12,9 +12,7 @@ class Locations:
     @classmethod
     def load(cls, page: ft.Page):
         ret             = cls()
-        print(f"Logo: ")
         ret._logo_path  = "/imgs/logo.png"
-        print(ret._logo_path)
         return ret
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
@@ -24,9 +22,15 @@ class Environment:
         self._backend: BackendService   = get_service_instance()
         self._locations: Locations      = None
         self._page: ft.Page             = None
+        self._console                   = False
+
+        text_factory.set_container_size(24)
+        text_factory.set_row_title_size(20)
+        text_factory.set_row_text_size(20)
     #----------------------------------------------------------------------------------------------
 
-    def set_page(self, page: ft.Page):
+    def set_page(self, page: ft.Page, console):
+        self._console       = console
         self._page          = page
         self._locations     = Locations.load(page)
     #----------------------------------------------------------------------------------------------        

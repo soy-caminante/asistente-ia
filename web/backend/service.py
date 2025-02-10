@@ -57,7 +57,8 @@ class BackendService:
                 self._oai_context.full_context += "\n"
             self._oai_context.full_context += doc["contenido"]
 
-        self._oai_context.full_context += "\nSi la pregunta es poco concreta, se detallado."
+        self._oai_context.full_context += "\nResponde usando solo con la información propprcionada."
+        self._oai_context.full_context += "\nNo hagas suposiciones. Se específico y detallado."
         self._oai_context.full_context += "\nDame la respuesta en markdown pero no uses bloques de código."
         self._oai_context.update_chunks()
 

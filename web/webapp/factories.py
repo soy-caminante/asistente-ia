@@ -51,24 +51,47 @@ class ButtonFactory:
 #--------------------------------------------------------------------------------------------------
 
 class TextFactory:
-    def __init__(self, style_color="blue"):
-        self._style_color = style_color
+    def __init__(self,  style_color     = "blue",
+                        container_size  = 32,
+                        mosaic_size     = 24,
+                        row_title_size  = 16,
+                        row_text_size   = 16):
+        self._style_color       = style_color
+        self._container_size    = container_size
+        self._mosaic_size       = mosaic_size
+        self._row_title_size    = row_title_size
+        self._row_text_size     = row_text_size
     #----------------------------------------------------------------------------------------------
 
     def mosaic_title(self, text):
-        return ft.Text(text, weight=ft.FontWeight.BOLD, color=self._style_color, size=24)
+        return ft.Text(text, weight=ft.FontWeight.BOLD, color=self._style_color, size=self._mosaic_size)
     #----------------------------------------------------------------------------------------------
 
     def container_title(self, text):
-        return ft.Text(text, weight=ft.FontWeight.BOLD, color=self._style_color, size=32)
+        return ft.Text(text, weight=ft.FontWeight.BOLD, color=self._style_color, size=self._container_size)
     #----------------------------------------------------------------------------------------------
 
     def row_title(self, text):
-        return ft.Text(text, weight=ft.FontWeight.BOLD, size=16)
+        return ft.Text(text, weight=ft.FontWeight.BOLD, size=self._row_title_size)
     #----------------------------------------------------------------------------------------------
 
     def row_text(self, text):
-        return ft.Text(text, size=16)
+        return ft.Text(text, size=self._row_text_size)
+    #----------------------------------------------------------------------------------------------
+
+    def set_style_color(self, color): self._style_color = color
+    #----------------------------------------------------------------------------------------------
+    
+    def set_container_size(self, size): self._container_size = size
+    #----------------------------------------------------------------------------------------------
+
+    def set_mosaic_size(self, size): self._mosaic_size = size
+    #----------------------------------------------------------------------------------------------
+
+    def set_row_title_size(self, size): self._row_title_size = size
+    #----------------------------------------------------------------------------------------------
+
+    def set_row_text_size(self, size): self._row_text_size = size
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
