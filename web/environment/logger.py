@@ -39,12 +39,14 @@ class Logger:
     #----------------------------------------------------------------------------------------------
     
     @classmethod
-    def setup(cls, path: pathlib.Path, base_dir = "/"):
+    def setup(cls, path: pathlib.Path, file_log_enabled=False, base_dir = "/"):
         cls.BASE_DIR    = base_dir
-        handler         = RotatingFileHandler(path,  maxBytes=10e6, backupCount=5)
+        handlers        = [ logging.StreamHandler() ]
+        
+        if file_log_enabled:
+            handlers.append(RotatingFileHandler(path,  maxBytes=10e6, backupCount=5))
 
-        logging.basicConfig(handlers    = [ #handler,
-                                            logging.StreamHandler() ],
+        logging.basicConfig(handlers    =   handlers,
                                             format      = "%(asctime)s - %(filename)s:%(lineno)d %(message)s", 
                                             datefmt     = "%d-%m-%y %H:%M:%S",
                                             level       = logging.INFO)
