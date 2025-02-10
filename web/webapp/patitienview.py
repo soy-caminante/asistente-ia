@@ -206,7 +206,21 @@ class PatitentView(AppView):
             
             bot_message = ft.Container \
             (
-                content         = ft.Markdown(f"{bot_msg}", md_style_sheet=md_style),
+                content         = ft.Column \
+                (
+                    [
+                        ft.Markdown(f"{bot_msg}", md_style_sheet=md_style),
+                        ft.Text \
+                        (
+                            gen_time,
+                            size=12,
+                            color=ft.colors.GREY_600,
+                            text_align=ft.TextAlign.LEFT
+                        )
+                    ],
+                    spacing=0,  # Elimina el espacio entre los elementos
+                    tight=True   # Reduce aún más la separación
+                ),
                 padding         = 10,
                 alignment       = ft.alignment.center_left
             )
