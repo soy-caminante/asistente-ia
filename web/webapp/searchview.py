@@ -149,66 +149,41 @@ class SearchView(AppView):
             expand      = True
         )
 
-        if is_mobile:
-            search_column = ft.Column \
-            (
-                [
-                    self._search_box,
-                    ft.Divider(),
-                    self._results
-                ],
-                alignment   = ft.MainAxisAlignment.START,
-                expand      = True,
-                scroll      = ft.ScrollMode.ALWAYS
-            )
-            main_layout = ft.Column \
-            (
-                [
-                    logo_container,
-                    search_column,
-                ],
-                spacing = 20,
-                expand  = True,
-                scroll  = ft.ScrollMode.AUTO
-            )
-        
-        # Diseño para tabletas y escritorio (centra elementos)
-        else:
-            search_row = ft.Row \
-            (
-                [ 
-                    ft.Container(expand=1, bgcolor="transparent"),
-                    ft.Container \
+        search_row = ft.Row \
+        (
+            [ 
+                ft.Container(expand=1, bgcolor="transparent"),
+                ft.Container \
+                (
+                    ft.Column \
                     (
-                        ft.Column \
-                        (
-                            [
-                                self._search_box,
-                                ft.Divider(),
-                                self._results
-                            ]
-                        ),
-                        expand=2,
-                        alignment=ft.alignment.center
+                        [
+                            self._search_box,
+                            ft.Divider(),
+                            self._results
+                        ]
                     ),
-                    ft.Container(expand=1, bgcolor="transparent"),
-                ],
-                alignment   = ft.MainAxisAlignment.CENTER,
-                expand      = True
-            )
-            
-            main_layout = ft.Column \
-            (
-                controls= \
-                [
-                    logo_container,
-                    search_row,
-                    ft.Container(expand=True)
-                ],
-                alignment               = ft.MainAxisAlignment.START,
-                horizontal_alignment    = ft.CrossAxisAlignment.CENTER,
-                spacing                 = 20,
-            )
+                    expand=2,
+                    alignment=ft.alignment.center
+                ),
+                ft.Container(expand=1, bgcolor="transparent"),
+            ],
+            alignment   = ft.MainAxisAlignment.CENTER,
+            expand      = True
+        )
+        
+        main_layout = ft.Column \
+        (
+            controls= \
+            [
+                logo_container,
+                search_row,
+                ft.Container(expand=True)
+            ],
+            alignment               = ft.MainAxisAlignment.START,
+            horizontal_alignment    = ft.CrossAxisAlignment.CENTER,
+            spacing                 = 20,
+        )
 
         self.controls = [ ft.Container(content=main_layout) ]
 

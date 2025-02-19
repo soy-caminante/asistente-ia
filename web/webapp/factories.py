@@ -132,7 +132,7 @@ class LogoFactory:
         logo                = ft.Image \
         (
             src     = logo_path,
-            width   = logo_height * (2500 / 2500),  # Manteniendo la proporción
+            width   = logo_height * (839 / 397),  # Manteniendo la proporción
             height  = logo_height,
             fit     = ft.ImageFit.CONTAIN
         )
@@ -140,8 +140,6 @@ class LogoFactory:
         logo_container = ft.Container \
         (
             content         = logo,
-            border          = ft.border.all(5, ft.colors.BLUE),  # Borde azul de 5px
-            border_radius   = 5,  # Bordes redondeados
             padding         = 10,  # Espacio interno
         )
 
