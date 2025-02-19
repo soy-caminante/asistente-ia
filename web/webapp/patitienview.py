@@ -130,7 +130,7 @@ class PatitentView(AppView):
         super().__init__(page=env._page, route=route)
         self._env                                   = env
         self._backend                               = env._backend
-        self._button_factory                        = ButtonFactory(ft.colors.BLUE)
+        self._button_factory                        = ButtonFactory("#54BAAD")
         self._ctrl_paciente                         = self.DatosPaciente()
         self._build_ui()
     #----------------------------------------------------------------------------------------------
@@ -213,9 +213,9 @@ class PatitentView(AppView):
                         ft.Text \
                         (
                             gen_time,
-                            size=12,
-                            color=ft.colors.GREY_600,
-                            text_align=ft.TextAlign.LEFT
+                            size        = 12,
+                            color       = ft.colors.GREY_600,
+                            text_align  = ft.TextAlign.LEFT
                         )
                     ],
                     spacing=0,  # Elimina el espacio entre los elementos
@@ -324,7 +324,8 @@ class PatitentView(AppView):
         (
             icon        = ft.icons.ARROW_UPWARD,
             tooltip     = "Enviar",
-            on_click    = self.send_chat_question
+            on_click    = self.send_chat_question,
+            bgcolor     = "#54BAAD"
         )
 
         # Contenedor inferior con campo de entrada + botón

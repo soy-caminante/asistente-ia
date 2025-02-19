@@ -51,7 +51,7 @@ class ButtonFactory:
 #--------------------------------------------------------------------------------------------------
 
 class TextFactory:
-    def __init__(self,  style_color     = "blue",
+    def __init__(self,  style_color     = "#54BAAD",
                         container_size  = 32,
                         mosaic_size     = 24,
                         row_title_size  = 16,
