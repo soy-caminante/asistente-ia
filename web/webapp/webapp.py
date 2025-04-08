@@ -15,17 +15,6 @@ class WebApp:
         self._build_ui()
     #----------------------------------------------------------------------------------------------
 
-    def show_wait_ctrl(self):
-        self._wait_indicator.show()
-    #----------------------------------------------------------------------------------------------
-
-    def hide_wait_ctrl(self, info: None):
-        if info is None:
-            self._wait_indicator.hide()
-        else:
-            self._wait_indicator.show_error(info)
-    #----------------------------------------------------------------------------------------------
-
     def _build_ui(self):
         self._page.title        = "SOCIEDAD - AI"
         self._page.theme_mode   = "light"

@@ -20,8 +20,8 @@ class Locations:
 #--------------------------------------------------------------------------------------------------
 
 class Environment:
-    def __init__(self):
-        self._backend: BackendService   = get_service_instance()
+    def __init__(self, model):
+        self._backend: BackendService   = get_service_instance(model)
         self._locations: Locations      = None
         self._page: ft.Page             = None
         self._console                   = False

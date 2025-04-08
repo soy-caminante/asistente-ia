@@ -13,10 +13,16 @@ STORAGE_PATH = (pathlib.Path(__file__).parent / "../data").resolve()
 #--------------------------------------------------------------------------------------------------
 
 class BackendService:
-    def __init__(self, storage_path=STORAGE_PATH):
+    def __init__(self, model, storage_path=STORAGE_PATH):
         self._docs_path         = storage_path / "src-docs"
-        self._oai_context       = InferenceContext.openai(os.getenv('oai_api_key'))
-        self._oai_context.model = "gpt-4o-mini"
+
+        if model == "openai":
+            self._oai_context       = InferenceContext.openai(os.getenv('oai_api_key'))
+            self._oai_context.model = "gpt-4o-mini"
+        else:
+            self._oai_context       = InferenceContext.huggingface(os.getenv('hf_api_key'))
+            self._oai_context.model = "meta-llama/Llama-3.2-1B-Instruct"
+
         self._db                = NoSQLDB(storage_path / "dbs/documents.fs", self.log_callback)
         self._pacientes_db      = DbPacienteMngr(self._db)
     #----------------------------------------------------------------------------------------------
@@ -63,7 +69,7 @@ class BackendService:
 
             self._oai_context.full_context += "\nResponde usando solo con la información propprcionada."
             self._oai_context.full_context += "\nNo hagas suposiciones. Se específico y detallado."
-            self._oai_context.full_context += "\nDame la respuesta en markdown pero no uses bloques de código."
+            self._oai_context.full_context += "\nDame la respuesta en markdown elegante y resaltando lo principal pero no uses bloques de código."
             self._oai_context.update_chunks()
 
             if len(self._oai_context.chunks) == 0:
@@ -81,15 +87,20 @@ class BackendService:
             return response, self.get_generation_time(start_ts)
         except Exception as ex:
             Logger.exception(ex)
+            return "Error. Modelo no responde", self.get_generation_time(start_ts)
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
 # Crear una instancia singleton
-service_insatnce = BackendService()
+service_insatnce = None
 #--------------------------------------------------------------------------------------------------
 
 # Función que devuelve la instancia compartida
-def get_service_instance():
+def get_service_instance(model):
+    global service_insatnce
+    if service_insatnce is None:
+        service_insatnce = BackendService(model)
+
     return service_insatnce
 #--------------------------------------------------------------------------------------------------
 

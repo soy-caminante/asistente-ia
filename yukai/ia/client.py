@@ -70,8 +70,12 @@ class InferenceContext:
         )
     #----------------------------------------------------------------------------------------------
 
-    def chat(self, promts: list[Prompt]):
-        return self._client.chat(promts, self._model)
+    def chat_doctor(self, promt: Prompt):
+        return self._client.chat_doctor(promt, self._model)
+    #----------------------------------------------------------------------------------------------
+
+    def chat_indexer(self, promt: Prompt):
+        return self._client.chat_indexer(promt, self._model)
     #----------------------------------------------------------------------------------------------
 
     def reset(self):
@@ -95,25 +99,37 @@ class InferenceModelClient:
         self._client = client
     #----------------------------------------------------------------------------------------------
 
-    def chat(self, prompts: list[Prompt], model):
-        for prompt in prompts:
-            messages = \
-            [
-                {
-                    "role": "user",
-                    "content": prompt.get()
-                }
-            ]
+    def chat_doctor(self, prompt: Prompt, model):
+        messages = \
+        [
+            {"role": "system", "content":   prompt.get_doctor_system_promt()    },
+            {"role": "user", "content":     prompt.get_doctor_user_prompt()     }
+        ]
 
-            completion: ChatCompletionOutput = self._client.chat.completions.create \
-            (
-                model       = model, 
-                messages    = messages, 
-                temperature = 0
-            )
-            
-            if not Prompt.check_no_answer(completion.choices[0].message.content):
-                return completion.choices[0].message.content
-        return "No encuentro la respuesta"
+        completion: ChatCompletionOutput = self._client.chat.completions.create \
+        (
+            model       = model, 
+            messages    = messages, 
+            temperature = 0
+        )
+
+        return completion.choices[0].message.content
+    #----------------------------------------------------------------------------------------------    
+
+    def chat_indexer(self, prompt: Prompt, model):
+        messages = \
+        [
+            {"role": "system", "content":   prompt.get_indexer_system_promt()    },
+            {"role": "user", "content":     prompt.get_indexer_user_prompt()     }
+        ]
+
+        completion: ChatCompletionOutput = self._client.chat.completions.create \
+        (
+            model       = model, 
+            messages    = messages, 
+            temperature = 0
+        )
+
+        return completion.choices[0].message.content
     #----------------------------------------------------------------------------------------------    
 #--------------------------------------------------------------------------------------------------
