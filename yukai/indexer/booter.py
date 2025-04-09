@@ -1,4 +1,5 @@
 import  pathlib
+import  sys
 
 from    indexer.environment             import  Environment
 from    indexer.app                     import  CtrlConsole
@@ -16,7 +17,8 @@ class Booter:
                                 cfg_dir / "income",
                                 cfg_dir / "consolidated",
                                 cfg_dir / "indexes")
-        cmd     = CtrlConsole(env)
+        sys.argv    = [sys.argv[0]]
+        cmd         = CtrlConsole(env)
         cmd.cmdloop()
     #----------------------------------------------------------------------------------------------
 #------------------------------------------lis--------------------------------------------------------

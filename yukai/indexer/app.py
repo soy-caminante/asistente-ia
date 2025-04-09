@@ -2,9 +2,11 @@ import  cmd2
 import  json
 import  os
 import  pathlib
+import  re
 
 from    ia.client                       import  *
 from    ia.prompt                       import  *
+from    ia.context                      import  *
 from    indexer.environment             import  Environment
 from    indexer.search_engine           import  *
 #--------------------------------------------------------------------------------------------------
@@ -19,6 +21,25 @@ class CtrlConsole(cmd2.Cmd):
         self._env                   = env
         self._search_engine         = PatientSearchEngine(None) # Eliiminar None para cargar el modelo si vas a usar FAISS
         self._ia: InferenceContext  = None
+        self._context_factory        = PatientContextFactory(self.log_fcn)
+
+        self._env.logger.remove_console_handler()
+    #----------------------------------------------------------------------------------------------
+
+    def log_fcn(self, err):
+        if isinstance(err, Exception):
+            self._env.logger.exception(err)
+        else:
+            self._env.logger.info(err)
+    #----------------------------------------------------------------------------------------------
+
+    def precmd(self, statement: cmd2.Statement):
+        if "-" in statement.command:
+            alt_statement = statement.to_dict()
+            alt_statement["command"] = alt_statement["command"].replace("-", "_")
+            return super().precmd(cmd2.Statement.from_dict(alt_statement))
+        else:
+            return super().precmd(statement)
     #----------------------------------------------------------------------------------------------
 
     def do_list(self, args_obj: cmd2.Statement):
@@ -96,7 +117,7 @@ class CtrlConsole(cmd2.Cmd):
         print("3: Llama-3.2-1B-Instruct")
     #----------------------------------------------------------------------------------------------
 
-    def do_setupia(self, args_obj: cmd2.Statement):
+    def do_setup_ia(self, args_obj: cmd2.Statement):
         the_args    = args_obj.arg_list
 
         if len(the_args) > 0:
@@ -109,22 +130,25 @@ class CtrlConsole(cmd2.Cmd):
             elif the_args[0]    == "3":
                 self._ia        = InferenceContext.huggingface(os.getenv('hf_api_key'))
                 self._ia.model  = "meta-llama/Llama-3.2-3B-Instruct"
+            elif the_args[0]    == "4":
+                self._ia        = InferenceContext.huggingface(os.getenv('hf_api_key'))
+                self._ia.model  = the_args[1]
             else:
                 print("Modelo no válido")
+                return
+            print(f"Modelo: {self._ia.model}")
+
         else:
             print("Debes especificar el modelo de IA")
     #----------------------------------------------------------------------------------------------
 
-    def do_preprocess(self, args_obj: cmd2.Statement):
-        def load_text_from_file(filepath):
-            try:
-                with open(filepath, "r", encoding="utf-8") as f:
-                    text = f.read()
-                    return text
-            except Exception as e:
-                print(f"Error procesando {filepath}: {e}")
-                return ""
-            
+    def do_compact(self, args_obj: cmd2.Statement):
+        def clean_text(text: str) -> str:
+            # Quitar espacios al inicio y al final
+            text = text.strip()
+            # Reemplazar múltiples espacios por uno solo
+            return re.sub(r'\s+', ' ', text)
+                
         def clean_and_minify_json(data):
             def remove_nulls(obj):
                 if isinstance(obj, dict):
@@ -141,37 +165,69 @@ class CtrlConsole(cmd2.Cmd):
         encoder     = CompactEncoder()
 
         if len(the_args) > 0:
-            target_dir: pathlib.Path = self._env.income_dir / the_args[0]
+            target_dir: pathlib.Path    = self._env.income_dir / the_args[0]
+            patient_info, src_docs      = self._context_factory.load_incomming(target_dir)
 
-            if target_dir.exists():
-                for target_file in target_dir.iterdir():
-                    if target_file.is_file() and target_file.suffix == ".txt":
-                        print(f"Indexando el paciente {the_args[0]} {target_file.name}")
+            if patient_info:
+                patient_context         = PatientContext(patient_info)
+                context_location        = self._env.consolidated_dir / the_args[0]
 
-                        text    = load_text_from_file(target_file)
-                        if text != "":
-                            prompt      = Prompt(context=text)
-                            response    = self._ia.chat_indexer(prompt)
+                for doc_name, doc_text in src_docs.items():
+                    doc_text = clean_text(doc_text)
 
-                            try:
-                                cleaned     = response.strip().removeprefix("```json").removesuffix("```").strip()
-                                parsed_json = json.loads(cleaned)
-                                cleaned     = clean_and_minify_json(parsed_json)
-                                comapct     = encoder.encode(parsed_json)
-                                print(json.dumps(parsed_json, indent=2, ensure_ascii=False))
-                                print(comapct)
+                    print(f"Procesando {doc_name}")
+                    if doc_text != "":
+                        prompt      = IndexerPrompt(doc_text)
+                        response    = self._ia.chat_indexer(prompt)
 
-                                print(f"Eficiencia {len(cleaned)} {len(comapct)} ({int(100 * len(comapct) / len(cleaned))})")
-                            except Exception as e:
-                                print("Error al parsear JSON:", e)
-                                
-                print("Paciente indexado")
+                        try:
+                            cleaned     = response.strip().removeprefix("```json").removesuffix("```").strip()
+                            parsed_json = json.loads(cleaned)
+                            cleaned     = clean_and_minify_json(parsed_json)
+                            comapct     = encoder.encode(parsed_json, doc_name)
+                            print(comapct)
+                            print(f"Eficiencia {len(doc_text)} {len(comapct)} ({100 - int(100 * len(comapct) / len(doc_text))})")
+
+                            patient_context.add_ia_doc(doc_name, comapct)
+                            patient_context.add_src_doc(doc_name, doc_text)
+                        except Exception as e:
+                            self._env.logger.exception(e)
+                            print(e)
+                    else:
+                        print("Dcoumento vacío")
+                self._context_factory.consolidate_context(patient_context, context_location)
+                print(f"Paciente indexado: {self._ia.calc_tokens(patient_context.get_context())} tokens")
             else:
                 print("El cliente especificado no existe")    
         else:
             print("Debes especificar el directorio de entrada del paciente")
+    #----------------------------------------------------------------------------------------------
 
     def do_exit(self, _):
         return True
+    #----------------------------------------------------------------------------------------------
+
+    def do_chat(self, args_obj: cmd2.Statement):
+        the_args    = args_obj.arg_list
+
+        if len(the_args) > 1:
+            target_dir: pathlib.Path    = self._env.consolidated_dir / the_args[0]
+            patient_context             = self._context_factory.load_consolidated(target_dir)
+
+            if patient_context:
+                question = ""
+                for i in range(1, len(the_args)):
+                    if question == "": question += the_args[i]
+                    else:
+                        question += " " + the_args[i]
+                prompt      = DoctorPrompt(patient_context, question)
+                response    = self._ia.chat_doctor(prompt)
+                print(response)
+            else:
+                print("El cliente especificado no existe")    
+        else:
+            print("Debes especificar el directorio de entrada del paciente")
+    #----------------------------------------------------------------------------------------------
+
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------

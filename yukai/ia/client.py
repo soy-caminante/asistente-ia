@@ -1,20 +1,43 @@
+import  tiktoken
 from    huggingface_hub                                         import InferenceClient
 from    huggingface_hub.inference._generated.types              import ChatCompletionOutput
 from    openai                                                  import OpenAI
-from    .prompt                                                 import Prompt
+from    ia.prompt                                               import IndexerPrompt, DoctorPrompt
+from    transformers                                            import  AutoTokenizer
+
 #--------------------------------------------------------------------------------------------------
 
 class InferenceContext:
-    @staticmethod
-    def huggingface(api_key):
-        obj         = InferenceContext(api_key, Prompt.split_llama_context)
+    @classmethod
+    def split_llama_context(cls, api_key, model, src_text: str, n_tokens:int= 120000):
+        tokenizer       = AutoTokenizer.from_pretrained(model, token=api_key)
+        tokens          = tokenizer.encode(src_text, add_special_tokens=False)
+        tokens_chunks   = [ tokens[i:i + n_tokens] for i in range(0, len(tokens), n_tokens) ]
+        text_chunks     = [tokenizer.decode(chunk, skip_special_tokens=True) for chunk in tokens_chunks]
+    
+        return text_chunks, len(tokens)
+    #----------------------------------------------------------------------------------------------
+
+    @classmethod
+    def split_openai_context(cls, api_key, model, src_text: str, n_tokens:int= 120000):
+        tokenizer       = tiktoken.encoding_for_model(model)
+        tokens          = tokenizer.encode(src_text)
+        tokens_chunks   = [tokens[i:i + n_tokens] for i in range(0, len(tokens), n_tokens)]
+        text_chunks     = [tokenizer.decode(chunk) for chunk in tokens_chunks]
+        
+        return text_chunks, len(tokens)
+    #----------------------------------------------------------------------------------------------
+
+    @classmethod
+    def huggingface(cls, api_key):
+        obj         = InferenceContext(api_key, cls.split_llama_context)
         obj.client  = InferenceModelClient.huggingface(api_key)
         return obj
     #----------------------------------------------------------------------------------------------
 
-    @staticmethod
-    def openai(api_key):
-        obj         = InferenceContext(api_key, Prompt.split_openai_context)
+    @classmethod
+    def openai(cls, api_key):
+        obj         = InferenceContext(api_key, cls.split_openai_context)
         obj.client  = InferenceModelClient.openai(api_key)
         return obj
     #----------------------------------------------------------------------------------------------
@@ -26,6 +49,16 @@ class InferenceContext:
         self._full_context                  = ""
         self._split_fcn                     = split_fcn
         self._api_key                       = api_key
+    #----------------------------------------------------------------------------------------------
+
+    def calc_tokens(self, context):
+        _, tokens = self._split_fcn(self._api_key, self.model, context)
+        return tokens
+    #----------------------------------------------------------------------------------------------
+
+    def get_chunks(self, context):
+        chunks, _ = self._split_fcn(self._api_key, self.model, context)
+        return chunks
     #----------------------------------------------------------------------------------------------
 
     @property
@@ -70,11 +103,11 @@ class InferenceContext:
         )
     #----------------------------------------------------------------------------------------------
 
-    def chat_doctor(self, promt: Prompt):
+    def chat_doctor(self, promt: DoctorPrompt):
         return self._client.chat_doctor(promt, self._model)
     #----------------------------------------------------------------------------------------------
 
-    def chat_indexer(self, promt: Prompt):
+    def chat_indexer(self, promt: IndexerPrompt):
         return self._client.chat_indexer(promt, self._model)
     #----------------------------------------------------------------------------------------------
 
@@ -99,11 +132,11 @@ class InferenceModelClient:
         self._client = client
     #----------------------------------------------------------------------------------------------
 
-    def chat_doctor(self, prompt: Prompt, model):
+    def chat_doctor(self, prompt: DoctorPrompt, model):
         messages = \
         [
-            {"role": "system", "content":   prompt.get_doctor_system_promt()    },
-            {"role": "user", "content":     prompt.get_doctor_user_prompt()     }
+            {"role": "system", "content":   prompt.get_system_promt()    },
+            {"role": "user", "content":     prompt.get_user_prompt()     }
         ]
 
         completion: ChatCompletionOutput = self._client.chat.completions.create \
@@ -116,11 +149,11 @@ class InferenceModelClient:
         return completion.choices[0].message.content
     #----------------------------------------------------------------------------------------------    
 
-    def chat_indexer(self, prompt: Prompt, model):
+    def chat_indexer(self, prompt: IndexerPrompt, model):
         messages = \
         [
-            {"role": "system", "content":   prompt.get_indexer_system_promt()    },
-            {"role": "user", "content":     prompt.get_indexer_user_prompt()     }
+            {"role": "system", "content":   prompt.get_system_promt()    },
+            {"role": "user", "content":     prompt.get_user_prompt()     }
         ]
 
         completion: ChatCompletionOutput = self._client.chat.completions.create \

@@ -40,25 +40,27 @@ class Logger:
     #----------------------------------------------------------------------------------------------
 
     def __init__(self):
-        self._base_dir  = ""    
+        self._base_dir  = ""
+        self._handlers  = [ logging.StreamHandler() ]   
     #----------------------------------------------------------------------------------------------
 
     def setup(self, name: str, path: pathlib.Path, file_log_enabled=False, base_dir = "/"):
         self._base_dir  = base_dir
         self._logger    = logging.getLogger(name)
-        handlers        = [ logging.StreamHandler() ]
         
         if file_log_enabled:
-            handlers.append(RotatingFileHandler(path/f"{name}.log",  maxBytes=10e6, backupCount=5))
+            self._handlers.append(RotatingFileHandler(path/f"{name}.log",  maxBytes=10e6, backupCount=5))
 
-        for h in handlers:
+        for h in self._handlers:
             h.setFormatter(logging.Formatter("%(asctime)s - %(filename)s:%(lineno)d %(message)s"))
-    
             self._logger.addHandler(h)
 
         self._logger.addFilter(self.CallerInfoFilter(self._base_dir))
 
         return self
+    #----------------------------------------------------------------------------------------------
+
+    def remove_console_handler(self): self._logger.removeHandler(self._handlers[0])
     #----------------------------------------------------------------------------------------------
 
     def info(self, *args):

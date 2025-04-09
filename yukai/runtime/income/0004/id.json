@@ -1,6 +1,7 @@
 {
         "nombre": "Carlos",
         "apellidos": "Gómez López",
-        "fecha-nacimiento": "10-01-1980",
-        "sexo": "hombre"
+        "fecha_nacimiento": "10-01-1980",
+        "sexo": "hombre",
+        "id": "0004"
 }
