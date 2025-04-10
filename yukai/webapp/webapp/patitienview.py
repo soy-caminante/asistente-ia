@@ -1,12 +1,12 @@
 import  datetime
 import  flet                        as      ft
 
-from    environment.environment     import  Environment
-from    environment.logger          import  Logger
-from    fuzzywuzzy import           fuzz
-from    models.models               import  *
-from    webapp.factories            import  *
-from    webapp.navmanger            import  *
+from    fuzzywuzzy                  import  fuzz
+from    logger                      import  Logger 
+from    webapp.webapp.environment   import  Environment
+from    webapp.models.models        import  *
+from    webapp.webapp.factories     import  *
+from    webapp.webapp.navmanger     import  *
 #--------------------------------------------------------------------------------------------------
 
 class PatitentView(AppView):
@@ -126,10 +126,10 @@ class PatitentView(AppView):
         def update_data(self, data:list[str]): self._expansion_tile.controls = self._data_ctrl.update(data)
     #----------------------------------------------------------------------------------------------
 
-    def __init__(self, route, env:Environment):
-        super().__init__(page=env._page, route=route)
+    def __init__(self, page, route, env:Environment):
+        super().__init__(page=page, route=route)
         self._env                                   = env
-        self._backend                               = env._backend
+        self._backend                               = env.backend
         self._button_factory                        = ButtonFactory("#54BAAD")
         self._ctrl_paciente                         = self.DatosPaciente()
         self._build_ui()
@@ -239,7 +239,7 @@ class PatitentView(AppView):
     #----------------------------------------------------------------------------------------------
 
     def _build_ui(self):
-        logo_container              = LogoFactory.buil_logo(self.page, self._env._locations._logo_path)
+        logo_container              = LogoFactory.buil_logo(self.page, "/imgs/logo.png")
         logo_container.alignment    = ft.alignment.top_right
         logo_container.expand       = False
         back_button                 = self._button_factory.back_button(self._go_back, True)
@@ -264,9 +264,32 @@ class PatitentView(AppView):
             expand          = True
         )
 
+        self._model_selector = ft.Dropdown \
+        (
+            editable    = False,
+            label       = "IA",
+            width       = 500,
+            options     = \
+            [
+                ft.DropdownOption(key="meta-llama/Llama-3.2-3B-Instruct", content=ft.Text("Llama-3.2-3B-Instruct")),
+                ft.DropdownOption(key="meta-llama/Llama-3.1-8B-Instruct", content=ft.Text("Llama-3.1-8B-Instruct")),
+                ft.DropdownOption(key="gpt-4o-mini", content=ft.Text("chatGPT 4o min")),
+                ft.DropdownOption(key="gpt-3o-mini", content=ft.Text("chatGPT 3o min")),
+            ]
+        )
+
+        ia_model_container = ft.Container \
+        (
+            content         = ft.Column([self._model_selector], alignment=ft.MainAxisAlignment.START, expand=True),
+            padding         = 10,
+            border          = ft.border.all(1, ft.colors.GREY_300),
+            border_radius   = 10,
+            expand          = True
+        )
+
         header = ft.Row \
         (
-            controls    = [ datos_personales_container, logo_container ],  # Coloca datos a la izquierda, logo a la derecha
+            controls    = [ datos_personales_container, ia_model_container, logo_container ],  # Coloca datos a la izquierda, logo a la derecha
             alignment   = ft.MainAxisAlignment.SPACE_BETWEEN,  # Separa los elementos
             expand      = 1
         )

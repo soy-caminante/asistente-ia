@@ -154,14 +154,14 @@ class PatientContext:
             self.name       = info.nombre
             self.apellidos  = info.apellidos
             self.id         = info.id
-            self.sex        = info.sexo
-            self.birth_date = info.fecha_nacimiento
+            self.sexo        = info.sexo
+            self.fecha_nacimiento = info.fecha_nacimiento
             self.iadocs     = iadocs
             self.srcdocs    = srcdocs
     #----------------------------------------------------------------------------------------------
 
     def get_id_json(self):
-        return asdict(PatitnetInfo(self.name, self.apellidos, self.birth_date, self.sex, self.id))
+        return asdict(PatitnetInfo(self.name, self.apellidos, self.fecha_nacimiento, self.sexo, self.id))
     #----------------------------------------------------------------------------------------------
 
     @property
@@ -177,11 +177,11 @@ class PatientContext:
     #----------------------------------------------------------------------------------------------
 
     @property
-    def birth_date(self) -> str: return self._json_obj[self.BDATE]
+    def fecha_nacimiento(self) -> str: return self._json_obj[self.BDATE]
     #----------------------------------------------------------------------------------------------
 
     @property
-    def sex(self) -> str: return self._json_obj[self.SEX]
+    def sexo(self) -> str: return self._json_obj[self.SEX]
     #----------------------------------------------------------------------------------------------
 
     @property
@@ -204,12 +204,12 @@ class PatientContext:
     def id(self, v): self._json_obj[self.ID] = v
     #----------------------------------------------------------------------------------------------
 
-    @birth_date.setter
-    def birth_date(self, v): self._json_obj[self.BDATE] = v
+    @fecha_nacimiento.setter
+    def fecha_nacimiento(self, v): self._json_obj[self.BDATE] = v
     #----------------------------------------------------------------------------------------------
 
-    @sex.setter
-    def sex(self, v): self._json_obj[self.SEX] = v
+    @sexo.setter
+    def sexo(self, v): self._json_obj[self.SEX] = v
     #----------------------------------------------------------------------------------------------
 
     @iadocs.setter

@@ -64,7 +64,7 @@ class DoctorPrompt:
     def __init__(self, context: PatientContext, question: str):
         self._context   = context
         self._question  = question
-        self._age       = self.date_to_age(self._context.birth_date)
+        self._age       = self.date_to_age(self._context.fecha_nacimiento)
     #----------------------------------------------------------------------------------------------
 
     def get_system_promt(self):
@@ -73,14 +73,14 @@ class DoctorPrompt:
     
     def get_user_prompt(self):
 
-        context = f"||1.{self._age}|2.{self._context.sex}||"
+        context = f"||1.{self._age}|2.{self._context.sexo}||"
 
         for _, c in self._context.iadocs.items(): 
             context += c + "||"
 
-        return  "Eres un asistente médico. A continuación tienes una serie de documentos clínicos seguido de una pregunta." + \
+        return  "Eres un analista imparcial. A continuación tienes una serie de documentos clínicos seguido de una pregunta." + \
                 "Formato del documento: cada campo se codifica como n.valor. Campos múltiples separados por |. Listas separadas por ;.Delimitadores internos reemplazados por ¬.Fin de documento ||. Mapeo:0:nombre documento,1=edad,2=sexo,3=fecha documento,4=motivo,5=síntomas,6=estado físico,7=medicación,8=tratamiento,9=recomendaciones,10=ingresos,11=comentarios,12=diagnósticos,13=antecedentes familiares,14=factores riesgo cardiovascular,15=alergias,16=operaciones,17=implantes,18=otros,19=keywords,20=tags\n" + \
-                "Debes responder únicamente basándote en el contenido del texto" + \
+                "Debes responder únicamente basándote en el contenido del texto, no añadas ni infieras nada" + \
                 "Responde en formato markdown. No resumas al final.\n" + \
                 "Texto clínico:\n" +\
                 "<<<" + \

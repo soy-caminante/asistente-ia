@@ -1,17 +1,17 @@
-import  flet                        as      ft
-from    environment.environment     import  Environment
-from    webapp.factories            import  *
-from    webapp.navmanger            import  *
-from    webapp.patitienview         import  PatitentView
-from    webapp.searchview           import  SearchView
+import  flet                            as      ft
+from    webapp.webapp.environment       import  Environment
+from    webapp.webapp.factories         import  *
+from    webapp.webapp.navmanger         import  *
+from    webapp.webapp.patitienview      import  PatitentView
+from    webapp.webapp.searchview        import  SearchView
 #--------------------------------------------------------------------------------------------------
 
 class WebApp:
-    def __init__(self, env: Environment):
+    def __init__(self, page: ft.Page, env: Environment):
         self._env                       = env
-        self._page                      = env._page
-        self._nav_ctlr                  = NavController(env._page)
-        self._nav_ctlr.add_view(SearchView("/", env)).add_view(PatitentView("/patient", env))
+        self._page                      = page
+        self._nav_ctlr                  = NavController(page)
+        self._nav_ctlr.add_view(SearchView(page, "/", env)).add_view(PatitentView(page, "/patient", env))
         self._build_ui()
     #----------------------------------------------------------------------------------------------
 

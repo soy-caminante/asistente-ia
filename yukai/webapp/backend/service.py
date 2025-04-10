@@ -4,7 +4,6 @@ import  time
 
 from    dataclasses                     import  dataclass
 from    ia.context                      import  PatientContextFactory, CompactEncoder, PatientContext
-from    rapidfuzz                       import  fuzz
 from    webapp.backend.environment      import  Environment
 from    webapp.backend.tools            import  *
 from    webapp.models.models            import  *
@@ -36,9 +35,11 @@ class PacientesDB:
             context = self._files_factory.load_consolidated(target_dir)
             if context:
                 ret = Paciente()
-                ret.nombre      = context.name
-                ret.apellidos   = context.apellidos
-                ret.ref_id      = context.id
+                ret.nombre              = context.name
+                ret.apellidos           = context.apellidos
+                ret.fecha_nacimiento    = context.fecha_nacimiento
+                ret.sexo                = context.sexo
+                ret.ref_id              = context.id
 
                 for _, file in context.iadocs.items():
                     file_dict = self._file_decoder.decode(file)
@@ -54,7 +55,7 @@ class PacientesDB:
                         ret.visitas.append(a)
                     for a in self._file_decoder.get_medicacion(file_dict):
                         ret.medicacion.append(a)
-        return None
+        return ret
     #----------------------------------------------------------------------------------------------
 
     def get_pacientes(self, pattern) -> list[Paciente]:
@@ -76,32 +77,27 @@ class PacientesDB:
                 paciente.apellidos  = paciente_info.apellidos
                 paciente.ref_id     = paciente_info.id
 
-                ret.append(PacientesDB.DbIndex( obj.stem, 
-                                                normalize(f"{paciente_info.apellidos} {paciente_info.nombre}"),
-                                                normalize(f"{paciente_info.apellidos} {paciente_info.nombre}"),
-                                                paciente))
+                refs_list.append(PacientesDB.DbIndex(   obj.stem, 
+                                                        normalize(f"{paciente_info.apellidos} {paciente_info.nombre}").lower(),
+                                                        normalize(f"{paciente_info.apellidos} {paciente_info.nombre}").lower(),
+                                                        paciente))
 
-        normalized_pattern  = normalize(pattern)
-        tmp_list            = [ ]
+        normalized_pattern  = normalize(pattern).lower()
         for ref in refs_list:
             if pattern == ref.id: 
                 ret = [ ref.paciente ]
                 break
             else:
-                score = fuzz.token_sort_ratio(normalize(normalized_pattern), ref.direct)
-                if score > 60:
-                     tmp_list.append((score, ref.paciente))
-        if not ret:
-            tmp_list    = sorted(tmp_list, key=lambda x: x[0], reverse=True)          
-            ret         = [ tmp[1] for tmp in tmp_list ]
-
+                if ref.direct.startswith(normalized_pattern):
+                    ret.append(ref.paciente)
         return ret
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
-class BackendSercice:
+class BackendService:
     service_instance = None
     #----------------------------------------------------------------------------------------------
+    
     # Función que devuelve la instancia compartida
     @classmethod
     def get_service_instance(cls, model):

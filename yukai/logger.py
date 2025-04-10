@@ -19,7 +19,7 @@ class Logger:
             self._base_dir = base_dir
         #------------------------------------------------------------------------------------------
 
-        def get_relative_path(self, ruta):
+        def get_relative_path(self, ruta: pathlib.Path):
             pieces = ruta.parts
             
             try:
@@ -39,23 +39,25 @@ class Logger:
         #------------------------------------------------------------------------------------------
     #----------------------------------------------------------------------------------------------
 
-    def __init__(self):
+    def __init__(self, enabled=True):
         self._base_dir  = ""
         self._handlers  = [ logging.StreamHandler() ]   
+        self._enabled   = enabled
     #----------------------------------------------------------------------------------------------
 
     def setup(self, name: str, path: pathlib.Path, file_log_enabled=False, base_dir = "/"):
-        self._base_dir  = base_dir
-        self._logger    = logging.getLogger(name)
-        
-        if file_log_enabled:
-            self._handlers.append(RotatingFileHandler(path/f"{name}.log",  maxBytes=10e6, backupCount=5))
+        if self._enabled:
+            self._base_dir  = base_dir
+            self._logger    = logging.getLogger(name)
+            
+            if file_log_enabled:
+                self._handlers.append(RotatingFileHandler(path/f"{name}.log",  maxBytes=10e6, backupCount=5))
 
-        for h in self._handlers:
-            h.setFormatter(logging.Formatter("%(asctime)s - %(filename)s:%(lineno)d %(message)s"))
-            self._logger.addHandler(h)
+            for h in self._handlers:
+                h.setFormatter(logging.Formatter("%(asctime)s - %(filename)s:%(lineno)d %(message)s"))
+                self._logger.addHandler(h)
 
-        self._logger.addFilter(self.CallerInfoFilter(self._base_dir))
+            self._logger.addFilter(self.CallerInfoFilter(self._base_dir))
 
         return self
     #----------------------------------------------------------------------------------------------
@@ -64,57 +66,66 @@ class Logger:
     #----------------------------------------------------------------------------------------------
 
     def info(self, *args):
-        self._logger.info(self.to_str(args))
+        if self._enabled:
+            self._logger.info(self.to_str(args))
     #----------------------------------------------------------------------------------------------
 
     def multi_info(self, *args):
-        for a in args:
-            self._logger.info(a)
+        if self._enabled:
+            for a in args:
+                self._logger.info(a)
     #----------------------------------------------------------------------------------------------
 
     def warning(self, *args):
-        self._logger.warning(self.to_str(args))
+        if self._enabled:
+            self._logger.warning(self.to_str(args))
     #----------------------------------------------------------------------------------------------
 
     def critical(self, *args):
-        self._logger.critical(self.to_str(args))
+        if self._enabled:
+            self._logger.critical(self.to_str(args))
     #----------------------------------------------------------------------------------------------
 
     def multi_warning(self, *args):
-        first = True
-        for a in args:
-            if first:
-                first = False
-                self._logger.warning(a)
-            else:
-                self._logger.info(a)
+        if self._enabled:    
+            first = True
+            for a in args:
+                if first:
+                    first = False
+                    self._logger.warning(a)
+                else:
+                    self._logger.info(a)
     #----------------------------------------------------------------------------------------------
 
     def error(self, *args):
-        self._logger.error(self.to_str(args))
+        if self._enabled:
+            self._logger.error(self.to_str(args))
     #----------------------------------------------------------------------------------------------
 
     def multi_error(self, *args):
-        first = True
-        for a in args:
-            if first:
-                first = False
-                self._logger.error(a)
-            else:
-                self._logger.info(a)
+        if self._enabled:
+            first = True
+            for a in args:
+                if first:
+                    first = False
+                    self._logger.error(a)
+                else:
+                    self._logger.info(a)
     #----------------------------------------------------------------------------------------------
 
     def exception(self, args):
-        self._logger.exception(args)
+        if self._enabled:
+            self._logger.exception(args)
     #----------------------------------------------------------------------------------------------
 
     def multi_exception(self, *args):
-        first = True
-        for a in args:
-            if first:
-                first = False
-                self._logger.exception(a)
-            else:
-                self._logger.info(a)
+        if self._enabled:
+            first = True
+            for a in args:
+                if first:
+                    first = False
+                    self._logger.exception(a)
+                else:
+                    self._logger.info(a)
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------

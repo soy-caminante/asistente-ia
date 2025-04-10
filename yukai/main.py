@@ -4,38 +4,34 @@ import  sys
 
 from    dataclasses                         import  dataclass
 from    indexer.booter                      import  Booter      as IndexerBooter
+from    webapp.booter                       import  Booter      as WebBooter
 #--------------------------------------------------------------------------------------------------
 
 @dataclass
-class Args:
+class MainArgs:
     system:     str
-    cfg_file:   pathlib.Path
+
+    def is_web(self): return self.system == "web"
+    def is_indexer(self): return self.system == "indexer"
 #--------------------------------------------------------------------------------------------------
 
-def load_args() -> Args:
-    parser = argparse.ArgumentParser(description="YUKAI: Herramienta de indexación de historiales clínicos")
-    parser.add_argument('--system',  help='Sistema', choices=['indexer'],   required=True)
-    parser.add_argument('--runtime', help='Directorio de ejecución',        required=True)
-    pargs = vars(parser.parse_args())
-
-    cfg_file    = pathlib.Path(pargs["runtime"])
-
-    if not cfg_file.exists():
-        print("El fichero de configuración no existe")
-        sys.exit(-1)
-
-    (cfg_file / "inbox").mkdir(parents=True, exist_ok=True)
-    (cfg_file / "consolidated").mkdir(parents=True, exist_ok=True)
-    (cfg_file / "indexes").mkdir(parents=True, exist_ok=True)
-    (cfg_file / "logs").mkdir(parents=True, exist_ok=True)
-
-    return Args(pargs["system"], cfg_file)
+def load_args() -> MainArgs:
+    parser = argparse.ArgumentParser(description="YUKAI: Herramienta de atención hospitalaria")
+    parser.add_argument('--system', help    = 'Sistema', 
+                                    choices = [ 'indexer', 'web' ],    
+                                    required= True)
+    args    = parser.parse_known_args()
+    pargs   = vars(args[0])
+    return MainArgs(pargs["system"])
 #--------------------------------------------------------------------------------------------------
 
 def main():
     try:
         cmd_args = load_args()
-        IndexerBooter().run(cmd_args.cfg_file)
+        if cmd_args.is_web():
+            WebBooter().run()
+        elif cmd_args.is_indexer():
+            IndexerBooter().run()
     except Exception as ex:
         print("Error en la línea de comadnos")
         print(ex)
