@@ -117,7 +117,7 @@ class Booter:
 
         self._args.log.info("YUKAI web running")
         self._args.log.info("assets: ", self._args.assets_dir)
-        print(self._args.assets_dir)
+
         if self._args.mode == "console":    
             ft.app( target      = self.run_app, 
                     assets_dir  = self._args.assets_dir)

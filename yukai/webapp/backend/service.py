@@ -1,9 +1,12 @@
+import  os
 import  pathlib
 import  unicodedata
 import  time
 
 from    dataclasses                     import  dataclass
+from    ia.client                       import  InferenceModelClient
 from    ia.context                      import  PatientContextFactory, CompactEncoder, PatientContext
+from    ia.prompt                       import  DoctorPrompt
 from    webapp.backend.environment      import  Environment
 from    webapp.backend.tools            import  *
 from    webapp.models.models            import  *
@@ -56,6 +59,10 @@ class PacientesDB:
                     for a in self._file_decoder.get_medicacion(file_dict):
                         ret.medicacion.append(a)
         return ret
+    #----------------------------------------------------------------------------------------------
+
+    def get_contexto_paciente(self, ref_id: str) -> PatientContext:
+        return self._files_factory.load_consolidated(self._base / ref_id)
     #----------------------------------------------------------------------------------------------
 
     def get_pacientes(self, pattern) -> list[Paciente]:
@@ -115,6 +122,8 @@ class BackendService:
     def __init__(self, env: Environment):
         self._env           = env
         self._pacientes_db  = PacientesDB(env.clients_dir)
+        self._opena_ai      = InferenceModelClient.openai(os.getenv('oai_api_key'))
+        self._huggingface   = InferenceModelClient.huggingface(os.getenv('hf_api_key'))
     #----------------------------------------------------------------------------------------------
 
     def get_pacientes(self, pattern):
@@ -125,11 +134,43 @@ class BackendService:
         return self._pacientes_db.get_paciente(ref_id)
     #----------------------------------------------------------------------------------------------
 
-    def chat(self, ref_id, question):
+    def chat(self, ref_id, question, model: str):
         start_ts = time.time()
         try:
-            response = ""
-            return response, self.get_generation_time(start_ts)
+            self._env.log.info(f"Cosulta sobre el paciente {ref_id}")
+            self._env.log.info(question)
+
+            if "gpt" in model.lower():
+                inference_model = self._opena_ai
+
+                if "o3" in model.lower():
+                    model = "o3-mini"
+                elif "o4" in model.lower():
+                    model = "gpt-4o-mini"
+                else:
+                    model = "gpt-4o-mini"
+            else: 
+                inference_model = self._huggingface
+
+                if "3b" in model.lower():
+                    model = "meta-llama/Llama-3.2-3B-Instruct"
+                elif "8b" in model.lower():
+                    model = "meta-llama/Llama-3.1-8B-Instruct"
+                else:
+                    model = "meta-llama/Llama-3.2-3B-Instruct"
+            contexto    = self._pacientes_db.get_contexto_paciente(ref_id)
+
+            if contexto:
+                prompt      = DoctorPrompt(contexto, question)
+                response    = inference_model.chat(prompt, model)
+                gen_time    = self.get_generation_time(start_ts)
+                
+                self._env.log.info(f"Respuesta obtenida en {gen_time}")
+
+                return response, gen_time
+            else:
+                self._env.log.error("Paciente no encontrado")
+                return "Paciente no encontrado", self.get_generation_time(start_ts)
         except Exception as ex:
             self._env.log.exception(ex)
             return "Error. Modelo no responde", self.get_generation_time(start_ts)

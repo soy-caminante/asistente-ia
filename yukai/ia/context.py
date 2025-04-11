@@ -19,26 +19,22 @@ class CompactEncoder:
     FIELD_MAP = \
     {
         "documento": 0,
-        "edad": 1,
-        "sexo": 2,
-        "fecha": 3,
-        "motivo": 4,
-        "síntomas": 5,
-        "estado físico": 6,
-        "medicación": 7,
-        "tratamiento": 8,
-        "recomendaciones": 9,
-        "ingresos": 10,
-        "comentarios": 11,
-        "diagnósticos": 12,
-        "antecedentes familiares": 13,
-        "factores riesgo cardivascular": 14,
-        "alergias": 15,
-        "operaciones": 16,
-        "implantes": 17,
-        "otros": 18,
-        "keywords": 19,
-        "tags": 20
+        "fecha": 1,
+        "motivo": 2,
+        "síntomas": 3,
+        "estado físico": 4,
+        "medicación": 5,
+        "tratamiento": 6,
+        "recomendaciones": 7,
+        "ingresos": 8,
+        "comentarios": 9,
+        "diagnósticos": 10,
+        "antecedentes familiares": 11,
+        "factores riesgo cardivascular": 12,
+        "alergias": 13,
+        "operaciones": 14,
+        "implantes": 15,
+        "otros": 16
     }
     #----------------------------------------------------------------------------------------------
 
@@ -53,8 +49,8 @@ class CompactEncoder:
     {
         "síntomas", "estado físico", "medicación", "tratamiento",
         "recomendaciones", "ingresos", "comentarios", "diagnósticos",
-        "antecedentes familiares", "alergias", "operaciones", "implantes",
-        "otros", "keywords", "tags", "factores riesgo cardivascular"
+        "antecedentes familiares", "factores riesgo cardivascular", "alergias", 
+        "operaciones", "implantes", "otros"
     }
     #----------------------------------------------------------------------------------------------
 
@@ -84,7 +80,8 @@ class CompactEncoder:
                     encoded = self.LIST_DELIM.join(self._sanitize(v) for v in value)
                 else:
                     encoded = self._sanitize(value)
-                parts.append(f"{index}.{encoded}")
+                if encoded != "":
+                    parts.append(f"{index}.{encoded}")
         return self.FIELD_DELIM.join(parts)
     #----------------------------------------------------------------------------------------------
 

@@ -4,7 +4,6 @@ from    huggingface_hub.inference._generated.types              import ChatCompl
 from    openai                                                  import OpenAI
 from    ia.prompt                                               import IndexerPrompt, DoctorPrompt
 from    transformers                                            import  AutoTokenizer
-
 #--------------------------------------------------------------------------------------------------
 
 class InferenceContext:
@@ -104,11 +103,11 @@ class InferenceContext:
     #----------------------------------------------------------------------------------------------
 
     def chat_doctor(self, promt: DoctorPrompt):
-        return self._client.chat_doctor(promt, self._model)
+        return self._client.chat(promt, self._model)
     #----------------------------------------------------------------------------------------------
 
     def chat_indexer(self, promt: IndexerPrompt):
-        return self._client.chat_indexer(promt, self._model)
+        return self._client.chat(promt, self._model)
     #----------------------------------------------------------------------------------------------
 
     def reset(self):
@@ -132,24 +131,7 @@ class InferenceModelClient:
         self._client = client
     #----------------------------------------------------------------------------------------------
 
-    def chat_doctor(self, prompt: DoctorPrompt, model):
-        messages = \
-        [
-            {"role": "system", "content":   prompt.get_system_promt()    },
-            {"role": "user", "content":     prompt.get_user_prompt()     }
-        ]
-
-        completion: ChatCompletionOutput = self._client.chat.completions.create \
-        (
-            model       = model, 
-            messages    = messages, 
-            temperature = 0
-        )
-
-        return completion.choices[0].message.content
-    #----------------------------------------------------------------------------------------------    
-
-    def chat_indexer(self, prompt: IndexerPrompt, model):
+    def chat(self, prompt: DoctorPrompt, model):
         messages = \
         [
             {"role": "system", "content":   prompt.get_system_promt()    },

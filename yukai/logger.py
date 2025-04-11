@@ -39,6 +39,21 @@ class Logger:
         #------------------------------------------------------------------------------------------
     #----------------------------------------------------------------------------------------------
 
+    class ShortPathFormatter(logging.Formatter):
+        def __init__(self, fmt=None, datefmt=None, subruta_clave='yukai'):
+            super().__init__(fmt, datefmt)
+            self.subruta_clave = subruta_clave
+        #------------------------------------------------------------------------------------------
+
+        def format(self, record):
+            ruta = record.pathname
+            idx = ruta.find(self.subruta_clave)
+            if idx != -1:
+                record.pathname = ruta[idx:]
+            return super().format(record)
+        #------------------------------------------------------------------------------------------
+    #----------------------------------------------------------------------------------------------
+
     def __init__(self, enabled=True):
         self._base_dir  = ""
         self._handlers  = [ logging.StreamHandler() ]   
@@ -49,12 +64,14 @@ class Logger:
         if self._enabled:
             self._base_dir  = base_dir
             self._logger    = logging.getLogger(name)
+            self._logger.setLevel(logging.INFO)
             
             if file_log_enabled:
                 self._handlers.append(RotatingFileHandler(path/f"{name}.log",  maxBytes=10e6, backupCount=5))
 
             for h in self._handlers:
-                h.setFormatter(logging.Formatter("%(asctime)s - %(filename)s:%(lineno)d %(message)s"))
+                formatter = Logger.ShortPathFormatter(fmt="%(asctime)s - %(pathname)s:%(lineno)d %(message)s")
+                h.setFormatter(formatter)
                 self._logger.addHandler(h)
 
             self._logger.addFilter(self.CallerInfoFilter(self._base_dir))

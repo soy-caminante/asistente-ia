@@ -21,7 +21,7 @@ class CtrlConsole(cmd2.Cmd):
         self._env                   = env
         self._search_engine         = PatientSearchEngine(None) # Eliiminar None para cargar el modelo si vas a usar FAISS
         self._ia: InferenceContext  = None
-        self._context_factory        = PatientContextFactory(self.log_fcn)
+        self._context_factory       = PatientContextFactory(self.log_fcn)
 
         self._env.logger.remove_console_handler()
     #----------------------------------------------------------------------------------------------

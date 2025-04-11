@@ -1,13 +1,75 @@
 import  datetime
 import  flet                        as      ft
+import  re
 
 from    fuzzywuzzy                  import  fuzz
-from    logger                      import  Logger 
 from    webapp.webapp.environment   import  Environment
 from    webapp.models.models        import  *
 from    webapp.webapp.factories     import  *
 from    webapp.webapp.navmanger     import  *
 #--------------------------------------------------------------------------------------------------
+
+
+def format_markdown(markdown_text):
+    """
+    Función que procesa un texto markdown.
+    Si encuentra una línea de lista, envuelve en negrita la parte del elemento
+    hasta el primer punto (.) o dos puntos (:), dejándolo sin cambios el resto.
+    """
+    # Patrón para detectar líneas de lista:
+    # - Puede iniciar con espacios en blanco.
+    # - Luego puede tener un marcador de lista: "-", "*", "+" o un número seguido de un punto.
+    # - Después de un espacio, el resto de la línea es el contenido del elemento.
+    list_item_pattern = re.compile(r'^(\s*([-*+]|\d+\.)\s+)(.*)$')
+    
+    new_lines = []
+    for line in markdown_text.splitlines():
+        match = list_item_pattern.match(line)
+        if match:
+            # Separamos el marcador y el contenido de la lista
+            marker = match.group(1)      # Por ejemplo, "  - " o "1. "
+            item_text = match.group(3)     # El contenido del elemento
+            
+            # Buscamos el índice del primer "." o ":"
+            dot_index = item_text.find('.')
+            colon_index = item_text.find(':')
+            
+            # Si ninguno de los dos se encontró, consideramos que se debe formatear todo el texto
+            if dot_index == -1 and colon_index == -1:
+                index = len(item_text)
+                punct = ''
+            else:
+                # Si uno de los dos no se encontró, tomamos el índice del que exista.
+                if dot_index == -1:
+                    index = colon_index
+                    punct = item_text[colon_index]
+                elif colon_index == -1:
+                    index = dot_index
+                    punct = item_text[dot_index]
+                else:
+                    # Ambos existen: se elige el que aparezca primero.
+                    if dot_index < colon_index:
+                        index = dot_index
+                        punct = item_text[dot_index]
+                    else:
+                        index = colon_index
+                        punct = item_text[colon_index]
+            
+            # Separamos el texto a poner en negrita y el resto
+            # Es recomendable quitar espacios laterales en la parte que se bolda para que
+            # el efecto se vea correcto en Markdown.
+            bold_part = item_text[:index].strip()
+            remainder = item_text[index:]
+            
+            # Reconstruimos la línea, dejando el marcador de lista intacto
+            new_line = f"{marker}**{bold_part}**{remainder}"
+            new_lines.append(new_line)
+        else:
+            # Si la línea no es un elemento de lista, se deja sin modificar
+            new_lines.append(line)
+    
+    # Se retorna el texto modificado
+    return "\n".join(new_lines)
 
 class PatitentView(AppView):
     class DatosPaciente:
@@ -165,8 +227,9 @@ class PatitentView(AppView):
         if patitent_id is None:
             self._nav_ctlr.show_error("Paciente no definido")
             self._nav_ctlr.show_home_view()
+            return
         
-        Logger.info(f"Paciente {patitent_id}")
+        self._env.log.info(f"Paciente {patitent_id}")
 
         msg = self._input_chat_field.value.strip()
 
@@ -194,7 +257,7 @@ class PatitentView(AppView):
 
             self._nav_ctlr.show_wait_ctrl()
 
-            bot_msg, gen_time = self._backend.chat(patitent_id, msg)
+            bot_msg, gen_time = self._backend.chat(patitent_id, msg, self._model_selector.value)
 
             self._nav_ctlr.hide_wait_ctrl()
 
@@ -209,7 +272,7 @@ class PatitentView(AppView):
                 content         = ft.Column \
                 (
                     [
-                        ft.Markdown(f"{bot_msg}", md_style_sheet=md_style),
+                        ft.Markdown(f"{format_markdown(bot_msg)}", md_style_sheet=md_style),
                         ft.Text \
                         (
                             gen_time,
@@ -271,11 +334,12 @@ class PatitentView(AppView):
             width       = 500,
             options     = \
             [
-                ft.DropdownOption(key="meta-llama/Llama-3.2-3B-Instruct", content=ft.Text("Llama-3.2-3B-Instruct")),
-                ft.DropdownOption(key="meta-llama/Llama-3.1-8B-Instruct", content=ft.Text("Llama-3.1-8B-Instruct")),
-                ft.DropdownOption(key="gpt-4o-mini", content=ft.Text("chatGPT 4o min")),
-                ft.DropdownOption(key="gpt-3o-mini", content=ft.Text("chatGPT 3o min")),
-            ]
+                ft.DropdownOption(key="Llama-3.2-3B-Instruct",  content=ft.Text("Llama-3.2-3B-Instruct")),
+                ft.DropdownOption(key="Llama-3.1-8B-Instruct",  content=ft.Text("Llama-3.1-8B-Instruct")),
+                ft.DropdownOption(key="gpt-4o-mini",            content=ft.Text("chatGPT 4o min")),
+                ft.DropdownOption(key="gpt-3o-mini",            content=ft.Text("chatGPT 3o min")),
+            ],
+            value="Llama-3.2-3B-Instruct"
         )
 
         ia_model_container = ft.Container \
