@@ -1,0 +1,101 @@
+import asyncio
+import httpx
+import argparse
+import time
+import subprocess
+import random
+import string
+import tiktoken
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--host", type=str, default="http://localhost:8000", help="Host del servidor vLLM")
+parser.add_argument("--max-clients", type=int, default=50, help="Máximo de clientes a probar")
+parser.add_argument("--delay", type=float, default=1.5, help="Segundos entre cada ronda de carga")
+args = parser.parse_args()
+
+ENDPOINT = f"{args.host}/v1/chat/completions"
+HEADERS = {"Content-Type": "application/json"}
+
+# Pregunta compleja para generar salida larga (~500 tokens)
+QUESTION = (
+    "Basándote únicamente en el texto anterior, redacta un análisis exhaustivo con ejemplos, "
+    "detalles, y conexiones históricas que justifiquen las ideas planteadas."
+)
+
+ENCODER = tiktoken.get_encoding("cl100k_base")  # Compatible con la mayoría
+
+def generate_long_context(client_id, max_tokens=1000):
+    random.seed(client_id)
+    base = (
+        "La historia de la humanidad está marcada por avances tecnológicos y filosóficos que han cambiado profundamente las estructuras sociales. "
+    )
+    text = ""
+    while True:
+        block = base + ''.join(random.choices(string.ascii_lowercase + " ", k=80))
+        text += block
+        token_count = len(ENCODER.encode(text))
+        if token_count >= max_tokens:
+            break
+    return text
+
+def get_gpu_metrics():
+    try:
+        output = subprocess.check_output(
+            ["nvidia-smi", "--query-gpu=utilization.gpu,memory.used,memory.total", "--format=csv,nounits,noheader"],
+            encoding="utf-8"
+        )
+        values = output.strip().split(", ")
+        return int(values[0]), int(values[1]), int(values[2])
+    except Exception as e:
+        print(f"⚠️ Error leyendo GPU: {e}")
+        return None, None, None
+
+async def query_model(session, client_id):
+    context = generate_long_context(client_id)
+    full_prompt = context + "\n\n" + QUESTION
+
+    payload = {
+        "model": "microsoft/Phi-4-mini-instruct",
+        "prompt": full_prompt,
+        "max_tokens": 500,
+        "temperature": 0.7,
+        "top_p": 0.9
+    }
+
+    try:
+        start = time.time()
+        response = await session.post(f"{args.host}/v1/completions", headers=HEADERS, json=payload, timeout=180)
+        duration = time.time() - start
+        if response.status_code == 200:
+            output = response.json()["choices"][0]["text"]
+            print(f"[{client_id:02d}] ✅ ({duration:.2f}s) {output[:60]}...")
+            return True
+        else:
+            print(f"[{client_id:02d}] ❌ Error {response.status_code}: {response.text}")
+            return False
+    except Exception as e:
+        print(f"[{client_id:02d}] ❌ Exception: {e}")
+        return False
+
+async def run_round(n_clients):
+    print(f"\n🔄 Probing with {n_clients} concurrent users...")
+    async with httpx.AsyncClient() as session:
+        tasks = [query_model(session, i + 1) for i in range(n_clients)]
+        results = await asyncio.gather(*tasks)
+
+    gpu_util, mem_used, mem_total = get_gpu_metrics()
+    if gpu_util is not None:
+        print(f"📊 GPU: {gpu_util}% | VRAM: {mem_used}/{mem_total} MB")
+
+    return all(results)
+
+async def main():
+    for users in range(1, args.max_clients + 1):
+        success = await run_round(users)
+        if not success:
+            print(f"\n🛑 Capacidad máxima alcanzada con {users - 1} usuarios.")
+            break
+        await asyncio.sleep(args.delay)
+
+if __name__ == "__main__":
+    asyncio.run(main())
