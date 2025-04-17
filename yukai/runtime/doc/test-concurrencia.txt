@@ -1,0 +1,35 @@
+3090
+
+Llama-3.2-3B-instruct
+📊 Resultados:
+   Total peticiones: 347
+   Latencia promedio: 92.36s
+   Latencia mínima:   17.01s
+   Latencia máxima:   150.90s
+   
+📈 GPU: 96% | VRAM: 23349/24576 MB
+
+ms-phy-4
+📊 Resultados:
+   Total peticiones: 297
+   Latencia promedio: 116.05s
+   Latencia mínima:   22.72s
+   Latencia máxima:   214.75s
+
+📈 GPU: 59% | VRAM: 23845/24576 MB
+
+L40
+📊 Resultados:
+   Total peticiones: 343
+   Latencia promedio: 61.85s
+   Latencia mínima:   4.54s
+   Latencia máxima:   171.55s
+
+📈 GPU: 93% | VRAM: 45070/49140 MB
+
+A100
+📊 Resultados:
+   Total peticiones: 345
+   Latencia promedio: 16.43s
+   Latencia mínima:   1.05s
+   Latencia máxima:   53.49s
