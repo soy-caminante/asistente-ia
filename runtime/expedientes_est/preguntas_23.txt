@@ -1,0 +1,10 @@
+¿Qué antecedentes médicos tiene el paciente?
+Resume el tratamiento prescrito.
+¿Cuál es el diagnóstico principal del paciente?
+¿Qué medidas se deben tomar para reducir el riesgo?
+¿Qué recomendaciones se dieron sobre el estilo de vida?
+¿Qué pruebas complementarias se realizaron?
+¿Qué hallazgos se encontraron en el ECG?
+¿Cuál fue la causa de ingreso?
+¿Qué riesgo cardiovascular tiene el paciente y por qué?
+Resume el plan de seguimiento indicado.

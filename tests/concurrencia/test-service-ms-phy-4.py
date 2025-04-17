@@ -9,7 +9,7 @@ import tiktoken
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--host", type=str, default="http://localhost:8000", help="Host del servidor vLLM")
-parser.add_argument("--max-clients", type=int, default=50, help="Máximo de clientes a probar")
+parser.add_argument("--max-clients", type=int, default=40, help="Máximo de clientes a probar")
 parser.add_argument("--delay", type=float, default=1.5, help="Segundos entre cada ronda de carga")
 args = parser.parse_args()
 
@@ -24,7 +24,7 @@ QUESTION = (
 
 ENCODER = tiktoken.get_encoding("cl100k_base")  # Compatible con la mayoría
 
-def generate_long_context(client_id, max_tokens=1000):
+def generate_long_context(client_id, max_tokens=4900):
     random.seed(client_id)
     base = (
         "La historia de la humanidad está marcada por avances tecnológicos y filosóficos que han cambiado profundamente las estructuras sociales. "
@@ -57,7 +57,7 @@ async def query_model(session, client_id):
     payload = {
         "model": "microsoft/Phi-4-mini-instruct",
         "prompt": full_prompt,
-        "max_tokens": 500,
+        "max_tokens": 1000,
         "temperature": 0.7,
         "top_p": 0.9
     }
@@ -90,7 +90,7 @@ async def run_round(n_clients):
     return all(results)
 
 async def main():
-    for users in range(1, args.max_clients + 1):
+    for users in range(35, args.max_clients + 1):
         success = await run_round(users)
         if not success:
             print(f"\n🛑 Capacidad máxima alcanzada con {users - 1} usuarios.")
