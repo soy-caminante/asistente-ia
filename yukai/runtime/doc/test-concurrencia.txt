@@ -33,3 +33,12 @@ A100
    Latencia promedio: 16.43s
    Latencia mínima:   1.05s
    Latencia máxima:   53.49s
+   
+A 100 sin historial:
+📊 Resultados:
+   Total peticiones: 350
+   Latencia promedio: 15.91s
+   Latencia mínima:   0.29s
+   Latencia máxima:   60.88s
+
+📈 GPU: 91% | VRAM: 74437/81920 MB
