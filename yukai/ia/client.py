@@ -6,6 +6,7 @@ from    ia.prompt                                               import IndexerPr
 from    transformers                                            import  AutoTokenizer
 #--------------------------------------------------------------------------------------------------
 
+# hyperstack api-key: 18d10645-1279-4b5d-9df0-78caab8fd1a7
 class InferenceContext:
     @classmethod
     def split_llama_context(cls, api_key, model, src_text: str, n_tokens:int= 120000):
@@ -137,6 +138,8 @@ class InferenceModelClient:
             {"role": "system", "content":   prompt.get_system_promt()    },
             {"role": "user", "content":     prompt.get_user_prompt()     }
         ]
+
+        print(messages)
 
         completion: ChatCompletionOutput = self._client.chat.completions.create \
         (

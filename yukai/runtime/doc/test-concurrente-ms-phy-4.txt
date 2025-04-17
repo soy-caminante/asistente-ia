@@ -1,0 +1,9 @@
+
+📊 Resultados:
+   Total peticiones: 297
+   Latencia promedio: 116.05s
+   Latencia mínima:   22.72s
+   Latencia máxima:   214.75s
+
+📈 GPU: 59% | VRAM: 23845/24576 MB
+(env) pepe@x-OMEN-30L-Desktop-GT13-0xxx:~/ia/asistente-ia/tests/concurrencia/kv-cache$ 

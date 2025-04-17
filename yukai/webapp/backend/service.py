@@ -134,30 +134,41 @@ class BackendService:
         return self._pacientes_db.get_paciente(ref_id)
     #----------------------------------------------------------------------------------------------
 
-    def chat(self, ref_id, question, model: str):
+    def chat(self, ref_id, question, model_ref: str):
         start_ts = time.time()
         try:
             self._env.log.info(f"Cosulta sobre el paciente {ref_id}")
             self._env.log.info(question)
 
-            if "gpt" in model.lower():
+            model = None
+
+            if "gpt" in model_ref.lower():
                 inference_model = self._opena_ai
 
-                if "o3" in model.lower():
+                if "o3" in model_ref.lower():
                     model = "o3-mini"
-                elif "o4" in model.lower():
+                elif "o4" in model_ref.lower():
                     model = "gpt-4o-mini"
                 else:
                     model = "gpt-4o-mini"
             else: 
                 inference_model = self._huggingface
 
-                if "3b" in model.lower():
+                if "llama" in model_ref.lower():
+                    if "3b" in model_ref.lower():
+                        model = "meta-llama/Llama-3.2-3B-Instruct"
+                    elif "8b" in model_ref.lower():
+                        model = "meta-llama/Llama-3.1-8B-Instruct"
+                elif "phi" in model_ref.lower():
+                    if "-2" in model_ref.lower():
+                        model = "microsoft/phi-2"
+                    elif "-4" in model_ref.lower():
+                        model = "microsoft/Phi-4-mini-instruct"
+            if model_ref is None:
                     model = "meta-llama/Llama-3.2-3B-Instruct"
-                elif "8b" in model.lower():
-                    model = "meta-llama/Llama-3.1-8B-Instruct"
-                else:
-                    model = "meta-llama/Llama-3.2-3B-Instruct"
+
+            self._env.log.info(f"Modelo: {model}")
+            
             contexto    = self._pacientes_db.get_contexto_paciente(ref_id)
 
             if contexto:

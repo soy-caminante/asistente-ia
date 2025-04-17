@@ -336,6 +336,8 @@ class PatitentView(AppView):
             [
                 ft.DropdownOption(key="Llama-3.2-3B-Instruct",  content=ft.Text("Llama-3.2-3B-Instruct")),
                 ft.DropdownOption(key="Llama-3.1-8B-Instruct",  content=ft.Text("Llama-3.1-8B-Instruct")),
+                ft.DropdownOption(key="phi-2",                  content=ft.Text("phi-2")),
+                ft.DropdownOption(key="phi-4",                  content=ft.Text("phi-4")),
                 ft.DropdownOption(key="gpt-4o-mini",            content=ft.Text("chatGPT 4o min")),
                 ft.DropdownOption(key="gpt-3o-mini",            content=ft.Text("chatGPT 3o min")),
             ],
