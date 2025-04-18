@@ -33,7 +33,7 @@ A100
    Latencia promedio: 16.43s
    Latencia mínima:   1.05s
    Latencia máxima:   53.49s
-   
+
 A 100 sin historial:
 📊 Resultados:
    Total peticiones: 350
@@ -42,3 +42,69 @@ A 100 sin historial:
    Latencia máxima:   60.88s
 
 📈 GPU: 91% | VRAM: 74437/81920 MB
+
+
+A 100 sin historial - 2:
+ Resultados:
+   Total peticiones: 350
+   Latencia promedio: 15.00s
+   Latencia mínima:   0.22s
+   Latencia máxima:   47.86s
+
+📈 GPU: 86% | VRAM: 74437/81920 MB
+
+A 100 sin historial modelo cuantizado
+
+📊 Resultados:
+   Total peticiones: 350
+   Latencia promedio: 14.87s
+   Latencia mínima:   0.19s
+   Latencia máxima:   53.18s
+
+📈 GPU: 87% | VRAM: 74735/81920 M
+
+A 100 sin historial con precisión fp16
+📊 Resultados:
+   Total peticiones: 350
+   Latencia promedio: 15.54s
+   Latencia mínima:   0.36s
+   Latencia máxima:   49.04s
+
+📈 GPU: 91% | VRAM: 74437/81920 MB
+
+A 100 contexto reducido a la mitad 6000 tokens aproximadamente y precisión fp16
+📊 Resultados:
+   Total peticiones: 350
+   Latencia promedio: 7.63s
+   Latencia mínima:   0.23s
+   Latencia máxima:   18.71s
+
+📈 GPU: 89% | VRAM: 74437/81920 MB
+
+A 100 contexto reducido a la mitad 6000 tokens aproximadamente y precisión máxima vllm con contexto máximo de 8000 tokens
+
+📊 Resultados:
+   Total peticiones: 350
+   Latencia promedio: 8.38s
+   Latencia mínima:   0.25s
+   Latencia máxima:   27.05s
+
+L 40 contexto reducido a la mitad 6000 tokens aproximadamente y precisión máxima vllm con contexto máximo de 8000 tokens
+
+📊 Resultados:
+   Total peticiones: 350
+   Latencia promedio: 14.43s
+   Latencia mínima:   0.50s
+   Latencia máxima:   47.82s
+
+📈 GPU: 93% | VRAM: 42324/46068 MB
+
+L 40 contexto reducido a la mitad 6000 tokens aproximadamente y precisión máxima vllm con contexto máximo de 8000 tokens y precisión fp16
+
+📊 Resultados:
+   Total peticiones: 350
+   Latencia promedio: 14.54s
+   Latencia mínima:   0.24s
+   Latencia máxima:   47.53s
+
+📈 GPU: 93% | VRAM: 42304/46068 MB

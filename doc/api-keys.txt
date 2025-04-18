@@ -1,1 +1,18 @@
 hyperstack: 18d10645-1279-4b5d-9df0-78caab8fd1a7
+azure epepsevilla@outlook.com: 6YRLrCtQRHfSkKOWIU2N7ILYOBuWcHnvm04YSRT8em9qg5rHfT6GJQQJ99BDACfhMk5XJ3w3AAAAACOGZ7gO
+azure epepsevilla@outlook.com: 
+    9kBcoh8vO8imEOevcTQYDnBqbV3lkHkWfOcYMweVIa2R6DIsGWErJQQJ99BDACfhMk5XJ3w3AAAAACOGHdQu
+    https://ai-epepsevilla7492ai124721213842.openai.azure.com/
+
+azure en yukai-servilla@outlook.com
+    inferencia:
+        DF8Qvb8zBxanEG1L8F0louQF5kyBRNlTarzQ3qcEegxozhZELXSoJQQJ99BDACfhMk5XJ3w3AAAAACOG50Mr
+        https://ai-yukaisevilla0557ai738788825307.services.ai.azure.com/models
+
+    openai service
+        DF8Qvb8zBxanEG1L8F0louQF5kyBRNlTarzQ3qcEegxozhZELXSoJQQJ99BDACfhMk5XJ3w3AAAAACOG50Mr
+        https://ai-yukaisevilla0557ai738788825307.openai.azure.com/
+
+    modelo gpt-4o-mini
+        DF8Qvb8zBxanEG1L8F0louQF5kyBRNlTarzQ3qcEegxozhZELXSoJQQJ99BDACfhMk5XJ3w3AAAAACOG50Mr
+        https://ai-yukaisevilla0557ai738788825307.openai.azure.com/openai/deployments/gpt-4o-mini/chat/completions?api-version=2025-01-01-preview
