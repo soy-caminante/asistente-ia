@@ -1,0 +1,7 @@
+httpx
+vllm
+transformers
+torch
+fastapi
+uvicorn
+accelerate
