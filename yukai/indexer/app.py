@@ -8,6 +8,7 @@ from    ia.client                       import  *
 from    ia.prompt                       import  *
 from    ia.context                      import  *
 from    indexer.environment             import  Environment
+from    indexer.gptstress               import  run_stress_test
 from    indexer.search_engine           import  *
 #--------------------------------------------------------------------------------------------------
 
@@ -229,5 +230,13 @@ class CtrlConsole(cmd2.Cmd):
             print("Debes especificar el directorio de entrada del paciente")
     #----------------------------------------------------------------------------------------------
 
+    def do_test_gpt(self, args_obj: cmd2.Statement):
+        the_args    = args_obj.arg_list
+
+        if len(the_args) > 0:
+            num_clients = int(the_args[0])
+        else:
+            num_clients = 35
+        run_stress_test(num_clients)
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------

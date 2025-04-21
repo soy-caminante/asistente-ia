@@ -108,3 +108,51 @@ L 40 contexto reducido a la mitad 6000 tokens aproximadamente y precisión máxi
    Latencia máxima:   47.53s
 
 📈 GPU: 93% | VRAM: 42304/46068 MB
+
+
+AZURE:
+=== Estadísticas de latencia (s) ===
+Mínimo   : 0.517
+Máximo   : 28.886
+Mediana  : 2.577
+Media    : 6.052
+Mediana  : 2.577
+Desv. Típ.: 7.220
+
+
+=== Estadísticas de latencia (s) ===
+Mínimo   : 0.173
+Máximo   : 7.772
+Mediana  : 2.572
+Media    : 2.633
+Mediana  : 2.572
+Desv. Típ.: 1.818
+
+Contexto 8000k
+=== Estadísticas de latencia (s) ===
+Mínimo   : 0.175
+Máximo   : 8.423
+Mediana  : 2.876
+Media    : 2.988
+Mediana  : 2.876
+Desv. Típ.: 1.973
+
+Contexto 8000k 1 segundo entre peticiones
+=== Estadísticas de latencia (s) ===
+Mínimo   : 0.208
+Máximo   : 10.393
+Mediana  : 3.623
+Media    : 4.058
+Mediana  : 3.623
+Desv. Típ.: 2.772
+
+
+RTX 6000: Contexto 8000k 15 segundos entre peticiones
+
+=== Estadísticas de latencia (s) ===
+Mínimo   : 0.282
+Máximo   : 13.193
+Mediana  : 4.246
+Media    : 4.424
+Mediana  : 4.246
+Desv. Típ.: 2.988
