@@ -4,9 +4,13 @@ import  pathlib
 
 from    dataclasses                     import  dataclass
 from    logger                          import  Logger
-from    pmanager.backend.environment    import  Environment
+from    pmanager.backend.environment    import  Environment         as BackEnvironment
 from    pmanager.backend.service        import  BackendService
 from    pmanager.view.app               import  App
+from    pmanager.view.environment       import  Environment         as AppEnvironment
+from    pmanager.view.factories         import  Factories, ColorPalette
+from    pmanager.view.snackbar          import  set_snackbar_mngr
+from    tools.factories                 import  *
 from    tools.tools                     import  get_assets_dir_path
 #--------------------------------------------------------------------------------------------------
 
@@ -78,15 +82,14 @@ def load_args() -> Args:
     return Args(mode, runtime, assets, Logger(log).setup("pmanager", runtime / "logs", True), port)
 #--------------------------------------------------------------------------------------------------
 
-
 class Booter:
     def __init__(self):
-        self._args                      = load_args()
+        self._args = load_args()
     #----------------------------------------------------------------------------------------------
     
     def run(self):
-        self._backend = BackendService(Environment(self._args.log,
-                                                   self._args.runtime))
+        self._backend = BackendService(BackEnvironment( self._args.log,
+                                                        self._args.runtime))
 
         self._args.log.info("YUKAI pmanager running")
         self._args.log.info("assets: ", self._args.assets_dir)
@@ -102,7 +105,11 @@ class Booter:
     #----------------------------------------------------------------------------------------------
 
     def run_app(self, page: ft.Page):
-        App( page,
-                WebEnvironment(self._backend._env.log, self._backend))
+        set_snackbar_mngr(page)
+        Factories.setup(TextFactory("#54BAAD"), 
+                        ButtonFactory("#54BAAD"),
+                        LogoFactory(),
+                        ColorPalette("#54BAAD"))
+        App(page, AppEnvironment(self._args.log), self._backend)
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------

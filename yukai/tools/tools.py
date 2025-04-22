@@ -1,8 +1,11 @@
 import  datetime
+import  functools
 import  os
 import  pathlib
 import  re
 import  sys
+
+from    typing                      import Callable, TypeVar, Generic, Any
 #--------------------------------------------------------------------------------------------------
 
 def get_matches_case_no_sensitive(lista_cadenas, patron):
@@ -61,9 +64,10 @@ def get_elapsed_years(fecha_nacimiento):
     return edad
 #--------------------------------------------------------------------------------------------------
 
-class StatusInfo:
+T = TypeVar('T')
+class StatusInfo(Generic[T]):
     @classmethod
-    def ok(cls, value=None):
+    def ok(cls, value: T=None):
         return cls(value)
     #----------------------------------------------------------------------------------------------
     @classmethod 
@@ -71,7 +75,7 @@ class StatusInfo:
         return cls().set_error(info)
     #----------------------------------------------------------------------------------------------
     
-    def __init__(self, value=None, info=None):
+    def __init__(self, value:T=None, info=None):
         self._value = value
         self._info  = info
     #----------------------------------------------------------------------------------------------
@@ -80,7 +84,7 @@ class StatusInfo:
         return self._value is not None
     #----------------------------------------------------------------------------------------------
     
-    def set_ok(self, value, info=None):
+    def set_ok(self, value:T, info=None):
         self._value = value
         self._info  = info
         return self
@@ -96,11 +100,11 @@ class StatusInfo:
         return self._value is not None
     #----------------------------------------------------------------------------------------------
 
-    def get(self):
+    def get(self) -> T:
         return self._value
     #----------------------------------------------------------------------------------------------
 
-    def or_else(self, default_value):
+    def or_else(self, default_value: T|None=None) -> T|None:
         return self._value if self._value is not None else default_value
     #----------------------------------------------------------------------------------------------
 
@@ -108,4 +112,29 @@ class StatusInfo:
         if self._value is not None:
             consumer(self._value)
     #----------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
+
+def try_catch(log_fcn: Callable, catch: tuple = (Exception,), default: Any = None,):
+    def decorator(func: Callable[..., T]) -> Callable[..., T | Any]:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except catch as e:
+                log_fcn(e)
+                return default
+        return wrapper
+    return decorator
+#--------------------------------------------------------------------------------------------------
+
+def void_try_catch(log_fcn: Callable, catch: tuple = (Exception,)):
+    def decorator(func: Callable[..., T]) -> Callable[..., None]:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except catch as e:
+                log_fcn(e)
+        return wrapper
+    return decorator
 #--------------------------------------------------------------------------------------------------

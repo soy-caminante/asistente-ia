@@ -3,12 +3,15 @@ import  flet                        as      ft
 from    dataclasses                 import  dataclass
 from    difflib                     import  SequenceMatcher
 from    models.models               import  *
-from    pmanager.environment        import  Environment
 from    pmanager.backend.service    import  BackendService
-from    tools.factories             import  *
+from    pmanager.view.environment   import  Environment
+from    pmanager.view.snackbar      import  show_snackbar
+from    pmanager.view.factories     import  Factories
+from    tools.tools                 import  *
 #--------------------------------------------------------------------------------------------------
 
-class PacienteList(ft.Column):
+
+class PacienteList(ft.Column, Factories):
     @dataclass
     class Content:
         db_id:      str
@@ -21,14 +24,14 @@ class PacienteList(ft.Column):
         def changed(self, _): self.selected = not self.selected
     #----------------------------------------------------------------------------------------------
 
-    def __init__(self,  id:                 str,
+    def __init__(self,  title:              str,
                         reload_fcn:         callable,
                         consolidate_fcn:    callable,
                         duplicate_fcn:      callable,
                         delete_fcn:         callable,
                         **kwargs):
         super().__init__(**kwargs)
-        self._id                = id
+        self._title             = title
         self._reload_fcn        = reload_fcn
         self._consolidate_fcn   = consolidate_fcn
         self._duplicate_fcn     = duplicate_fcn
@@ -37,7 +40,10 @@ class PacienteList(ft.Column):
         self.build_ui()
     #----------------------------------------------------------------------------------------------
 
-    def add(self, pacientes: PacienteShort|list[PacienteShort]):
+    def set_values(self, pacientes: PacienteShort|list[PacienteShort]):
+        self._list_content.clear()
+        self._list_ctrl.controls.clear()
+        
         if isinstance(pacientes, Paciente):
             pacientes = [ pacientes ]
         for paciente in pacientes:
@@ -53,7 +59,6 @@ class PacienteList(ft.Column):
                                                         paciente.apellidos,
                                                         paciente.nombre))
         self._list_content.sort(key=lambda c: c.apellidos.lower())
-        self._list_ctrl.controls.clear()
 
         for p in self._list_content:
             ft.Checkbox.on_change
@@ -89,7 +94,7 @@ class PacienteList(ft.Column):
     
     def reload(self):
         self._list_content.clear() 
-        self.add(self._reload_fcn(self._id))
+        self.set_values(self._reload_fcn())
     #----------------------------------------------------------------------------------------------
     
     def remove_selected(self):
@@ -97,7 +102,7 @@ class PacienteList(ft.Column):
         for p in self._list_content:
             if p.selected: targets.append(p.db_id)
         self._list_content.clear()
-        self.add(self._delete_fcn(targets))
+        self.set_values(self._delete_fcn(targets))
     #----------------------------------------------------------------------------------------------
 
     def consolidate(self):
@@ -119,8 +124,6 @@ class PacienteList(ft.Column):
     #----------------------------------------------------------------------------------------------
 
     def build_ui(self):
-        tf: TextFactory = get_text_factory()
-
         self._list_ctrl     = ft.Column([])
         self._search_text   = ft.TextField( hint_text   = "Buscar paciente...",
                                             on_change   = self.search,
@@ -131,7 +134,7 @@ class PacienteList(ft.Column):
 
         self.controls   = \
         [
-            tf.container_title(),
+            self.tf.container_title(self._title),
             ft.Row \
             (
                 [
@@ -175,36 +178,101 @@ class PacienteList(ft.Column):
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
-class MainPanel(ft.Column):
-    def __init__(self, **kwargs):
+class MainPanel(ft.Column, Factories):
+    def __init__(self, backend: BackendService, **kwargs):
         super().__init__(**kwargs)
+        self._backend   = backend
+        self._src_list  = PacienteList( "Pacientes",
+                                        self.reload_src_pacientes,
+                                        self.consolidate_src_pacientes,
+                                        self.check_src_duplicates,
+                                        self.delete_src_pacientes)
         
+        self._con_list  = PacienteList( "Pacientes Consolidados",
+                                        None,
+                                        None,
+                                        self.check_consolidated_duplicates,
+                                        self.delete_consolidates_pacientes)
     #----------------------------------------------------------------------------------------------
 
-    def build_ui(self):
+    @void_try_catch(Environment.log_fcn)
+    def reload_src_pacientes(self):
+        status = self._backend.load_all_src_pacientes()
+        if status:
+            self._src_list.set_values(status.get())
+        else:
+            show_snackbar("Error en la recarga de los pacientes")
+    #----------------------------------------------------------------------------------------------
+
+    @void_try_catch(Environment.log_fcn)
+    def consolidate_src_pacientes(self, pacientes: list[str]):
+        status = self._backend.consolidate_pacientes(pacientes)
+
+        if status:
+            self._con_list.set_values(status.get())
+        else:
+            show_snackbar("Error en la consolidación de los pacientes")
+    #----------------------------------------------------------------------------------------------
+
+    @void_try_catch(Environment.log_fcn)
+    def check_src_duplicates(self):
         pass
+    #----------------------------------------------------------------------------------------------
+
+    @void_try_catch(Environment.log_fcn)
+    def check_consolidated_duplicates(self):
+        pass
+    #----------------------------------------------------------------------------------------------
+
+    @void_try_catch(Environment.log_fcn)
+    def delete_src_pacientes(self, pacientes: list[str]):
+        status = self._backend.delete_src_pacientes(pacientes)
+
+        if status:
+            self._src_list.set_values(status.get())
+        else:
+            show_snackbar("Error en la consolidación de los pacientes")
+    #----------------------------------------------------------------------------------------------
+
+    @void_try_catch(Environment.log_fcn)
+    def delete_consolidates_pacientes(self, pacientes: list[str]):
+        status = self._backend.delete_consolidated_pacientes(pacientes)
+
+        if status:
+            self._con_list.set_values(status.get())
+        else:
+            show_snackbar("Error en la consolidación de los pacientes")        
+    #----------------------------------------------------------------------------------------------
+
+    @void_try_catch(Environment.log_fcn)
+    def build_ui(self):
+        self.controls   = ft.Row(controls   = [ self._src_list, self._con_list],
+                                 expand     = True,
+                                 alignment  = ft.MainAxisAlignment.CENTER)
+        self.expand     = True
+        self.alignment  = ft.MainAxisAlignment.START
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
-class LandingView(ft.View):
-    def __init__(self, page:ft.Page, route, env:Environment, backend:BackendService):
-        super().__init__(route=route, page=page)
+class LandingView(ft.View, Factories):
+    def __init__(self, page: ft.Page, route: str, env:Environment, backend:BackendService):
+        super().__init__(route=route)
+        self.page           = page
         self._env           = env
         self._backend       = backend
         self.build_ui()
     #----------------------------------------------------------------------------------------------
 
     def build_ui(self):
-        tf                      = get_text_factory()
-        logo_container          = LogoFactory.buil_logo(self.page, "/imgs/logo.png")
+        logo_container          = self.lf.buil_logo(self.page, "/imgs/logo.png")
 
         self._overlay_bg        = ft.Container(     bgcolor=ft.colors.BLACK54,
                                                     expand=True,
                                                     opacity=0.7,
                                                     animate_opacity=300,
                                                     visible=False)
-                
-        self._sync_info         = tf.mosaic_title("Procesando...")
+        self._main_panel        = MainPanel(self._backend)
+        self._sync_info         = self.tf.mosaic_title("Procesando...")
         self._wait_sync         = ft.Row \
         (   
             [
@@ -230,7 +298,7 @@ class LandingView(ft.View):
             ft.Row \
             (
                 [
-                    tf.page_title("Gestor de Pacientes"),
+                    self.tf.page_title("Gestor de Pacientes"),
                     ft.Container(expand=True),
                     logo_container,
 
@@ -238,7 +306,7 @@ class LandingView(ft.View):
                 expand      = True,
                 alignment   = ft.MainAxisAlignment.START
             ),
-            border          = ft.border.only(bottom=ft.BorderSide(2, self._env._color_palette.grey)),  
+            border          = ft.border.only(bottom=ft.BorderSide(2, self.cp.grey)),  
             padding         = 10
         )
 

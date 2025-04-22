@@ -12,13 +12,13 @@ class MainArgs:
 
     def is_web(self):       return self.system == "web"
     def is_indexer(self):   return self.system == "indexer"
-    def is_pmanager(self):  return self.system == "pmanager"
+    def is_pmanager(self):  return self.system == "pacientes"
 #--------------------------------------------------------------------------------------------------
 
 def load_args() -> MainArgs:
     parser = argparse.ArgumentParser(description="YUKAI: Herramienta de atención hospitalaria")
     parser.add_argument('--system', help    = 'Sistema', 
-                                    choices = [ 'indexer', 'web', 'pmanager' ],    
+                                    choices = [ 'indexer', 'web', 'pacientes' ],    
                                     required= True)
     args    = parser.parse_known_args()
     pargs   = vars(args[0])
