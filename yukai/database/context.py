@@ -12,6 +12,7 @@ class PatitnetInfo:
     fecha_nacimiento: str
     sexo: str
     id: str
+    id_interno: str
 #--------------------------------------------------------------------------------------------------
 
 class CompactEncoder:
@@ -138,89 +139,32 @@ class PatientContext:
     NAME        = "nombre"
     APELLIDOS   = "apellidos"
     ID          = "id"
+    ID_INTERNO  = "id-interno"
     BDATE       = "fecha-nacimiento"
     SEX         = "sexo"
     IADOCS      = "documentos-ia"
     SRCDOCS     = "documentos"
     #----------------------------------------------------------------------------------------------
 
-    def __init__(self, info: PatitnetInfo=None, iadocs: dict[str:str]={}, srcdocs: dict[str:str]={}):
-        self._json_obj  = { }
-
-        if info:
-            self.name       = info.nombre
-            self.apellidos  = info.apellidos
-            self.id         = info.id
-            self.sexo        = info.sexo
-            self.fecha_nacimiento = info.fecha_nacimiento
-            self.iadocs     = iadocs
-            self.srcdocs    = srcdocs
+    def __init__(self, info: PatitnetInfo, iadocs: dict[str:str]={}, srcdocs: dict[str:str]={}):
+        self.name               = info.nombre
+        self.apellidos          = info.apellidos
+        self.id                 = info.id
+        self.id_interno         = info.id_interno
+        self.sexo               = info.sexo
+        self.fecha_nacimiento   = info.fecha_nacimiento
+        self.iadocs             = iadocs
+        self.srcdocs            = srcdocs
     #----------------------------------------------------------------------------------------------
 
     def get_id_json(self):
         return asdict(PatitnetInfo(self.name, self.apellidos, self.fecha_nacimiento, self.sexo, self.id))
     #----------------------------------------------------------------------------------------------
 
-    @property
-    def name(self) -> str: return self._json_obj[self.NAME]
+    def add_ia_doc(self, k, v): self.iadocs[k] = v
     #----------------------------------------------------------------------------------------------
 
-    @property
-    def apellidos(self) -> str: return self._json_obj[self.APELLIDOS]
-    #----------------------------------------------------------------------------------------------
-
-    @property
-    def id(self) -> str: return self._json_obj[self.ID]
-    #----------------------------------------------------------------------------------------------
-
-    @property
-    def fecha_nacimiento(self) -> str: return self._json_obj[self.BDATE]
-    #----------------------------------------------------------------------------------------------
-
-    @property
-    def sexo(self) -> str: return self._json_obj[self.SEX]
-    #----------------------------------------------------------------------------------------------
-
-    @property
-    def iadocs(self) -> dict[str:str]: return self._json_obj[self.IADOCS]
-    #----------------------------------------------------------------------------------------------
-
-    @property
-    def srcdocs(self) -> dict[str:str]: return self._json_obj[self.SRCDOCS]
-    #----------------------------------------------------------------------------------------------
-
-    @name.setter
-    def name(self, v): self._json_obj[self.NAME] = v
-    #----------------------------------------------------------------------------------------------
-
-    @apellidos.setter
-    def apellidos(self, v): self._json_obj[self.APELLIDOS] = v
-    #----------------------------------------------------------------------------------------------
-
-    @id.setter
-    def id(self, v): self._json_obj[self.ID] = v
-    #----------------------------------------------------------------------------------------------
-
-    @fecha_nacimiento.setter
-    def fecha_nacimiento(self, v): self._json_obj[self.BDATE] = v
-    #----------------------------------------------------------------------------------------------
-
-    @sexo.setter
-    def sexo(self, v): self._json_obj[self.SEX] = v
-    #----------------------------------------------------------------------------------------------
-
-    @iadocs.setter
-    def iadocs(self, v): self._json_obj[self.IADOCS] = v
-    #----------------------------------------------------------------------------------------------
-
-    def add_ia_doc(self, k, v): self._json_obj[self.IADOCS][k] = v
-    #----------------------------------------------------------------------------------------------
-
-    @srcdocs.setter
-    def srcdocs(self, v): self._json_obj[self.SRCDOCS] = v
-    #----------------------------------------------------------------------------------------------
-
-    def add_src_doc(self, k, v): self._json_obj[self.SRCDOCS][k] = v
+    def add_src_doc(self, k, v): self.srcdocs[k] = v
     #----------------------------------------------------------------------------------------------
 
     def get_context(self):

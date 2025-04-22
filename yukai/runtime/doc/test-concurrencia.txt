@@ -156,3 +156,150 @@ Mediana  : 4.246
 Media    : 4.424
 Mediana  : 4.246
 Desv. Típ.: 2.988
+
+RTX 3090: Contexto 8000k 15 segundos entre peticiones
+
+=== Estadísticas de latencia (s) ===
+Mínimo   : 0.262
+Máximo   : 14.408
+Mediana  : 3.970
+Media    : 4.254
+Mediana  : 3.970
+Desv. Típ.: 3.012
+
+RTX 3090: Contexto 8000k 1 segundos entre peticiones
+
+=== Estadísticas de latencia (s) ===
+Mínimo   : 0.326
+Máximo   : 13.335
+Mediana  : 5.310
+Media    : 5.514
+Mediana  : 5.310
+Desv. Típ.: 3.721
+
+RTX 3090: Contexto 8000k 1 segundos entre peticiones. Modelo 8B
+
+=== Estadísticas de latencia (s) ===
+Mínimo   : 0.587
+Máximo   : 48.265
+Mediana  : 20.315
+Media    : 20.444
+Mediana  : 20.315
+Desv. Típ.: 9.549
+
+A40 Contexto 8000k 15 segundos entre peticiones. Modelo 8B
+=== Estadísticas de latencia (s) ===
+Mínimo   : 0.407
+Máximo   : 22.249
+Mediana  : 7.648
+Media    : 7.560
+Mediana  : 7.648
+Desv. Típ.: 4.281
+
+
+A40 Contexto 8000k 15 segundos entre peticiones. Modelo Mistral 7B
+=== Estadísticas de latencia (s) ===
+Mínimo   : 0.464
+Máximo   : 22.953
+Mediana  : 5.509
+Media    : 7.049
+Mediana  : 5.509
+Desv. Típ.: 4.801
+
+A40 Contexto 8000k 15 segundos entre peticiones. Modelo Mistral 7B y tipo BF16
+=== Estadísticas de latencia (s) ===
+Mínimo   : 0.430
+Máximo   : 23.973
+Mediana  : 5.709
+Media    : 7.003
+Mediana  : 5.709
+Desv. Típ.: 4.909
+
+RTX A6000 Contexto 8000k 15 segundos entre peticiones. Modelo Mistral 7B y tipo BF16
+
+=== Estadísticas de latencia (s) ===
+Mínimo   : 0.576
+Máximo   : 29.206
+Mediana  : 7.210
+Media    : 8.546
+Mediana  : 7.210
+Desv. Típ.: 5.461
+
+RTX A6000 Contexto 8000k 1 segundos entre peticiones. Modelo Mistral 7B y tipo BF16
+
+=== Estadísticas de latencia (s) ===
+Mínimo   : 0.759
+Máximo   : 37.685
+Mediana  : 7.450
+Media    : 9.684
+Mediana  : 7.450
+Desv. Típ.: 6.666
+
+RTX A6000 Contexto 8000k 1 segundos entre peticiones. Modelo Llama 3.2 3B
+
+=== Estadísticas de latencia (s) ===
+Mínimo   : 0.294
+Máximo   : 16.365
+Mediana  : 5.697
+Media    : 5.909
+Mediana  : 5.697
+Desv. Típ.: 4.002
+
+RTX A6000 Contexto 8000k 15 segundos entre peticiones. Modelo Llama 3.2 3B
+
+=== Estadísticas de latencia (s) ===
+Mínimo   : 0.257
+Máximo   : 10.743
+Mediana  : 3.610
+Media    : 3.949
+Mediana  : 3.610
+Desv. Típ.: 2.698
+
+RTX A6000 Contexto 8000k 1 segundos entre peticiones. Modelo Llama 3.1 8B
+
+=== Estadísticas de latencia (s) ===
+Mínimo   : 0.496
+Máximo   : 24.896
+Mediana  : 9.534
+Media    : 9.423
+Mediana  : 9.534
+Desv. Típ.: 5.312
+
+RTX A6000 Contexto 8000k 15 segundos entre peticiones. Modelo Llama 3.1 8B
+
+=== Estadísticas de latencia (s) ===
+Mínimo   : 0.557
+Máximo   : 26.073
+Mediana  : 11.191
+Media    : 10.540
+Mediana  : 11.191
+Desv. Típ.: 5.770
+
+A100 Contexto 8000k 1 segundos entre peticiones. Modelo Mistral 7B y tipo BF16
+=== Estadísticas de latencia (s) ===
+Mínimo   : 0.306
+Máximo   : 21.359
+Mediana  : 4.543
+Media    : 5.548
+Mediana  : 4.543
+Desv. Típ.: 3.613
+
+A100 Contexto 8000k 1 segundos entre peticiones. Modelo Llama 3.1-8B
+
+=== Estadísticas de latencia (s) ===
+Mínimo   : 0.270
+Máximo   : 14.434
+Mediana  : 6.003
+Media    : 6.049
+Mediana  : 6.003
+Desv. Típ.: 3.250
+
+A100 Contexto 8000k 1 segundos entre peticiones. Modelo Llama 3.2-3B
+
+=== Estadísticas de latencia (s) ===
+Mínimo   : 0.213
+Máximo   : 8.646
+Mediana  : 3.141
+Media    : 3.278
+Mediana  : 3.141
+Desv. Típ.: 2.146

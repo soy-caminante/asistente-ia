@@ -1,1 +1,8 @@
-{"nombre": "Luis", "apellidos": "Ram\u00edrez L\u00f3pez", "fecha_nacimiento": "27-05-1980", "sexo": "hombre", "id": "0002"}
+{
+        "nombre": "Luis",
+        "apellidos": "Ramírez López",
+        "fecha_nacimiento": "27-05-1980",
+        "sexo": "hombre",
+        "id": "0002",
+        "id_interno": "0002"
+}

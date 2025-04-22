@@ -66,13 +66,32 @@ class ChatClient:
 
 def load():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--host", type=str, default="http://localhost:8000", help="Host del servidor vLLM")
-    parser.add_argument("--data", type=str, default="clientes-data.json", help="Ruta al archivo JSON con expedientes y preguntas")
+    parser.add_argument("--host",   type    =str,     
+                                    default ="http://localhost:8000", 
+                                    help="Host del servidor vLLM")
+    parser.add_argument("--data",   type=str,     
+                                    default="clientes-data.json", 
+                                    help="Ruta al archivo JSON con expedientes y preguntas")
+    parser.add_argument("--model",  type=str,    
+                                    default="L3B", 
+                                    help="Ruta al archivo JSON con expedientes y preguntas")
     args = parser.parse_args()
 
     ChatClient.ENDPOINT = f"{args.host}/v1/chat/completions"
     ChatClient.HEADERS = {"Content-Type": "application/json"}
-    ChatClient.MODEL_NAME = "meta-llama/Llama-3.2-3B-Instruct"
+
+    if args.model == "L8B":
+        ChatClient.MODEL_NAME = "meta-llama/Llama-3.1-8B-Instruct"
+    elif args.model == "M7B":
+        ChatClient.MODEL_NAME = "mistralai/Mistral-7B-Instruct-v0.3"
+    elif args.model == "M8x7B":
+         ChatClient.MODEL_NAME = "mistralai/Mixtral-8x7B-Instruct-v0.1"
+    elif args.model == "M7BQ":
+         ChatClient.MODEL_NAME = "unsloth/mistral-7b-instruct-v0.3-bnb-4bit"
+    else:
+        ChatClient.MODEL_NAME = "meta-llama/Llama-3.2-3B-Instruct"
+
+    print(f"Modelo: {ChatClient.MODEL_NAME}")
 
     data_path = Path.cwd() / Path(args.data)
 

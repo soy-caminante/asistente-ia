@@ -4,11 +4,10 @@ import  pathlib
 
 from    dataclasses                     import  dataclass
 from    logger                          import  Logger
+from    pmanager.backend.environment    import  Environment
+from    pmanager.backend.service        import  BackendService
+from    pmanager.view.app               import  App
 from    tools.tools                     import  get_assets_dir_path
-from    webapp.backend.environment      import  Environment as BackEnvironment
-from    webapp.backend.service          import  BackendService
-from    webapp.webapp.environment       import  Environment as WebEnvironment
-from    webapp.webapp.webapp            import  WebApp
 #--------------------------------------------------------------------------------------------------
 
 @dataclass
@@ -21,7 +20,7 @@ class Args:
 #--------------------------------------------------------------------------------------------------
 
 def load_args() -> Args:
-    parser = argparse.ArgumentParser(description="YUKAI: Herramienta de indexación de historiales clínicos")
+    parser = argparse.ArgumentParser(description="YUKAI: Herramienta de gestión de clientes")
     parser.add_argument('--system',     help        = 'Sistema',    
                                         required    = True)
     parser.add_argument('--runtime',    help        = 'Directorio de ejecución')
@@ -33,7 +32,7 @@ def load_args() -> Args:
                                         required    = True)
     parser.add_argument('--web-port',   help        = 'Pueto web', 
                                         type        = int,
-                                        default     = 8080,
+                                        default     = 8081,
                                         required    = False)
 
     args    = parser.parse_known_args()
@@ -76,21 +75,20 @@ def load_args() -> Args:
 
     (runtime / "logs").mkdir(parents=True, exist_ok=True)
 
-    return Args(mode, runtime, assets, Logger(log).setup("web", runtime / "logs", True), port)
+    return Args(mode, runtime, assets, Logger(log).setup("pmanager", runtime / "logs", True), port)
 #--------------------------------------------------------------------------------------------------
 
 
 class Booter:
     def __init__(self):
         self._args                      = load_args()
-        self._backend: BackendService   = None
     #----------------------------------------------------------------------------------------------
     
     def run(self):
-        self._backend = BackendService(BackEnvironment( self._args.log,
-                                                        self._args.runtime / "consolidated"))
+        self._backend = BackendService(Environment(self._args.log,
+                                                   self._args.runtime))
 
-        self._args.log.info("YUKAI web running")
+        self._args.log.info("YUKAI pmanager running")
         self._args.log.info("assets: ", self._args.assets_dir)
 
         if self._args.mode == "console":    
@@ -104,7 +102,7 @@ class Booter:
     #----------------------------------------------------------------------------------------------
 
     def run_app(self, page: ft.Page):
-        WebApp( page,
+        App( page,
                 WebEnvironment(self._backend._env.log, self._backend))
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------

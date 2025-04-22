@@ -1,4 +1,4 @@
-import flet as ft
+import flet         as ft
 import pathlib
 #--------------------------------------------------------------------------------------------------
 
@@ -52,15 +52,21 @@ class ButtonFactory:
 
 class TextFactory:
     def __init__(self,  style_color     = "#54BAAD",
+                        page_size       = 64,
                         container_size  = 32,
                         mosaic_size     = 24,
                         row_title_size  = 16,
                         row_text_size   = 16):
         self._style_color       = style_color
+        self._page_size         = page_size
         self._container_size    = container_size
         self._mosaic_size       = mosaic_size
         self._row_title_size    = row_title_size
         self._row_text_size     = row_text_size
+    #----------------------------------------------------------------------------------------------
+
+    def page_title(self, text):
+        return ft.Text(text, weight=ft.FontWeight.BOLD, color=self._style_color, size=self._page_size)
     #----------------------------------------------------------------------------------------------
 
     def mosaic_title(self, text):
@@ -103,7 +109,7 @@ def set_text_factory(factory: TextFactory):
     text_factory = factory
 #--------------------------------------------------------------------------------------------------
 
-def get_text_factory(): return text_factory
+def get_text_factory() -> TextFactory: return text_factory
 #--------------------------------------------------------------------------------------------------
 
 class IconFactory:

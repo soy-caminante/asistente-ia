@@ -1,5 +1,27 @@
+from    dataclasses             import  dataclass
+from    tools.tools             import  get_elapsed_years
+from difflib import SequenceMatcher
+#--------------------------------------------------------------------------------------------------
+
+@dataclass
+class PacienteShort:
+    db_id:              str
+    dni:                str
+    ref_id:             str
+    nombre:             str
+    apellidos:          str
+    fecha_nacimiento:   str
+    sexo:               str
+
+    @property
+    def edad(self): return get_elapsed_years(self.fecha_nacimiento)
+    #----------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
+
 class Paciente:
     def __init__(self):
+        self._db_id             = ""
+        self._dni               = ""
         self._ref_id            = ""
         self._nombre            = ""
         self._apellidos         = ""
@@ -12,6 +34,22 @@ class Paciente:
         self._visitas           = [ ]
         self._ingresos          = [ ]
         self._documentos        = [ ]
+    #----------------------------------------------------------------------------------------------
+
+    @property
+    def db_id(self): return self._db_id
+    #----------------------------------------------------------------------------------------------
+
+    @db_id.setter
+    def db_id(self, v): self._db_id = v
+    #----------------------------------------------------------------------------------------------
+
+    @property
+    def dni(self): return self._dni
+    #----------------------------------------------------------------------------------------------
+
+    @dni.setter
+    def dni(self, v): self._dni = v
     #----------------------------------------------------------------------------------------------
 
     @property
@@ -44,6 +82,10 @@ class Paciente:
 
     @fecha_nacimiento.setter
     def fecha_nacimiento(self, v): self._fecha_nacimiento = v
+    #----------------------------------------------------------------------------------------------
+
+    @property
+    def edad(self): return get_elapsed_years(self.fecha_nacimiento)
     #----------------------------------------------------------------------------------------------
 
     @property
@@ -107,3 +149,20 @@ class Paciente:
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
+def find_duplicates(pacientes):
+    duplicates = []
+    for i, paciente1 in enumerate(pacientes):
+        for j, paciente2 in enumerate(pacientes):
+            if i >= j:
+                continue
+            if paciente1.dni == paciente2.dni or paciente1.ref_id == paciente2.ref_id:
+                duplicates.append((paciente1, paciente2))
+            else:
+                full_name_1 = f"{paciente1.nombre} {paciente1.apellidos}"
+                full_name_2 = f"{paciente2.nombre} {paciente2.apellidos}"
+                reversed_name_2 = f"{paciente2.apellidos} {paciente2.nombre}"
+                similarity_1 = SequenceMatcher(None, full_name_1, full_name_2).ratio()
+                similarity_2 = SequenceMatcher(None, full_name_1, reversed_name_2).ratio()
+                if similarity_1 > 0.9 or similarity_2 > 0.9:
+                    duplicates.append((paciente1, paciente2))
+    return duplicates

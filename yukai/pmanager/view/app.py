@@ -1,12 +1,12 @@
 import  flet                            as      ft
+from    pmanager.environment            import  Environment
 from    tools.factories                 import  *
-from    webapp.webapp.environment       import  Environment
 from    webapp.webapp.navmanger         import  *
 from    webapp.webapp.patitienview      import  PatitentView
 from    webapp.webapp.searchview        import  SearchView
 #--------------------------------------------------------------------------------------------------
 
-class WebApp:
+class App:
     def __init__(self, page: ft.Page, env: Environment):
         self._env                       = env
         self._page                      = page
@@ -16,8 +16,13 @@ class WebApp:
     #----------------------------------------------------------------------------------------------
 
     def _build_ui(self):
-        self._page.title        = "SOCIEDAD - AI"
+        self._page.title        = "Gestor de Pacientes"
         self._page.theme_mode   = "light"
-        self._nav_ctlr.show_home_view()
+        
+        new_view: AppView = self._views["/"]
+        self._page.views.clear()
+        self._page.views.append(new_view)
+        self._page.session.clear()
+        self._page.go(new_view.route)
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------

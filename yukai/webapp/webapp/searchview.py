@@ -1,8 +1,8 @@
 import  flet                        as      ft
 
+from    models.models               import  *
+from    tools.factories             import  *
 from    webapp.webapp.environment   import  Environment
-from    webapp.models.models        import  *
-from    webapp.webapp.factories     import  *
 from    webapp.webapp.navmanger     import  *
 #--------------------------------------------------------------------------------------------------
 

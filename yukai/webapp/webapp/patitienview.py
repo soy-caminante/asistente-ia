@@ -3,9 +3,10 @@ import  flet                        as      ft
 import  re
 
 from    fuzzywuzzy                  import  fuzz
+from    models.models               import  *
+from    tools.factories             import  *
+from    tools.tools                 import  get_elapsed_years
 from    webapp.webapp.environment   import  Environment
-from    webapp.models.models        import  *
-from    webapp.webapp.factories     import  *
 from    webapp.webapp.navmanger     import  *
 #--------------------------------------------------------------------------------------------------
 
@@ -88,25 +89,8 @@ class PatitentView(AppView):
         #------------------------------------------------------------------------------------------
 
         def update(self, paciente: Paciente):
-            def get_patient_age(fecha_nacimiento):
-                # Convertir la cadena de texto a un objeto datetime
-                fecha_nacimiento = datetime.datetime.strptime(fecha_nacimiento, "%d-%m-%Y")
-                
-                # Obtener la fecha actual
-                fecha_actual = datetime.datetime.now()
-                
-                # Calcular la edad en años
-                edad = fecha_actual.year - fecha_nacimiento.year
-                
-                # Ajustar si la fecha de nacimiento aún no ha ocurrido este año
-                if (fecha_actual.month, fecha_actual.day) < (fecha_nacimiento.month, fecha_nacimiento.day):
-                    edad -= 1
-
-                return edad
-            #--------------------------------------------------------------------------------------
-
             self.set_nombre(f"{paciente.apellidos}, {paciente.nombre}")
-            self.set_edad(f"Edad: {get_patient_age(paciente.fecha_nacimiento)}")
+            self.set_edad(f"Edad: {get_elapsed_years(paciente.fecha_nacimiento)}")
             self.set_sexo(f"Sexo: {paciente.sexo}")
             self.set_id(f"DNI: {paciente.ref_id}")
 

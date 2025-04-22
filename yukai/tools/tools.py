@@ -1,0 +1,111 @@
+import  datetime
+import  os
+import  pathlib
+import  re
+import  sys
+#--------------------------------------------------------------------------------------------------
+
+def get_matches_case_no_sensitive(lista_cadenas, patron):
+    return [(indice, cadena) for indice, cadena in enumerate(lista_cadenas) if re.search(patron, cadena, re.IGNORECASE)]
+#--------------------------------------------------------------------------------------------------
+
+def elapsed_time_to_str(elapsed_time):
+    # Convertir a minutos y segundos
+    minutos         = int(elapsed_time // 60)
+    segundos        = int(elapsed_time % 60)
+    milisegundos    = int((elapsed_time - int(elapsed_time)) * 1000)
+
+    # Formatear a mm:ss:ms
+    return f"{minutos:02}:{segundos:02}:{milisegundos:03}"
+#--------------------------------------------------------------------------------------------------
+
+def get_assets_dir_path(assets_dir, relative_to_cwd=False):
+    def get_current_script_dir():
+        pathname = os.path.dirname(sys.argv[0])
+        return os.path.abspath(pathname)
+
+    if assets_dir:
+        if not pathlib.Path(assets_dir).is_absolute():
+            if "_MEI" in __file__:
+                # support for "onefile" PyInstaller
+                assets_dir = str(
+                    pathlib.Path(__file__).parent.parent.joinpath(assets_dir).resolve()
+                )
+            else:
+                assets_dir = str(
+                    pathlib.Path(os.getcwd() if relative_to_cwd else get_current_script_dir())
+                    .joinpath(assets_dir)
+                    .resolve()
+                )
+
+    env_assets_dir = os.getenv("FLET_ASSETS_DIR")
+    if env_assets_dir:
+        assets_dir = env_assets_dir
+    return assets_dir
+#--------------------------------------------------------------------------------------------------
+
+def get_elapsed_years(fecha_nacimiento):
+    # Convertir la cadena de texto a un objeto datetime
+    fecha_nacimiento = datetime.datetime.strptime(fecha_nacimiento, "%d-%m-%Y")
+    
+    # Obtener la fecha actual
+    fecha_actual = datetime.datetime.now()
+    
+    # Calcular la edad en años
+    edad = fecha_actual.year - fecha_nacimiento.year
+    
+    # Ajustar si la fecha de nacimiento aún no ha ocurrido este año
+    if (fecha_actual.month, fecha_actual.day) < (fecha_nacimiento.month, fecha_nacimiento.day):
+        edad -= 1
+
+    return edad
+#--------------------------------------------------------------------------------------------------
+
+class StatusInfo:
+    @classmethod
+    def ok(cls, value=None):
+        return cls(value)
+    #----------------------------------------------------------------------------------------------
+    @classmethod 
+    def error(cls, info=None):
+        return cls().set_error(info)
+    #----------------------------------------------------------------------------------------------
+    
+    def __init__(self, value=None, info=None):
+        self._value = value
+        self._info  = info
+    #----------------------------------------------------------------------------------------------
+
+    def __bool__(self):
+        return self._value is not None
+    #----------------------------------------------------------------------------------------------
+    
+    def set_ok(self, value, info=None):
+        self._value = value
+        self._info  = info
+        return self
+    #----------------------------------------------------------------------------------------------
+
+    def set_error(self, info=None):
+        self._value = None
+        self._info  = info 
+        return self
+    #----------------------------------------------------------------------------------------------
+
+    def is_present(self):
+        return self._value is not None
+    #----------------------------------------------------------------------------------------------
+
+    def get(self):
+        return self._value
+    #----------------------------------------------------------------------------------------------
+
+    def or_else(self, default_value):
+        return self._value if self._value is not None else default_value
+    #----------------------------------------------------------------------------------------------
+
+    def if_present(self, consumer):
+        if self._value is not None:
+            consumer(self._value)
+    #----------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
