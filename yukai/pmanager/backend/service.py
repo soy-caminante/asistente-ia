@@ -2,9 +2,9 @@ import  pathlib
 
 from    database.database                   import  PacientesDB 
 from    difflib                             import  SequenceMatcher
-from    models.models                       import  PacienteShort, Paciente
+from    models.models                       import  *
 from    pmanager.backend.environment        import  Environment
-from    tools.tools                         import  StatusInfo
+from    tools.tools                         import  StatusInfo, try_catch
 #--------------------------------------------------------------------------------------------------
 
 class BackendService:
@@ -38,44 +38,32 @@ class BackendService:
     def log_exception(self, ex): self._env.log.exception(ex)
     #----------------------------------------------------------------------------------------------
 
+    @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener los pacientes"))
     def load_all_consolidated_pacientes(self) -> StatusInfo[list[PacienteShort]]:
-        try:
-            return StatusInfo.ok(self._pacientes_db.get_all_consolidated_pacientes())
-        except Exception as ex:
-            self.log_exception(ex)
-            return StatusInfo.error("Error al obtener los pacientes")
+        return StatusInfo.ok(self._pacientes_db.get_all_consolidated_pacientes())
     #----------------------------------------------------------------------------------------------
 
+    @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener el paciente"))
     def get_consolidated_paciente(self, paciente_id: str) -> StatusInfo[Paciente]:
-        try:
-            paciente = self._pacientes_db.get_consolidated_paciente(paciente_id)
-            if paciente is None:
-                return StatusInfo.error("Paciente no encontrado")
-            else:
-                return StatusInfo.ok(paciente)
-        except Exception as ex:
-            self.log_exception(ex)
-            return StatusInfo.error("Error al obtener el paciente")
+        paciente = self._pacientes_db.get_consolidated_paciente(paciente_id)
+        if paciente is None:
+            return StatusInfo.error("Paciente no encontrado")
+        else:
+            return StatusInfo.ok(paciente)
     #----------------------------------------------------------------------------------------------
 
+    @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener los pacientes"))
     def load_all_src_pacientes(self) -> StatusInfo[list[PacienteShort]]:
-        try:
-            return StatusInfo.ok(self._pacientes_db.get_all_src_pacientes())
-        except Exception as ex:
-            self.log_exception(ex)
-            return StatusInfo.error("Error al obtener los pacientes")
+        return StatusInfo.ok(self._pacientes_db.get_all_src_pacientes())
     #----------------------------------------------------------------------------------------------
 
     def consolidate_pacientes(self, pacientes: list[str]) -> StatusInfo[list[Paciente]]:
         pass
     #----------------------------------------------------------------------------------------------
 
+    @try_catch(Environment.log_fcn, StatusInfo.error("Error al preprocesar el paciente"))
     def preprocess_paciente(self, paciente_id: str) -> StatusInfo:
-        try:
-            pass
-        except Exception as ex:
-            self.log_exception(ex)
-            return StatusInfo.error("Error al preprocesar el paciente")
+        pass
     #----------------------------------------------------------------------------------------------
 
     def delete_src_pacientes(self, pacientes: list[str]):
@@ -86,17 +74,14 @@ class BackendService:
         return self.delete_pacientes(pacientes, self.load_all_consolidated_pacientes)
     #----------------------------------------------------------------------------------------------
 
+    @try_catch(Environment.log_fcn, StatusInfo.error("Error al eliminar el paciente"))
     def delete_pacientes(self, pacientes: list[str], load_fcn: callable):
-        try:
-            for p in pacientes:
-                try:
-                    pathlib.Path(p).unlink(missing_ok=True)
-                except Exception as ex:
-                    self.log_exception(ex)
-            return load_fcn()
-        except Exception as ex:
-            self.log_exception(ex)
-            return StatusInfo.error("Error al preprocesar el paciente")
+        for p in pacientes:
+            try:
+                pathlib.Path(p).unlink(missing_ok=True)
+            except Exception as ex:
+                self.log_exception(ex)
+        return load_fcn()
     #----------------------------------------------------------------------------------------------
 
     def remove_src_duplicates(self):
@@ -107,23 +92,20 @@ class BackendService:
         return self.remove_duplicates(self.check_consolidated_duplicates(), self.load_all_consolidated_pacientes)
     #----------------------------------------------------------------------------------------------
 
+    @try_catch(Environment.log_fcn, StatusInfo.error("Error al eliminar los duplicados del paciente"))
     def remove_duplicates(self, status: StatusInfo[list[(Paciente, Paciente)]], load_fcn: callable):
-        try:
-            if status:
-                duplicates = status.get()
+        if status:
+            duplicates = status.get()
 
-                for p, _ in duplicates:
-                    p: Paciente
-                    try:
-                        pathlib.Path(p.db_id).unlink(missing_ok=True)
-                    except Exception as ex:
-                        self.log_exception(ex)
-                return load_fcn()
-            else:
-                return status
-        except Exception as ex:
-            self.log_exception(ex)
-            return StatusInfo.error("Error al preprocesar el paciente")
+            for p, _ in duplicates:
+                p: Paciente
+                try:
+                    pathlib.Path(p.db_id).unlink(missing_ok=True)
+                except Exception as ex:
+                    self.log_exception(ex)
+            return load_fcn()
+        else:
+            return status
     #----------------------------------------------------------------------------------------------
 
     def check_src_duplicates(self): return self.check_duplicates(self.load_all_src_pacientes())
@@ -132,39 +114,46 @@ class BackendService:
     def check_consolidated_duplicates(self): return self.check_duplicates(self.load_all_consolidated_pacientes())
     #----------------------------------------------------------------------------------------------
 
+    @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener los duplicados del paciente"))
     def check_duplicates(self, status) -> StatusInfo[list[(Paciente, Paciente)]]:
-        try:
-            status = self.load_all_src_pacientes()
+        status = self.load_all_src_pacientes()
 
-            if status:
-                pacientes: list[PacienteShort]= status.get()
-                
-                if len(pacientes) == 0:
-                    return StatusInfo.ok([])
-                duplicates = []
-                
-                for i, paciente1 in enumerate(pacientes):
-                    paciente1: PacienteShort
-                    for j, paciente2 in enumerate(pacientes):
-                        paciente2: PacienteShort
-                        if i >= j: continue
+        if status:
+            pacientes: list[PacienteShort]= status.get()
+            
+            if len(pacientes) == 0:
+                return StatusInfo.ok([])
+            duplicates = []
+            
+            for i, paciente1 in enumerate(pacientes):
+                paciente1: PacienteShort
+                for j, paciente2 in enumerate(pacientes):
+                    paciente2: PacienteShort
+                    if i >= j: continue
 
-                        if paciente1.dni == paciente2.dni or paciente1.ref_id == paciente2.ref_id:
+                    if paciente1.dni == paciente2.dni or paciente1.ref_id == paciente2.ref_id:
+                        duplicates.append((paciente1, paciente2))
+                    else:
+                        full_name_1 = f"{paciente1.nombre} {paciente1.apellidos}"
+                        full_name_2 = f"{paciente2.nombre} {paciente2.apellidos}"
+                        reversed_name_2 = f"{paciente2.apellidos} {paciente2.nombre}"
+                        similarity_1 = SequenceMatcher(None, full_name_1, full_name_2).ratio()
+                        similarity_2 = SequenceMatcher(None, full_name_1, reversed_name_2).ratio()
+                        if similarity_1 > 0.9 or similarity_2 > 0.9:
                             duplicates.append((paciente1, paciente2))
-                        else:
-                            full_name_1 = f"{paciente1.nombre} {paciente1.apellidos}"
-                            full_name_2 = f"{paciente2.nombre} {paciente2.apellidos}"
-                            reversed_name_2 = f"{paciente2.apellidos} {paciente2.nombre}"
-                            similarity_1 = SequenceMatcher(None, full_name_1, full_name_2).ratio()
-                            similarity_2 = SequenceMatcher(None, full_name_1, reversed_name_2).ratio()
-                            if similarity_1 > 0.9 or similarity_2 > 0.9:
-                                duplicates.append((paciente1, paciente2))
-                return duplicates
-            else:
-                return StatusInfo.error("Error al buscar pacientes duplicados")
-        except Exception as ex:
-            self.log_exception(ex)
-            return StatusInfo.error("Error al preprocesar el paciente")
+            return duplicates
+        else:
+            return StatusInfo.error("Error al buscar pacientes duplicados")
+    #----------------------------------------------------------------------------------------------
+
+    @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener la información del paciente"))
+    def inspect_src_pacientes(self, db_id: str) -> StatusInfo[list[ExpedienteSrc]]:
+        pass
+    #----------------------------------------------------------------------------------------------
+
+    @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener la información del paciente"))
+    def inspect_consolidated_pacientes(self, db_id: str) -> StatusInfo[list[ExpedienteCon]]:
+        pass
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 

@@ -149,20 +149,43 @@ class Paciente:
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
-def find_duplicates(pacientes):
-    duplicates = []
-    for i, paciente1 in enumerate(pacientes):
-        for j, paciente2 in enumerate(pacientes):
-            if i >= j:
-                continue
-            if paciente1.dni == paciente2.dni or paciente1.ref_id == paciente2.ref_id:
-                duplicates.append((paciente1, paciente2))
-            else:
-                full_name_1 = f"{paciente1.nombre} {paciente1.apellidos}"
-                full_name_2 = f"{paciente2.nombre} {paciente2.apellidos}"
-                reversed_name_2 = f"{paciente2.apellidos} {paciente2.nombre}"
-                similarity_1 = SequenceMatcher(None, full_name_1, full_name_2).ratio()
-                similarity_2 = SequenceMatcher(None, full_name_1, reversed_name_2).ratio()
-                if similarity_1 > 0.9 or similarity_2 > 0.9:
-                    duplicates.append((paciente1, paciente2))
-    return duplicates
+@dataclass 
+class DocumentoSrc:
+    nombre          : str
+    path            : str
+    tipo            : str
+    size            : int
+#--------------------------------------------------------------------------------------------------
+
+@dataclass
+class ExpedienteSrc:
+    db_id               : str
+    dni                 : str
+    ref_id              : str
+    nombre              : str
+    apellidos           : str
+    fecha_nacimiento    : str
+    sexo                : str
+    documentos          : list[DocumentoSrc]
+#--------------------------------------------------------------------------------------------------
+
+@dataclass 
+class DocumentoCon:
+    nombre          : str
+    path            : str
+    tipo            : str
+    size            : int
+    tokens          : int
+#--------------------------------------------------------------------------------------------------
+
+@dataclass
+class ExpedienteCon:
+    db_id               : str
+    dni                 : str
+    ref_id              : str
+    nombre              : str
+    apellidos           : str
+    fecha_nacimiento    : str
+    sexo                : str
+    documentos          : list[DocumentoCon]
+#--------------------------------------------------------------------------------------------------
