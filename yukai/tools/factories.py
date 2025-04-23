@@ -46,7 +46,15 @@ class ButtonFactory:
     #----------------------------------------------------------------------------------------------
 
     def back_button(self, on_click, visible):
-        return CircularButton(ft.icons.ARROW_BACK, "Volver al inicio", on_click, visible, self._style_color)
+        return CircularButton(ft.icons.ARROW_BACK, "Atrás", on_click, visible, self._style_color)
+    #----------------------------------------------------------------------------------------------
+
+    def accept_button(self, on_click, visible):
+        return CircularButton(ft.icons.CHECK, "Aceptar", on_click, visible, self._style_color)
+    #----------------------------------------------------------------------------------------------
+
+    def cancel_button(self, on_click, visible):
+        return CircularButton(ft.icons.CANCEL, "Cancelar", on_click, visible, self._style_color)
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 

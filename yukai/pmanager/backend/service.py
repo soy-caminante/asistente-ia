@@ -25,6 +25,10 @@ class BackendService:
         self._pacientes_db  = PacientesDB(env.clientes_dir)
     #----------------------------------------------------------------------------------------------
 
+    def check_db(self) -> StatusInfo[bool]: 
+        return self._pacientes_db.get_db_status()
+    #----------------------------------------------------------------------------------------------
+
     def log_info(self, info): self._env.log.info(info)
     #----------------------------------------------------------------------------------------------
 

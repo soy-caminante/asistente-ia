@@ -4,6 +4,7 @@ import  unicodedata
 from    dataclasses                     import  dataclass
 from    database.context                import  PatientContextFactory, CompactEncoder, PatientContext
 from    models.models                   import  *
+from    tools.tools                     import  StatusInfo
 #--------------------------------------------------------------------------------------------------
 class PacientesDB:
     @dataclass
@@ -16,9 +17,19 @@ class PacientesDB:
 
     def __init__(self, base: pathlib.Path):
         self._consolidated_dir  = base / "consolidated"
-        self._src_dir           = base / "src"
+        self._src_dir           = base / "income"
         self._files_factory     = PatientContextFactory()
         self._file_decoder      = CompactEncoder()
+    #----------------------------------------------------------------------------------------------
+
+    def get_db_status(self) -> StatusInfo[bool]:
+        if not self._consolidated_dir.exists() and not self._src_dir.exists():
+            return StatusInfo.error("No existen los directorios de pacientes")
+        elif not self._consolidated_dir.exists():
+            return StatusInfo.error("No existe el directorio de pacientes consolidados")
+        elif not self._src_dir.exists():
+            return StatusInfo.error("No existe el directorio de pacientes nuevos")
+        return StatusInfo.ok(True)
     #----------------------------------------------------------------------------------------------
 
     def check_consolidated_paciente(self, ref_id:str): return ref_id in self._db.root
