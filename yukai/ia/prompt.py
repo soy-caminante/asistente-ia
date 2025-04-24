@@ -61,7 +61,7 @@ class DoctorPrompt:
         return 30
     #----------------------------------------------------------------------------------------------
 
-    def __init__(self, context: PatientContext, question: str):
+    def __init__(self, context: PacienteContext, question: str):
         self._context   = context
         self._question  = question
         self._age       = self.date_to_age(self._context.fecha_nacimiento)

@@ -20,7 +20,7 @@ class CircularButton(ft.Container):
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
-class ButtonFactory:
+class CircularButtonFactory:
     def __init__(self, style_color="#DAA520"):
         self._style_color = style_color
     #----------------------------------------------------------------------------------------------
@@ -59,6 +59,84 @@ class ButtonFactory:
 
     def custom_button(self, icon, tooltip, on_click, visible=True):
         return CircularButton(icon, tooltip, on_click, visible, self._style_color)
+    #----------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
+
+class IconButtonFactory:
+    def __init__(self, style_color=ft.colors.BLUE_900):
+        self._style_color = style_color
+    #----------------------------------------------------------------------------------------------
+    
+    def move_up_button(self, on_click, tooltip=None, visible=True):
+        return ft.IconButton(   ft.icons.ARROW_UPWARD, 
+                                icon_color  = self._style_color, 
+                                tooltip     = tooltip if tooltip else "Mover arriba", 
+                                on_click    = on_click,
+                                visible     = visible)
+    #----------------------------------------------------------------------------------------------
+
+    def move_down_button(self, on_click, tooltip=None, visible=True):
+        return ft.IconButton(   ft.icons.ARROW_DOWNWARD, 
+                                icon_color  = self._style_color, 
+                                tooltip     = tooltip if tooltip else "Mover abajo", 
+                                on_click    = on_click,
+                                visible     = visible)
+    #----------------------------------------------------------------------------------------------
+
+    def delete_button(self, on_click, tooltip=None, visible=True):
+        return ft.IconButton(   ft.icons.DELETE, 
+                                icon_color  = self._style_color, 
+                                tooltip     = tooltip if tooltip else "Eliminar los elementos seleccionados", 
+                                on_click    = on_click,
+                                visible     = visible)
+    #----------------------------------------------------------------------------------------------
+
+    def save_button(self, on_click, tooltip=None, visible=True):
+        return ft.IconButton(   ft.icons.SAVE, 
+                                icon_color  = self._style_color, 
+                                tooltip     = tooltip if tooltip else "Guardar los cambios", 
+                                on_click    = on_click,
+                                visible     = visible)
+    #----------------------------------------------------------------------------------------------
+
+    def add_button(self, on_click, tooltip=None, visible=True):
+        return ft.IconButton(   ft.icons.ADD, 
+                                icon_color  = self._style_color, 
+                                tooltip     = tooltip if tooltip else "Agregar un nuevo elemento", 
+                                on_click    = on_click,
+                                visible     = visible)
+    #----------------------------------------------------------------------------------------------
+
+    def back_button(self, on_click, tooltip=None, visible=True):
+        return ft.IconButton(   ft.icons.ARROW_BACK, 
+                                icon_color  = self._style_color, 
+                                tooltip     = tooltip if tooltip else "Atrás", 
+                                on_click    = on_click,
+                                visible     = visible)
+    #----------------------------------------------------------------------------------------------
+
+    def accept_button(self, on_click, tooltip=None, visible=True):
+        return ft.IconButton(   ft.icons.CHECK, 
+                                icon_color  = self._style_color, 
+                                tooltip     = tooltip if tooltip else "Aceptar", 
+                                on_click    = on_click,
+                                visible     = visible)
+    #----------------------------------------------------------------------------------------------
+
+    def cancel_button(self, on_click, tooltip=None, visible=True):
+        return ft.IconButton(   ft.icons.CANCEL, 
+                                icon_color  = self._style_color, 
+                                tooltip     = tooltip if tooltip else "Cancelar", 
+                                on_click    = on_click,
+                                visible     = visible)
+    #----------------------------------------------------------------------------------------------
+
+    def custom_button(self, icon, on_click, tooltip=None, visible=True):
+        return ft.IconButton(   icon, 
+                                icon_color  = self._style_color, 
+                                tooltip     = tooltip, 
+                                on_click    = on_click,
+                                visible     = visible)
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 

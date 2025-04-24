@@ -176,7 +176,7 @@ class PatitentView(AppView):
         super().__init__(page=page, route=route)
         self._env                                   = env
         self._backend                               = env.backend
-        self._button_factory                        = ButtonFactory("#54BAAD")
+        self._button_factory                        = CircularButtonFactory("#54BAAD")
         self._ctrl_paciente                         = self.DatosPaciente()
         self._build_ui()
     #----------------------------------------------------------------------------------------------

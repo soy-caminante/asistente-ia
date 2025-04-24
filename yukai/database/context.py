@@ -1,18 +1,90 @@
 import  datetime
 import  json
+import  mimetypes
+import  os
 import  pathlib
+import  tiktoken
 
 from    dataclasses                 import  dataclass, asdict
 #--------------------------------------------------------------------------------------------------
 
 @dataclass
-class PatitnetInfo:
+class FileInfo:
+    path:       pathlib.Path
+    content:    str
+    mime:       str
+    size:       int
+    size_str:   str
+    tokens:     int
+    #----------------------------------------------------------------------------------------------
+    @property
+    def name(self): return self.path.stem
+    #----------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
+
+@dataclass
+class PacienteInfo:
     nombre: str
     apellidos: str
     fecha_nacimiento: str
     sexo: str
     id: str
     id_interno: str
+#--------------------------------------------------------------------------------------------------
+
+def get_file_info(path: pathlib.Path, encoding_model="cl100k_base") -> FileInfo:
+    def file_size(bytes_int):
+        if bytes_int < 1024:
+            return f"{bytes_int} B"
+        elif bytes_int < 1024**2:
+            return f"{bytes_int / 1024:.2f} kB"
+        else:
+            return f"{bytes_int / (1024**2):.2f} MB"
+
+    if not path.exists:
+        raise FileNotFoundError(f"No se encontró el archivo: {path}")
+
+    # Tipo MIME
+    mime, _ = mimetypes.guess_type(str(path))
+
+    # Tamaño en bytes
+    size_bytes      = os.path.getsize(str(path))
+    readable_size   = file_size(size_bytes)
+
+    # Leer contenido para contar tokens
+    with open(path, "r", encoding="utf-8", errors="ignore") as f:
+        contenido = f.read()
+
+        
+    # Tokenización
+    tokenizer   = tiktoken.get_encoding(encoding_model)
+    num_tokens  = len(tokenizer.encode(contenido))
+    
+    if path.suffix != ".txt" and path.suffix != "iadoc":
+        contenido = None
+    return FileInfo(path, contenido, mime, size_bytes, readable_size, num_tokens)
+#--------------------------------------------------------------------------------------------------
+
+def get_iadoc_src(file: pathlib.Path):
+    base_path   = file.parent
+    base_name   = file.stem  # nombre sin extensión
+    src         = None
+    for f in base_path.glob(f"{base_name}.*"):
+        if f.suffix != ".iadoc":
+            src = f
+            break
+    return src
+#--------------------------------------------------------------------------------------------------
+
+def get_src_iadoc(file: pathlib.Path):
+    base_path   = file.parent
+    base_name   = file.stem  # nombre sin extensión
+    src         = None
+    for f in base_path.glob(f"{base_name}.*"):
+        if f.suffix == ".iadoc":
+            src = f
+            break
+    return src
 #--------------------------------------------------------------------------------------------------
 
 class CompactEncoder:
@@ -135,7 +207,7 @@ class CompactEncoder:
 
 #--------------------------------------------------------------------------------------------------
 
-class PatientContext:
+class PacienteContext:
     NAME        = "nombre"
     APELLIDOS   = "apellidos"
     ID          = "id"
@@ -146,8 +218,8 @@ class PatientContext:
     SRCDOCS     = "documentos"
     #----------------------------------------------------------------------------------------------
 
-    def __init__(self, info: PatitnetInfo, iadocs: dict[str:str]={}, srcdocs: dict[str:str]={}):
-        self.name               = info.nombre
+    def __init__(self, info: PacienteInfo, iadocs: dict[str:FileInfo]={}, srcdocs: dict[str:FileInfo]={}):
+        self.nombre             = info.nombre
         self.apellidos          = info.apellidos
         self.id                 = info.id
         self.id_interno         = info.id_interno
@@ -158,7 +230,7 @@ class PatientContext:
     #----------------------------------------------------------------------------------------------
 
     def get_id_json(self):
-        return asdict(PatitnetInfo(self.name, self.apellidos, self.fecha_nacimiento, self.sexo, self.id))
+        return asdict(PacienteInfo(self.nombre, self.apellidos, self.fecha_nacimiento, self.sexo, self.id))
     #----------------------------------------------------------------------------------------------
 
     def add_ia_doc(self, k, v): self.iadocs[k] = v
@@ -175,7 +247,7 @@ class PatientContext:
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
-class PatientContextFactory:
+class PacienteContextFactory:
     @staticmethod
     def get_patient_id(target_dir: pathlib.Path):
         id_file = target_dir / "id.json"
@@ -184,7 +256,7 @@ class PatientContextFactory:
             return None
         else:
             with open(id_file, "r", encoding="utf-8") as f:
-                return PatitnetInfo(**json.loads(f.read()))
+                return PacienteInfo(**json.loads(f.read()))
     #----------------------------------------------------------------------------------------------
     
     def __init__(self, log_fcn=None):
@@ -194,7 +266,7 @@ class PatientContextFactory:
     def dummy_log(self, *args): pass
     #----------------------------------------------------------------------------------------------
 
-    def load_incomming(self, patient: str|pathlib.Path) -> tuple[PatitnetInfo, dict[str:str]]:
+    def load_src_paciente(self, patient: str|pathlib.Path) -> tuple[PacienteInfo, dict[str:FileInfo]]:
         ret = (None, None)
 
         try:
@@ -211,12 +283,11 @@ class PatientContextFactory:
                     self._log_fcn(f"El paciente {patient} no tiene fichero de identificación")
                 else:
                     with open(id_file, "r", encoding="utf-8") as f:
-                        patient_info = PatitnetInfo(**json.loads(f.read()))
+                        patient_info = PacienteInfo(**json.loads(f.read()))
 
                     for file in patient.iterdir():
-                        if file.suffix == ".txt":
-                            with open(file, "r", encoding="utf-8") as f:
-                                src_docs[file.stem] = (f.read())
+                        if file.name == "id.json": continue
+                        src_docs[file.stem] = get_file_info(file)
                     ret = (patient_info, src_docs)
         except Exception as ex:
             self._log_fcn(ex)
@@ -224,7 +295,7 @@ class PatientContextFactory:
             return ret
     #----------------------------------------------------------------------------------------------
 
-    def load_consolidated(self, patient: str|pathlib.Path) -> PatientContext:
+    def load_consolidated_paciente(self, patient: str|pathlib.Path) -> PacienteContext:
         ret = None
 
         try:
@@ -242,23 +313,22 @@ class PatientContextFactory:
                     self._log_fcn(f"El paciente {patient} no tiene fichero de identificación")
                 else:
                     with open(id_file, "r", encoding="utf-8") as f:
-                        patient_info = PatitnetInfo(**json.loads(f.read()))
+                        patient_info = PacienteInfo(**json.loads(f.read()))
 
                     for file in patient.iterdir():
-                        if file.suffix == ".txt" or file.suffix == ".iadoc":
-                            with open(file, "r", encoding="utf-8") as f:
-                                if file.suffix == ".txt":
-                                    src_docs[file.stem] = f.read()
-                                else:
-                                    ia_docs[file.stem] = f.read()
-                    ret = PatientContext(patient_info, ia_docs, src_docs)
+                        if file.name == "id.json": continue
+                        if file.suffix == ".iadoc":
+                            ia_docs[file.stem] = get_file_info(file)
+                        else:
+                            src_docs[file.stem] = get_file_info(file)
+                    ret = PacienteContext(patient_info, ia_docs, src_docs)
         except Exception as ex:
             self._log_fcn(ex)
         finally:
             return ret
     #----------------------------------------------------------------------------------------------
 
-    def consolidate_context(self, context: PatientContext, location: str|pathlib.Path) -> bool:
+    def consolidate_context(self, context: PacienteContext, location: str|pathlib.Path) -> bool:
         try:
             location = pathlib.Path(location)
 

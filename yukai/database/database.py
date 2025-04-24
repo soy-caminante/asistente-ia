@@ -2,7 +2,7 @@ import  pathlib
 import  unicodedata
 
 from    dataclasses                     import  dataclass
-from    database.context                import  PatientContextFactory, CompactEncoder, PatientContext
+from    database.context                import  PacienteContextFactory, CompactEncoder, PacienteContext, PacienteInfo, FileInfo
 from    models.models                   import  *
 from    tools.tools                     import  StatusInfo
 #--------------------------------------------------------------------------------------------------
@@ -18,7 +18,7 @@ class PacientesDB:
     def __init__(self, base: pathlib.Path):
         self._consolidated_dir  = base / "consolidated"
         self._src_dir           = base / "income"
-        self._files_factory     = PatientContextFactory()
+        self._files_factory     = PacienteContextFactory()
         self._file_decoder      = CompactEncoder()
     #----------------------------------------------------------------------------------------------
 
@@ -32,6 +32,12 @@ class PacientesDB:
         return StatusInfo.ok(True)
     #----------------------------------------------------------------------------------------------
 
+    def get_src_file_path(self, paciente:str, id: str): return self._src_dir / f"{paciente}/{id}.txt"
+    #----------------------------------------------------------------------------------------------
+
+    def get_consolidated_file_path(self, paciente:str, id: str): return self._consolidated_dir / f"{paciente}/{id}"
+    #----------------------------------------------------------------------------------------------
+
     def check_consolidated_paciente(self, ref_id:str): return ref_id in self._db.root
     #----------------------------------------------------------------------------------------------
 
@@ -40,11 +46,11 @@ class PacientesDB:
         ret         = None
 
         if target_dir.exists():
-            context = self._files_factory.load_consolidated(target_dir)
+            context = self._files_factory.load_consolidated_paciente(target_dir)
             if context:
                 ret                     = Paciente()
                 ret.db_id               = str(target_dir)
-                ret.nombre              = context.name
+                ret.nombre              = context.nombre
                 ret.apellidos           = context.apellidos
                 ret.fecha_nacimiento    = context.fecha_nacimiento
                 ret.sexo                = context.sexo
@@ -67,8 +73,8 @@ class PacientesDB:
         return ret
     #----------------------------------------------------------------------------------------------
 
-    def get_contexto_paciente(self, ref_id: str) -> PatientContext:
-        return self._files_factory.load_consolidated(self._consolidated_dir / ref_id)
+    def get_contexto_paciente(self, ref_id: str) -> PacienteContext:
+        return self._files_factory.load_consolidated_paciente(self._consolidated_dir / ref_id)
     #----------------------------------------------------------------------------------------------
 
     def get_matching_pacientes(self, pattern) -> list[Paciente]:
@@ -83,7 +89,7 @@ class PacientesDB:
         for obj in self._consolidated_dir.iterdir():
             if not obj.is_dir(): continue
 
-            paciente_info = PatientContextFactory.get_patient_id(obj)
+            paciente_info = PacienteContextFactory.get_patient_id(obj)
             if paciente_info:
                 paciente            = Paciente()
                 paciente.db_id      = str(obj)
@@ -114,7 +120,7 @@ class PacientesDB:
         for obj in self._consolidated_dir.iterdir():
             if not obj.is_dir(): continue
 
-            paciente_info = PatientContextFactory.get_patient_id(obj)
+            paciente_info = PacienteContextFactory.get_patient_id(obj)
             if paciente_info:
                 paciente = PacienteShort \
                 (
@@ -136,7 +142,7 @@ class PacientesDB:
         for obj in self._src_dir.iterdir():
             if not obj.is_dir(): continue
 
-            paciente_info = PatientContextFactory.get_patient_id(obj)
+            paciente_info = PacienteContextFactory.get_patient_id(obj)
             if paciente_info:
                 paciente = PacienteShort \
                 (
@@ -150,5 +156,13 @@ class PacientesDB:
                 )
                 ret.append(paciente)
         return ret
+    #----------------------------------------------------------------------------------------------
+
+    def load_src_expediente(self, db_id: str) -> tuple[PacienteInfo, dict[str:FileInfo]]:
+        return self._files_factory.load_src_paciente(db_id)
+    #----------------------------------------------------------------------------------------------
+
+    def load_consolidated_expediente(self, db_id: str) -> PacienteContext:
+        return self._files_factory.load_consolidated_paciente(db_id)
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------

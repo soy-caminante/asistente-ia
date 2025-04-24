@@ -10,8 +10,8 @@ from    models.models               import  *
 from    pmanager.backend.service    import  BackendService
 from    pmanager.view.environment   import  Environment
 from    pmanager.view.snackbar      import  show_snackbar
-from    pmanager.view.factories     import  Factories
 from    tools.tools                 import  *
+from    tools.viewtools             import  *
 #--------------------------------------------------------------------------------------------------
 
 class Callbacks(IntEnum):
@@ -22,45 +22,9 @@ class Callbacks(IntEnum):
     DELETE_DOC      = 4
 #--------------------------------------------------------------------------------------------------
 
-class WaitCtrlWrapper:
-    class Wrapper:
-        def __init__(self, msg, callback: callable):
-            self._callback  = callback
-            self._msg       = msg
-        #------------------------------------------------------------------------------------------
-
-        def show(self):
-            self._callback(True, self._msg)
-        #------------------------------------------------------------------------------------------
-
-        def hide(self):
-            self._callback(False)
-        #------------------------------------------------------------------------------------------
-        def __enter__(self):
-            self.show()
-            return self
-        #------------------------------------------------------------------------------------------
-
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            self.hide()
-        #------------------------------------------------------------------------------------------
-    #----------------------------------------------------------------------------------------------
-
-    def __init__(self, callback: callable):
-        self._callback = callback
-    #----------------------------------------------------------------------------------------------
-
-    def __call__(self, msg=None):
-        return self.Wrapper(msg, self._callback)
-    #----------------------------------------------------------------------------------------------
-
-    def wrapper(self, msg=None): return self.Wrapper(msg, self._callback)
-    #----------------------------------------------------------------------------------------------
-#--------------------------------------------------------------------------------------------------
-
-class Expediente(ft.Container, Factories):
-    class TrailCtrl(ft.Row, Factories):
-        def __init__(self,  data: ExpedienteSrc | ExpedienteCon,
+class ExpedienteViwer(ft.Container, Factories):
+    class HeaderCtrl(ft.Row, Factories):
+        def __init__(self,  data: DocumentoSrc | DocumentoCon,
                             on_consolidate,
                             on_inspect,
                             on_delete):
@@ -69,15 +33,19 @@ class Expediente(ft.Container, Factories):
             self._on_consolidate    = on_consolidate
             self._on_inspect        = on_inspect
             self._on_delete         = on_delete
+            self.expand             = True
+            self.alignment          = ft.MainAxisAlignment.START
 
             if on_consolidate:
-                self.controls = [ ft.Container(expand=True), 
-                                  self.bf.custom_button(ft.Icons.PLAY_ARROW,  "Consolidar",   self.on_consolidate),
-                                  self.bf.custom_button(ft.Icons.PAGEVIEW,    "Inspeccionar", self.on_inspect),
+                self.controls = [ ft.Text(f"{data.nombre}"), 
+                                  ft.Container(expand=True),           
+                                  self.bf.custom_button(ft.Icons.PLAY_ARROW,  self.on_consolidate, "Consolidar"),
+                                  self.bf.custom_button(ft.Icons.PAGEVIEW,    self.on_inspect, "Inspeccionar"),
                                   self.bf.delete_button(self.on_delete) ]
             else:
-                self.controls = [ ft.Container(expand=True), 
-                                  self.bf.custom_button(ft.Icons.PAGEVIEW,    "Inspeccionar", self.on_inspect),
+                self.controls = [ ft.Text(f"{data.nombre}"), 
+                                  ft.Container(expand=True), 
+                                  self.bf.custom_button(ft.Icons.PAGEVIEW, self.on_inspect, "Inspeccionar"),
                                   self.bf.delete_button(self.on_delete) ]
         #------------------------------------------------------------------------------------------
             
@@ -92,45 +60,35 @@ class Expediente(ft.Container, Factories):
     #----------------------------------------------------------------------------------------------
 
     def __init__(self,  backend: BackendService,
+                        on_go_back: callable,
                         **kwargs):
         super().__init__(**kwargs)
-        self._backend   = backend
+        self._backend       = backend
+        self._on_go_back    = on_go_back
         self.build_ui()
     #----------------------------------------------------------------------------------------------
 
-    def populate(self, docs: list[ExpedienteSrc] | list[ExpedienteCon]):
-        def format_size(bytes_int):
-            if bytes_int < 1024:
-                return f"{bytes_int} B"
-            elif bytes_int < 1024**2:
-                return f"{bytes_int / 1024:.2f} kB"
-            else:
-                return f"{bytes_int / (1024**2):.2f} MB"
+    def populate(self, docs: ExpedienteSrc | ExpedienteCon):
         self._documents_ctrl.controls.clear()
-        if len(docs) > 0:
-            self._paciente.value    = f"{docs[0].apellidos} {docs[0].nombre}"
-            self._dni.value         = f"{docs[0].dni} / {docs[0].ref_id}"
-            self._edad.value        = f"{docs[0].sexo} - {get_elapsed_years(docs[0].fecha_nacimiento)} años"
+        if docs:
+            self._paciente.value    = f"{docs.apellidos}, {docs.nombre}"
+            self._dni.value         = f"{docs.dni} / {docs.ref_id}"
+            self._edad.value        = f"{docs.sexo} - {get_elapsed_years(docs.fecha_nacimiento)} años"
             
-            if isinstance(docs[0], ExpedienteSrc):
-                for e in docs:
-                    for d in e.documentos:
-
-                        self._documents_ctrl.controls.append(ft.ListTile(   trailing= self.TrailCtrl(   data           = d,
-                                                                                                        on_consolidate = self.consolidate,
-                                                                                                        on_inspect     = self.inspect,
-                                                                                                        on_delete      = self.delete),
-                                                                            title   = ft.Text(d.nombre),
-                                                                            subtitle= ft.Text(f"{d.tipo}, {format_size(d.size)}")))
+            if isinstance(docs, ExpedienteSrc):
+                for d in  docs.documentos:
+                    self._documents_ctrl.controls.append(ft.ListTile(   title   = self.HeaderCtrl(  data           = d,
+                                                                                                    on_consolidate = self.consolidate,
+                                                                                                    on_inspect     = self.inspect,
+                                                                                                    on_delete      = self.delete),
+                                                                        subtitle= ft.Text(f"{d.tipo}, {d.size}")))
             else:
-                for e in docs:
-                    for d in e.documentos:
-                        self._documents_ctrl.controls.append(ft.ListTile(   trailing= self.TrailCtrl(   data           = d,
-                                                                                                        on_consolidate = self.consolidate,
-                                                                                                        on_inspect     = self.inspect,
-                                                                                                        on_delete      = self.delete),
-                                                                            title   = ft.Text(d.nombre),
-                                                                            subtitle= ft.Text(f"{d.tipo}, {format_size(d.size)}, {d.tokens} tokens")))
+                for d in  docs.documentos:
+                    self._documents_ctrl.controls.append(ft.ListTile(   title   = self.HeaderCtrl(  data           = d,
+                                                                                                    on_consolidate = None,
+                                                                                                    on_inspect     = self.inspect,
+                                                                                                    on_delete      = self.delete),
+                                                                        subtitle= ft.Text(f"{d.tipo}, {d.size}, {d.tokens} tokens")))
     #----------------------------------------------------------------------------------------------
 
     def consolidate(self, data):
@@ -149,7 +107,8 @@ class Expediente(ft.Container, Factories):
             label       = "Paciente", 
             value       = None, 
             expand      = True,
-            read_only   = True
+            read_only   = True,
+            border      = "none"
         )
 
         self._dni = ft.TextField \
@@ -157,7 +116,8 @@ class Expediente(ft.Container, Factories):
             label       = "DNI / Ref", 
             value       = None, 
             expand      = True,
-            read_only   = True
+            read_only   = True,
+            border      = "none"
         )
 
         self._edad = ft.TextField \
@@ -165,25 +125,38 @@ class Expediente(ft.Container, Factories):
             label       = "Sexo - Edad", 
             value       = None, 
             expand      = True,
-            read_only   = True
+            read_only   = True,
+            border      = "none"
         )
 
-        self._documents_ctrl = ft.Column([], scroll=ft.ScrollMode.ALWAYS, alignment=ft.MainAxisAlignment.START, expand=True)
-
-        layout = ft.Column \
+        self._documents_ctrl    = ft.Column([], scroll=ft.ScrollMode.ALWAYS, alignment=ft.MainAxisAlignment.START, expand=True)
+        left_column             = ft.Column \
         (
             [
-                self._paciente,
-                self._dni,
-                self._edad,
-                self._documents_ctrl
+                ft.Container(self._paciente),
+                ft.Container(self._dni),
+                ft.Container(self._edad)
             ],
-            expand      = True,
-            alignment   = ft.MainAxisAlignment.START
+            expand      = 1,
+            alignment   = ft.MainAxisAlignment.START,
         )
 
-        self.content    = ft.Card(content=layout, elevation=2, expand=True)
+        rigth_column = ft.Container(self._documents_ctrl, expand=3)
+        layout = ft.Row \
+        (
+            [   
+                ft.Container( self.bf.back_button(lambda _: self._on_go_back()), expand=1), 
+                left_column, 
+                rigth_column, 
+                ft.Container(expand=1) 
+            ],
+            expand=True,
+            vertical_alignment=ft.CrossAxisAlignment.START
+        )
+        self.alignment  = ft.alignment.top_center
+        self.content    = layout
         self.expand     = True
+    #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
 class PacienteList(ft.Container, Factories):
@@ -199,7 +172,7 @@ class PacienteList(ft.Container, Factories):
         def changed(self, _): self.selected = not self.selected
     #----------------------------------------------------------------------------------------------
 
-    class TrailCtrl(ft.Row, Factories):
+    class HeaderCtrl(ft.Row, Factories):
         def __init__(self,  data: 'PacienteList.Content',
                             on_consolidate,
                             on_inspect,
@@ -209,9 +182,12 @@ class PacienteList(ft.Container, Factories):
             self._on_consolidate    = on_consolidate
             self._on_inspect        = on_inspect
             self._on_delete         = on_delete
-            self.controls           = [     ft.Container(expand=True), 
-                                            self.bf.custom_button(ft.Icons.PLAY_ARROW,  "Consolidar",   self.on_consolidate),
-                                            self.bf.custom_button(ft.Icons.PAGEVIEW,    "Inspeccionar", self.on_inspect),
+            self.expand             = True
+            self.alignment          = ft.MainAxisAlignment.START
+            self.controls           = [     ft.Text(f"{data.apellidos}, {data.nombre}"), 
+                                            ft.Container(expand=True), 
+                                            self.bf.custom_button(ft.Icons.PLAY_ARROW,  self.on_consolidate, "Consolidar"),
+                                            self.bf.custom_button(ft.Icons.PAGEVIEW,    self.on_inspect, "Inspeccionar"),
                                             self.bf.delete_button(self.on_delete) ]
         #------------------------------------------------------------------------------------------
             
@@ -267,11 +243,10 @@ class PacienteList(ft.Container, Factories):
         for p in self._list_content:
             self._list_ctrl.controls.append(ft.ListTile(leading = ft.Checkbox(  value       = p.selected,
                                                                                 on_change   = p.changed),
-                                                        trailing= self.TrailCtrl(data           = p,
-                                                                                 on_consolidate = self.consolidate_one,
-                                                                                 on_inspect     = self.inspect_one,
-                                                                                 on_delete      = self.delete_one),
-                                                        title   = ft.Text(f"{p.apellidos}, {p.nombre}"),
+                                                        title= self.HeaderCtrl( data           = p,
+                                                                                on_consolidate = self.consolidate_one,
+                                                                                on_inspect     = self.inspect_one,
+                                                                                on_delete      = self.delete_one),
                                                         subtitle= ft.Text(f"DNI: {p.dni} - ID: {p.id_local}")))
     #----------------------------------------------------------------------------------------------
 
@@ -303,7 +278,10 @@ class PacienteList(ft.Container, Factories):
         for p in filtered_content:
             self._list_ctrl.controls.append(ft.ListTile(leading = ft.Checkbox(  value       = p.selected,
                                                                                 on_change   = p.changed),
-                                                        title   = ft.Text(f"{p.apellidos}, {p.nombre}"),
+                                                        title= self.HeaderCtrl( data           = p,
+                                                                                on_consolidate = self.consolidate_one,
+                                                                                on_inspect     = self.inspect_one,
+                                                                                on_delete      = self.delete_one),
                                                         subtitle= ft.Text(f"DNI: {p.dni} - ID: {p.id_local}")))
         self.update()
     #----------------------------------------------------------------------------------------------
@@ -420,11 +398,9 @@ class PacienteList(ft.Container, Factories):
 #--------------------------------------------------------------------------------------------------
 
 class MainPanel(ft.Container, Factories):
-    def __init__(self, backend: BackendService, wait_ctrl: WaitCtrlWrapper, callback_fcn, **kwargs):
+    def __init__(self, backend: BackendService, **kwargs):
         super().__init__(**kwargs)
         self._backend       = backend
-        self._wait_ctrl     = wait_ctrl
-        self._callbac_fcn   = callback_fcn
         self._src_list      = PacienteList( "Nuevos",
                                             self.reload_src_pacientes,
                                             self.consolidate_src_pacientes,
@@ -449,193 +425,127 @@ class MainPanel(ft.Container, Factories):
 
     @void_try_catch(Environment.log_fcn)
     def reload_src_pacientes(self):
-        with self._wait_ctrl("Cargando la lista de pacientes"):
-            status = self._backend.load_all_src_pacientes()
-            if status:
-                self._src_list.set_values(status.get())
-            else:
-                show_snackbar("Error en la recarga de los pacientes")
+        status = self._backend.load_all_src_pacientes()
+        if status:
+            self._src_list.set_values(status.get())
+        else:
+            show_snackbar("Error en la recarga de los pacientes")
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
     def consolidate_src_pacientes(self, pacientes: list[str]):
-        with self._wait_ctrl("Consolidando los pacientes"):
-            status = self._backend.consolidate_pacientes(pacientes)
+        status = self._backend.consolidate_pacientes(pacientes)
 
-            if status:
-                self._con_list.set_values(status.get())
-            else:
-                show_snackbar("Error en la consolidación de los pacientes")
+        if status:
+            self._con_list.set_values(status.get())
+        else:
+            show_snackbar("Error en la consolidación de los pacientes")
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
     def check_src_duplicates(self):
-        with self._wait_ctrl("Buscando duplicados"):
             pass
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
     def check_consolidated_duplicates(self):
-        with self._wait_ctrl("Buscando duplicados"):
             pass
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
     def delete_src_pacientes(self, pacientes: list[str]):
-        with self._wait_ctrl("Borrando pacientes de la base de datos"):
-            status = self._backend.delete_src_pacientes(pacientes)
+        status = self._backend.delete_src_pacientes(pacientes)
 
-            if status:
-                self._src_list.set_values(status.get())
-            else:
-                show_snackbar("Error en el borrado de los pacientes")
+        if status:
+            self._src_list.set_values(status.get())
+        else:
+            show_snackbar("Error en el borrado de los pacientes")
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
     def delete_consolidated_pacientes(self, pacientes: list[str]):
-        with self._wait_ctrl("Borrando pacientes de la base de datos"):
-            status = self._backend.delete_consolidated_pacientes(pacientes)
+        status = self._backend.delete_consolidated_pacientes(pacientes)
 
-            if status:
-                self._con_list.set_values(status.get())
-            else:
-                show_snackbar("Error en el borrado de los pacientes")
+        if status:
+            self._con_list.set_values(status.get())
+        else:
+            show_snackbar("Error en el borrado de los pacientes")
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
     def inspect_src_pacientes(self, paciente: str):
-        with self._wait_ctrl("Obteniendo el expediente del paciente"):
-            status = self._backend.inspect_src_pacientes(paciente)
+        status = self._backend.inspect_src_pacientes(paciente)
 
-            if status:
-                self._callbac_fcn(Callbacks.INSPECT_CON, status.get())
-            else:
-                show_snackbar("Error al leer el expediente del paciente")
+        if status:
+            self._main_layout.visible       = False
+            self._expediente_viwer.visible  = True
+            self._expediente_viwer.populate(status.get())
+            self.update()
+        else:
+            show_snackbar("Error al leer el expediente del paciente")
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
     def inspect_consolidated_pacientes(self, paciente: str):
-        with self._wait_ctrl("Obteniendo el expediente del paciente"):
-            status = self._backend.inspect_consolidated_pacientes(paciente)
+        status = self._backend.inspect_consolidated_pacientes(paciente)
 
-            if status:
-                self._callbac_fcn(Callbacks.INSPECT_CON, status.get())
-            else:
-                show_snackbar("Error al leer el expediente del paciente")
+        if status:
+            self._main_layout.visible       = False
+            self._expediente_viwer.visible  = True
+            self._expediente_viwer.populate(status.get())
+            self.update()
+        else:
+            show_snackbar("Error al leer el expediente del paciente")
+    #----------------------------------------------------------------------------------------------
+
+    def come_back(self):
+        self._main_layout.visible       = True
+        self._expediente_viwer.visible  = False
+        self.update()
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
     def build_ui(self):
-        row = ft.Row \
+        self._main_layout   = ft.Row \
         (
             controls    = [ self._con_list, self._src_list ],
             alignment   = ft.MainAxisAlignment.CENTER,
             expand      = True
         )
-        self.content    = row
+
+        self._expediente_viwer = ExpedienteViwer(self._backend, self.come_back)
+
+        self.content    = ft.Stack \
+        (
+            [
+                self._main_layout,
+                self._expediente_viwer
+            ],
+            expand=True
+        )
         self.expand     = True
-    #----------------------------------------------------------------------------------------------
-#--------------------------------------------------------------------------------------------------
-
-class WarningControl(ft.Row, Factories):
-    def __init__(self, **kwargs):
-        self._answer = None
-        super().__init__(**kwargs)
-        self.build_ui()
-    #----------------------------------------------------------------------------------------------
-
-    def set_msg(self, msg): 
-        self._answer    = None
-        lines           = ""
-        for m in msg:
-            if lines != "": lines += "\n"
-            lines += m
-        self._msg.value = lines
-    #----------------------------------------------------------------------------------------------
-
-    def wait_answer(self):
-        print("esperando")
-        while self._answer is None:
-            time.sleep(0.5)
-            self.update()
-        print("espera finalizada")
-        return self._answer
-    #----------------------------------------------------------------------------------------------
-
-    def set_accept(self, _): self._answer = True
-    #----------------------------------------------------------------------------------------------
-
-    def set_cancel(self, _): self._answer = False
-    #----------------------------------------------------------------------------------------------
-
-    def build_ui(self):
-        self._msg = self.tf.mosaic_title("Mensaje")
-        self.controls = \
-        [
-            ft.Container(expand=True),
-            ft.Column \
-            (
-                [
-                    self._msg,
-                    ft.Row \
-                    (
-                        [
-                            ft.Container(expand=True),
-                            self.bf.accept_button(on_click=self.set_accept, visible=True),
-                            self.bf.cancel_button(on_click=self.set_cancel, visible=True)
-                        ]
-                    ),
-                    ft.Container(expand=True)
-                ],
-                alignment           = ft.MainAxisAlignment.CENTER,
-                horizontal_alignment= ft.CrossAxisAlignment.CENTER
-            ),
-            ft.Container(expand=True)  
-        ]
-        self.expand              = True,
-        self.visible             = True,
-        self.alignment           = ft.MainAxisAlignment.CENTER,
-        self.vertical_alignment= ft.CrossAxisAlignment.CENTER
+        self._main_layout.visible       = True
+        self._expediente_viwer.visible  = False
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
 class LandingView(ft.View, Factories):
-    def __init__(self, page: ft.Page, route: str, env:Environment, backend:BackendService):
+    def __init__(self, page: ft.Page, route: str, env:Environment, overlay_ctrl: OverlayCtrl, backend:BackendService):
         super().__init__(route=route)
         self.page           = page
         self._env           = env
         self._backend       = backend
+        self._overlay_ctrl  = overlay_ctrl
         self.build_ui()
     #----------------------------------------------------------------------------------------------
 
-    def show_warning_ctrl(self, msg: list[str]):
-        self._warning_ctrl.set_msg(msg)
-        self._warning_ctrl.visible  = True
-        self._wait_sync.visible     = False
-        self._overlay_bg.visible    = True
-        self._main_layout.visible   = False
-        self.update()
-
-        return self._warning_ctrl.wait_answer()
-    #----------------------------------------------------------------------------------------------
-
-    def show_wait_ctrl(self, visible, msg=None):
-        if visible:
-            if msg:
-                self._wait_msg.value = f"{msg}..."
-            else:
-                self._wait_msg.value = "Procesando..."
-
-        self._warning_ctrl.visible  = False
-        self._wait_sync.visible     = visible
-        self._overlay_bg.visible    = visible
-        self._main_layout.visible   = True
-        self._main_layout.disabled  = visible
-        self.update()
+    @property
+    def overlay_ctrl(self): return self._overlay_ctrl
     #----------------------------------------------------------------------------------------------
 
     def populate(self, scr_list: list[PacienteShort], con_list: list[PacienteShort]):
         self._main_panel.populate(scr_list, con_list)
+        self.update()
     #----------------------------------------------------------------------------------------------
     
     def callback(self, fcn, *args):
@@ -644,37 +554,9 @@ class LandingView(ft.View, Factories):
 
     def build_ui(self):
         logo_container          = self.lf.buil_logo(self.page, "/imgs/logo.png")
+        self._main_panel        = MainPanel(self._backend)
 
-        self._overlay_bg        = ft.Container(     bgcolor         = ft.colors.BLACK54,
-                                                    expand          = True,
-                                                    opacity         = 0.7,
-                                                    animate_opacity = 300)
-        self._main_panel        = MainPanel(self._backend, WaitCtrlWrapper(self.show_wait_ctrl))
-        self._wait_msg          = self.tf.mosaic_title("Procesando...")
-        self._wait_sync         = ft.Row \
-        (   
-            [
-                ft.Container(expand=True),
-                ft.Column \
-                (
-                    [
-                        ft.ProgressRing(width=80, height=80),
-                        self._wait_msg
-                    ],
-                    alignment           = ft.MainAxisAlignment.CENTER,
-                    horizontal_alignment= ft.CrossAxisAlignment.CENTER
-                ),
-                ft.Container(expand=True)  
-            ],
-            expand              = True,
-            visible             = True,
-            alignment           = ft.MainAxisAlignment.CENTER,
-            vertical_alignment= ft.CrossAxisAlignment.CENTER
-        )
-
-        self._warning_ctrl  = WarningControl()
-
-        header_row          = ft.Container \
+        header_row = ft.Container \
         (
             ft.Row \
             (
@@ -708,15 +590,11 @@ class LandingView(ft.View, Factories):
             ft.Stack \
             ([
                 self._main_layout,
-                self._wait_sync,
-                self._overlay_bg,
-                self._warning_ctrl
+                self._overlay_ctrl
             ],
             expand=True)
         ]
         self.expand                 = True
-        self._wait_sync.visible     = False
-        self._overlay_bg.visible    = False
-        self._warning_ctrl.visible  = False
+        self._overlay_ctrl.visible  = False
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------

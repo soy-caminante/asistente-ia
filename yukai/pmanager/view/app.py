@@ -1,21 +1,24 @@
 import  flet                            as      ft
-import  sys
 
+from    pmanager.backend.environment    import  Environment         as BackEnvironment
 from    pmanager.backend.service        import  BackendService
 from    pmanager.view.environment       import  Environment
 from    pmanager.view.landing           import  LandingView
+from    tools.viewtools                 import  OverlayCtrl, OverlayCtrlWrapper
 #--------------------------------------------------------------------------------------------------
 
 class App:
-    def __init__(self, page: ft.Page, env: Environment, backend: BackendService):
+    def __init__(self, page: ft.Page, env: Environment):
         self._env       = env
-        self._backend   = backend
-        self._view      = LandingView(page, "/", env, backend) 
-        self.build_ui(page, env, backend)
+        self._overlay   = OverlayCtrl()
+        self._ov_wrap   = OverlayCtrlWrapper(self._overlay)
+        self._backend   = BackendService(BackEnvironment(env.log, env.runtime), self._ov_wrap)
+        self._view      = LandingView(page, "/", env, self._overlay, self._backend)
+
+        self.build_ui(page)
     #----------------------------------------------------------------------------------------------
 
     def load_initial_data(self):
-        self._view.show_wait_ctrl(True, "Cargando datos iniciales")
         con_list    = self._backend.load_all_consolidated_pacientes()
         src_list    = self._backend.load_all_src_pacientes()
 
@@ -28,21 +31,19 @@ class App:
             status = self._backend.check_db()
 
             if not status:
-                option = self._view.show_warning_ctrl \
+                option = self._overlay.show_warning \
                 ([
                     "La base de datos no está correctamente configurada",
                     "¿Desea continuar?"
-                ])
+                ]).wait_answer()
 
                 if not option:
                     self._view.page.window.destroy()
                     return
-        
         self._view.populate(src_list.or_else([]), con_list.or_else([]))
-        self._view.show_wait_ctrl(False)
     #----------------------------------------------------------------------------------------------
 
-    def build_ui(self, page: ft.Page, env: Environment, backend: BackendService):
+    def build_ui(self, page: ft.Page):
         page.title      = "Gestor de Pacientes"
         page.theme_mode = "light"
         page.session.clear()

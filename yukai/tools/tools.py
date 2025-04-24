@@ -114,7 +114,7 @@ class StatusInfo(Generic[T]):
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
-def try_catch(log_fcn: Callable, catch: tuple = (Exception,), default: Any = None,):
+def try_catch(log_fcn: Callable, default: Any = None, catch: tuple = (Exception,)):
     def decorator(func: Callable[..., T]) -> Callable[..., T | Any]:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):

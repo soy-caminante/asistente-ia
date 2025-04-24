@@ -22,7 +22,7 @@ class CtrlConsole(cmd2.Cmd):
         self._env                   = env
         self._search_engine         = PatientSearchEngine(None) # Eliiminar None para cargar el modelo si vas a usar FAISS
         self._ia: InferenceContext  = None
-        self._context_factory       = PatientContextFactory(self.log_fcn)
+        self._context_factory       = PacienteContextFactory(self.log_fcn)
 
         self._env.logger.remove_console_handler()
     #----------------------------------------------------------------------------------------------
@@ -167,10 +167,10 @@ class CtrlConsole(cmd2.Cmd):
 
         if len(the_args) > 0:
             target_dir: pathlib.Path    = self._env.income_dir / the_args[0]
-            patient_info, src_docs      = self._context_factory.load_incomming(target_dir)
+            patient_info, src_docs      = self._context_factory.load_src_paciente(target_dir)
 
             if patient_info:
-                patient_context         = PatientContext(patient_info)
+                patient_context         = PacienteContext(patient_info)
                 context_location        = self._env.consolidated_dir / the_args[0]
 
                 for doc_name, doc_text in src_docs.items():
@@ -213,7 +213,7 @@ class CtrlConsole(cmd2.Cmd):
 
         if len(the_args) > 1:
             target_dir: pathlib.Path    = self._env.consolidated_dir / the_args[0]
-            patient_context             = self._context_factory.load_consolidated(target_dir)
+            patient_context             = self._context_factory.load_consolidated_paciente(target_dir)
 
             if patient_context:
                 question = ""
