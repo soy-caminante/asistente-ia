@@ -194,6 +194,7 @@ class OverlayCtrl(ft.Container, Factories):
 
     def hide(self):
         self.visible = False
+        self.update()
     #----------------------------------------------------------------------------------------------
 
     def wait_answer(self): return self._warning_ctrl.wait_answer()

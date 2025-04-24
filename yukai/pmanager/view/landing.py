@@ -76,6 +76,7 @@ class ExpedienteViwer(ft.Container, Factories):
             self._edad.value        = f"{docs.sexo} - {get_elapsed_years(docs.fecha_nacimiento)} años"
             
             if isinstance(docs, ExpedienteSrc):
+                self._tokens.visible = False
                 for d in  docs.documentos:
                     self._documents_ctrl.controls.append(ft.ListTile(   title   = self.HeaderCtrl(  data           = d,
                                                                                                     on_consolidate = self.consolidate,
@@ -83,12 +84,16 @@ class ExpedienteViwer(ft.Container, Factories):
                                                                                                     on_delete      = self.delete),
                                                                         subtitle= ft.Text(f"{d.tipo}, {d.size}")))
             else:
+                tokens                  = 0
+                self._tokens.visible    = True
                 for d in  docs.documentos:
+                    tokens += d.tokens
                     self._documents_ctrl.controls.append(ft.ListTile(   title   = self.HeaderCtrl(  data           = d,
                                                                                                     on_consolidate = None,
                                                                                                     on_inspect     = self.inspect,
                                                                                                     on_delete      = self.delete),
                                                                         subtitle= ft.Text(f"{d.tipo}, {d.size}, {d.tokens} tokens")))
+                self._tokens.value = str(tokens)
     #----------------------------------------------------------------------------------------------
 
     def consolidate(self, data):
@@ -129,13 +134,23 @@ class ExpedienteViwer(ft.Container, Factories):
             border      = "none"
         )
 
+        self._tokens = ft.TextField \
+        (
+            label       = "Tokens", 
+            value       = None, 
+            expand      = True,
+            read_only   = True,
+            border      = "none"
+        )
+
         self._documents_ctrl    = ft.Column([], scroll=ft.ScrollMode.ALWAYS, alignment=ft.MainAxisAlignment.START, expand=True)
         left_column             = ft.Column \
         (
             [
                 ft.Container(self._paciente),
                 ft.Container(self._dni),
-                ft.Container(self._edad)
+                ft.Container(self._edad),
+                ft.Container(self._tokens)
             ],
             expand      = 1,
             alignment   = ft.MainAxisAlignment.START,
@@ -499,9 +514,21 @@ class MainPanel(ft.Container, Factories):
     #----------------------------------------------------------------------------------------------
 
     def come_back(self):
+        con_list    = self._backend.load_all_consolidated_pacientes()
+        src_list    = self._backend.load_all_src_pacientes()
+
+        if not con_list or not src_list:
+            status = self._backend.check_db()
+        else:
+            status = True
+
         self._main_layout.visible       = True
         self._expediente_viwer.visible  = False
+        self.populate(src_list.or_else([]), con_list.or_else([]))
         self.update()
+
+        if not status:
+            show_snackbar("Error al cargar los pacientes")        
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
