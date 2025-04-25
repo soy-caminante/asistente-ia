@@ -219,7 +219,7 @@ class PacienteContext:
     def __init__(self, info: ClienteInfo, iadocs: dict[str:ExpedienteFileInfo]={}, srcdocs: dict[str:ExpedienteFileInfo]={}):
         self.nombre             = info.nombre
         self.apellidos          = info.apellidos
-        self.id                 = info.id
+        self.id                 = info.dni
         self.id_interno         = info.id_interno
         self.sexo               = info.sexo
         self.fecha_nacimiento   = info.fecha_nacimiento

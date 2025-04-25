@@ -14,13 +14,13 @@ from    tools.viewtools                     import  OverlayCtrlWrapper
 class BackendService:
     def __init__(self, env: Environment, overlay_ctrl: OverlayCtrlWrapper):
         self._env           = env
-        self._clientes_db  = PacientesDocumentStore(env.log, env.db_docker_file, env.db_dir)
+        self._clientes_db   = PacientesDocumentStore(env.log, env.db_dir, env.db_docker_file)
         self._incomming_db  = IncommingStorage(env.log, env.db_dir)
         self._overlay_ctrl  = overlay_ctrl
     #----------------------------------------------------------------------------------------------
 
-    def check_db(self) -> StatusInfo[bool]: 
-        return self._clientes_db.is_mongo_ready()
+    def check_db(self) -> bool: 
+        return self._clientes_db.ensure_mongo_ready()
     #----------------------------------------------------------------------------------------------
 
     def log_info(self, info): self._env.log.info(info)
@@ -33,13 +33,13 @@ class BackendService:
     #----------------------------------------------------------------------------------------------
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener los pacientes"))
-    def load_all_consolidated_clientes(self) -> StatusInfo[list[PacienteShort]]:
+    def load_all_consolidated_clientes(self) -> StatusInfo[list[ClienteInfo]]:
         with self._overlay_ctrl.wait("Cargando pacientes consolidados"):
             return StatusInfo.ok(self._clientes_db.get_all_clientes())
     #----------------------------------------------------------------------------------------------
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener el paciente"))
-    def get_consolidated_paciente(self, paciente_id: str) -> StatusInfo[Paciente]:
+    def get_consolidated_cliente(self, paciente_id: str) -> StatusInfo[Paciente]:
         with self._overlay_ctrl.wait("Leyendo el paciente"):
             paciente = None
             if paciente is None:
@@ -49,7 +49,7 @@ class BackendService:
     #----------------------------------------------------------------------------------------------
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener los pacientes"))
-    def load_all_src_clientes(self) -> StatusInfo[list[PacienteShort]]:
+    def load_all_src_clientes(self) -> StatusInfo[list[IncommingCliente]]:
         with self._overlay_ctrl.wait("Cargando nuevos pacientes"):
             return StatusInfo.ok(self._incomming_db.get_all())
     #----------------------------------------------------------------------------------------------

@@ -5,7 +5,7 @@ import  pathlib
 import  tiktoken
 
 from    dataclasses             import  dataclass
-from    tools.tools             import  get_elapsed_years, file_size_to_str, is_plaintext_mime
+from    tools.tools             import  get_elapsed_years, file_size_to_str, is_plaintext_mime, timestamp_str_to_datetime
 #--------------------------------------------------------------------------------------------------
 
 @dataclass
@@ -239,9 +239,9 @@ class IncommingFileInfo:
 class ClienteInfo:
     nombre:             str
     apellidos:          str
-    fecha_nacimiento:   datetime.datetime
+    fecha_nacimiento:   str|datetime.datetime
     sexo:               str
-    id:                 str
+    dni:                str
     id_interno:         str
     db_id:              str|None = None
     #----------------------------------------------------------------------------------------------
@@ -251,6 +251,8 @@ class ClienteInfo:
     #----------------------------------------------------------------------------------------------
 
     def __post_init__(self):
+        if isinstance(self.fecha_nacimiento, str):
+            self.fecha_nacimiento = timestamp_str_to_datetime(self.fecha_nacimiento)
         self.fecha_nacimiento.replace(tzinfo=datetime.timezone.utc)
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------

@@ -1,4 +1,6 @@
 import  flet                            as      ft
+import  sys
+import  time
 
 from    pmanager.backend.environment    import  Environment         as BackEnvironment
 from    pmanager.backend.service        import  BackendService
@@ -10,12 +12,28 @@ from    tools.viewtools                 import  OverlayCtrl, OverlayCtrlWrapper
 class App:
     def __init__(self, page: ft.Page, env: Environment):
         self._env       = env
+        self._page      = page
         self._overlay   = OverlayCtrl()
         self._ov_wrap   = OverlayCtrlWrapper(self._overlay)
         self._backend   = BackendService(BackEnvironment(env.log, env.runtime), self._ov_wrap)
         self._view      = LandingView(page, "/", env, self._overlay, self._backend)
 
         self.build_ui(page)
+    #----------------------------------------------------------------------------------------------
+
+    def check_db_connection(self):
+        with self._ov_wrap.wait("Compronando la conexión con el servidor de datos"):
+            if not self._backend.check_db():
+                self._ov_wrap.update("Servidor de datos no disponible")
+                option = self._overlay.show_warning \
+                ([
+                    "La base de datos no está correctamente configurada",
+                    "¿Desea continuar?"
+                ]).wait_answer()
+
+                time.sleep(3)
+                self._page.window.destroy()
+                sys.exit(-1)
     #----------------------------------------------------------------------------------------------
 
     def load_initial_data(self):
@@ -50,6 +68,7 @@ class App:
         page.views.append(self._view)
         page.go("/")
 
+        self.check_db_connection()
         self.load_initial_data()        
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------

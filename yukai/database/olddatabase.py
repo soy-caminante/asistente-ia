@@ -95,7 +95,7 @@ class PacientesDB:
                 paciente.db_id      = str(obj)
                 paciente.nombre     = paciente_info.nombre
                 paciente.apellidos  = paciente_info.apellidos
-                paciente.dni        = paciente_info.id
+                paciente.dni        = paciente_info.dni
                 paciente.ref_id     = paciente_info.id_interno
 
                 refs_list.append(PacientesDB.DbIndex(   obj.stem, 
@@ -125,7 +125,7 @@ class PacientesDB:
                 paciente = PacienteShort \
                 (
                     str(obj),
-                    paciente_info.id,
+                    paciente_info.dni,
                     paciente_info.id_interno,
                     paciente_info.nombre,
                     paciente_info.apellidos,
@@ -147,7 +147,7 @@ class PacientesDB:
                 paciente = PacienteShort \
                 (
                     str(obj),
-                    paciente_info.id,
+                    paciente_info.dni,
                     paciente_info.id_interno,
                     paciente_info.nombre,
                     paciente_info.apellidos,

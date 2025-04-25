@@ -6,6 +6,7 @@ import  pathlib
 import  re
 import  sys
 
+from    dateutil                    import parser
 from    typing                      import Callable, TypeVar, Generic, Any
 #--------------------------------------------------------------------------------------------------
 
@@ -160,4 +161,12 @@ def is_plaintext_mime(mime_type: str) -> bool:
 def is_plaint_text_file(file_path: str|pathlib.Path):
     mime, _ = mimetypes.guess_type(str(file_path))
     return is_plaint_text_file(mime), mime
+#--------------------------------------------------------------------------------------------------
+
+def timestamp_str_to_datetime(ref):
+    try:
+        return parser.parse(ref)
+    except (ValueError, TypeError) as e:
+        print(f"Error al parsear la fecha: {e}")
+        return None
 #--------------------------------------------------------------------------------------------------

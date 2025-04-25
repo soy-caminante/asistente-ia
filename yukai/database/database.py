@@ -41,7 +41,13 @@ class PacientesDocumentStore:
             return False
     #----------------------------------------------------------------------------------------------
 
-    def ensure_mongo_ready(self, uri):
+    def ensure_mongo_ready(self, uri=None):
+        if uri is None: uri = self._mongo_uri
+        else:
+            self._mongo_uri = uri
+
+        self._log.info("Comprobando el estado de MongoDB")
+
         if self.is_mongo_ready(uri):
             self._log.info("✅ MongoDB ya está disponible.")
             return True
@@ -49,12 +55,12 @@ class PacientesDocumentStore:
         self._log.info("🚀 MongoDB no está disponible. Iniciando con Docker Compose...")
 
         if self._docker_file:
-            subprocess.run(["docker-compose", "-f", self._docker_file, "up", "-d", "mongo"], check=True)
+            subprocess.run(["docker", "compose", "-f", self._docker_file, "up", "-d", "mongo"], check=True)
         else:
-            subprocess.run(["docker-compose", "up", "-d", "mongo"], check=True)
+            subprocess.run(["docker", "compose", "up", "-d", "mongo"], check=True)
         
         for i in range(20):
-            if self._is_mongo_ready(uri):
+            if self.is_mongo_ready(uri):
                 self._log.info("✅ MongoDB está listo.")
                 return True
             

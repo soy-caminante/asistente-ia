@@ -234,25 +234,23 @@ class PacienteList(ft.Container, Factories):
         self.build_ui()
     #----------------------------------------------------------------------------------------------
 
-    def set_values(self, pacientes: PacienteShort|list[PacienteShort]):
+    def set_values(self, clientes: list[IncommingCliente] | list[ClienteInfo]):
         self._list_content.clear()
         self._list_ctrl.controls.clear()
         
-        if isinstance(pacientes, Paciente):
-            pacientes = [ pacientes ]
-        for paciente in pacientes:
-            paciente: PacienteShort
-            found = False
-            for p in self._list_content:
-                if p.dni == paciente.dni and p.id_local == paciente.ref_id:
-                    found = True
-                    break
-            if not found:
-                self._list_content.append(self.Content( paciente.db_id,
-                                                        paciente.dni,
-                                                        paciente.ref_id,
-                                                        paciente.apellidos,
-                                                        paciente.nombre))
+        if not len(clientes): return
+
+        for p_obj in clientes:
+            cliente: ClienteInfo
+            if isinstance(p_obj, IncommingCliente):
+                cliente         = p_obj.personal_info
+                cliente.db_id   = p_obj.db_id
+
+            self._list_content.append(self.Content( cliente.db_id,
+                                                    cliente.dni,
+                                                    cliente.id_interno,
+                                                    cliente.apellidos,
+                                                    cliente.nombre))
         self._list_content.sort(key=lambda c: c.apellidos.lower())
 
         for p in self._list_content:
