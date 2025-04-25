@@ -1,168 +1,396 @@
+import  datetime
 import  pathlib
-import  unicodedata
+import  shutil
+import  subprocess
+import  time
 
-from    dataclasses                     import  dataclass
-from    database.context                import  PacienteContextFactory, CompactEncoder, PacienteContext, PacienteInfo, FileInfo
-from    models.models                   import  *
-from    tools.tools                     import  StatusInfo
+from    bson                import  ObjectId
+from    logger              import  Logger
+from    models.models       import  *
+from    pymongo             import  MongoClient
+from    pymongo.database    import  Database
+from    pymongo.errors      import  ServerSelectionTimeoutError
+from    tools.tools         import  is_plaintext_mime, is_plaint_text_file
 #--------------------------------------------------------------------------------------------------
-class PacientesDB:
-    @dataclass
-    class DbIndex:
-        id:         str
-        direct:     str
-        reverse:    str
-        paciente:   Paciente
-    #-----------------------------------------------------------------------------------------------
 
-    def __init__(self, base: pathlib.Path):
-        self._consolidated_dir  = base / "consolidated"
-        self._src_dir           = base / "income"
-        self._files_factory     = PacienteContextFactory()
-        self._file_decoder      = CompactEncoder()
+class PacientesDocumentStore:
+    def __init__(self,  log: Logger,
+                        base_path, 
+                        docker_file     = None,
+                        mongo_uri       = "mongodb://localhost:27017", 
+                        db_name         = "docstore"):
+        self._log           = log
+        self._docker_file   = docker_file
+        self._mongo_uri     = mongo_uri
+        self._client        = MongoClient(mongo_uri)
+        self._db: Database  = self._client[db_name]
+        self._base_path     = pathlib.Path(base_path) / "consolidated"
+        self._base_path.mkdir(parents=True, exist_ok=True)
     #----------------------------------------------------------------------------------------------
 
-    def get_db_status(self) -> StatusInfo[bool]:
-        if not self._consolidated_dir.exists() and not self._src_dir.exists():
-            return StatusInfo.error("No existen los directorios de pacientes")
-        elif not self._consolidated_dir.exists():
-            return StatusInfo.error("No existe el directorio de pacientes consolidados")
-        elif not self._src_dir.exists():
-            return StatusInfo.error("No existe el directorio de pacientes nuevos")
-        return StatusInfo.ok(True)
+    # ------------------ Mongo Ready ---------------------
+
+    def is_mongo_ready(self, uri=None, timeout=1):
+        try:
+            if uri is None: uri = self._mongo_uri
+
+            client = MongoClient(uri, serverSelectionTimeoutMS=timeout * 1000)
+            client.admin.command('ping')
+            return True
+        except ServerSelectionTimeoutError:
+            return False
     #----------------------------------------------------------------------------------------------
 
-    def get_src_file_path(self, paciente:str, id: str): return self._src_dir / f"{paciente}/{id}.txt"
-    #----------------------------------------------------------------------------------------------
-
-    def get_consolidated_file_path(self, paciente:str, id: str): return self._consolidated_dir / f"{paciente}/{id}"
-    #----------------------------------------------------------------------------------------------
-
-    def check_consolidated_paciente(self, ref_id:str): return ref_id in self._db.root
-    #----------------------------------------------------------------------------------------------
-
-    def get_consolidated_paciente(self, ref_id:str) -> Paciente:
-        target_dir  = self._consolidated_dir / ref_id
-        ret         = None
-
-        if target_dir.exists():
-            context = self._files_factory.load_consolidated_paciente(target_dir)
-            if context:
-                ret                     = Paciente()
-                ret.db_id               = str(target_dir)
-                ret.nombre              = context.nombre
-                ret.apellidos           = context.apellidos
-                ret.fecha_nacimiento    = context.fecha_nacimiento
-                ret.sexo                = context.sexo
-                ret.ref_id              = context.id
-
-                for _, file in context.iadocs.items():
-                    file_dict = self._file_decoder.decode(file)
-                    for a in self._file_decoder.get_alergias(file_dict):
-                        ret.alergias.append(a)
-                    for a in self._file_decoder.get_riesgo_cardio(file_dict):
-                        ret.factores_riesgo.append(a)
-                    for a in self._file_decoder.get_antecedentes(file_dict):
-                        ret.antecedentes.append(a)
-                    for a in self._file_decoder.get_ingresos(file_dict):
-                        ret.ingresos.append(a)
-                    for a in self._file_decoder.get_visitas(file_dict):
-                        ret.visitas.append(a)
-                    for a in self._file_decoder.get_medicacion(file_dict):
-                        ret.medicacion.append(a)
-        return ret
-    #----------------------------------------------------------------------------------------------
-
-    def get_contexto_paciente(self, ref_id: str) -> PacienteContext:
-        return self._files_factory.load_consolidated_paciente(self._consolidated_dir / ref_id)
-    #----------------------------------------------------------------------------------------------
-
-    def get_matching_pacientes(self, pattern) -> list[Paciente]:
-        def normalize(text):
-            return unicodedata.normalize("NFKD", text).encode("ASCII", "ignore").decode("utf-8")
-
-        ret                                     = [ ]
-        refs_list: list[PacientesDB.DbIndex]    = [ ]
-
-        if pattern == "": return ret
+    def ensure_mongo_ready(self, uri):
+        if self.is_mongo_ready(uri):
+            self._log.info("✅ MongoDB ya está disponible.")
+            return True
         
-        for obj in self._consolidated_dir.iterdir():
-            if not obj.is_dir(): continue
+        self._log.info("🚀 MongoDB no está disponible. Iniciando con Docker Compose...")
 
-            paciente_info = PacienteContextFactory.get_patient_id(obj)
-            if paciente_info:
-                paciente            = Paciente()
-                paciente.db_id      = str(obj)
-                paciente.nombre     = paciente_info.nombre
-                paciente.apellidos  = paciente_info.apellidos
-                paciente.dni        = paciente_info.id
-                paciente.ref_id     = paciente_info.id_interno
-
-                refs_list.append(PacientesDB.DbIndex(   obj.stem, 
-                                                        normalize(f"{paciente_info.apellidos} {paciente_info.nombre}").lower(),
-                                                        normalize(f"{paciente_info.apellidos} {paciente_info.nombre}").lower(),
-                                                        paciente))
-
-        normalized_pattern  = normalize(pattern).lower()
-        for ref in refs_list:
-            if pattern == ref.id: 
-                ret = [ ref.paciente ]
-                break
-            else:
-                if ref.direct.startswith(normalized_pattern):
-                    ret.append(ref.paciente)
-        return ret
-    #----------------------------------------------------------------------------------------------
-
-    def get_all_consolidated_pacientes(self) -> list[PacienteShort]:
-        ret: list[PacienteShort] = [ ]
+        if self._docker_file:
+            subprocess.run(["docker-compose", "-f", self._docker_file, "up", "-d", "mongo"], check=True)
+        else:
+            subprocess.run(["docker-compose", "up", "-d", "mongo"], check=True)
         
-        for obj in self._consolidated_dir.iterdir():
-            if not obj.is_dir(): continue
+        for i in range(20):
+            if self._is_mongo_ready(uri):
+                self._log.info("✅ MongoDB está listo.")
+                return True
+            
+            self._log.info(f"⏳ Esperando que MongoDB arranque... ({i+1}/20)")
+            time.sleep(2)
+            
+        return False
+    # ------------------ Helpers ---------------------
 
-            paciente_info = PacienteContextFactory.get_patient_id(obj)
-            if paciente_info:
-                paciente = PacienteShort \
-                (
-                    str(obj),
-                    paciente_info.id,
-                    paciente_info.id_interno,
-                    paciente_info.nombre,
-                    paciente_info.apellidos,
-                    paciente_info.fecha_nacimiento,
-                    paciente_info.sexo
-                )
-                ret.append(paciente)
+    def _save_file(self, scr_file: pathlib.Path, dest_file: pathlib.Path):
+        dest_file.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(scr_file, dest_file)
+        return dest_file
+    #----------------------------------------------------------------------------------------------
+
+    def _read_text(self, file_path: pathlib.Path):
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    #----------------------------------------------------------------------------------------------
+
+    def _read_binary(self, file_path: pathlib.Path):
+        with open(file_path, 'rb') as f:
+            return f.read()
+    #----------------------------------------------------------------------------------------------
+
+    def _remove_file(self, file_path):
+        if file_path.exists():
+            file_path.unlink()
+    #----------------------------------------------------------------------------------------------
+
+    def _doc_path(self, owner, tipo, filename):
+        return self._base_path / owner / tipo / filename
+    #----------------------------------------------------------------------------------------------
+
+    def _validate_object_id(self, value):
+        try:
+            return ObjectId(value)
+        except Exception:
+            raise ValueError(f"ID inválido: {value}")
+    #----------------------------------------------------------------------------------------------
+
+    def _check_source_exists(self, source_id):
+        source_id = self._validate_object_id(source_id)
+        if not self._db.source_docs.find_one({"_id": source_id}):
+            raise ValueError(f"Documento fuente con id {source_id} no existe.")
+        return source_id
+    #----------------------------------------------------------------------------------------------
+
+    def _check_iadoc_exists(self, iadoc_id):
+        iadoc_id = self._validate_object_id(iadoc_id)
+        if not self._db.iadocs.find_one({"_id": iadoc_id}):
+            raise ValueError(f"IADOC con id {iadoc_id} no existe.")
+        return iadoc_id
+    #----------------------------------------------------------------------------------------------
+
+    # ------------------ Pacientes -----------------------
+
+    def add_cliente(self, nombre:str, apellidos:str, sexo:str, fecha_nacimiento: datetime.datetime, dni:str, id_interno:str):
+        doc = {
+            "owner":            id_interno,
+            "nombre":           nombre,
+            "apellidos":        apellidos,
+            "sexo":             sexo,
+            "fecha_nacimiento": fecha_nacimiento,
+            "dni":              dni
+        }
+
+        return self._db.clientes.insert_one(doc).inserted_id
+    #----------------------------------------------------------------------------------------------
+
+    def get_all_clientes(self) -> list[ClienteInfo]:
+        ret = [ ]
+        for record in self._db.clientes.distinct("owner"):
+            record: dict
+            ret.append(ClienteInfo(record["nombre"],
+                                    record["apellidos"],
+                                    record["sexo"],
+                                    record["fecha_nacimiento"],
+                                    record["dni"],
+                                    record["owner"],
+                                    record["_id"]))
         return ret
     #----------------------------------------------------------------------------------------------
 
-    def get_all_src_pacientes(self) -> list[PacienteShort]:
-        ret: list[PacienteShort] = [ ]
+    def get_cliente_by_id_interno(self, id: str):
+        cursor = self._db.source_docs.find({"owner": id})
+        if len(cursor):
+            return ClienteInfo(cursor["nombre"],
+                                cursor["apellidos"],
+                                cursor["sexo"],
+                                cursor["fecha_nacimiento"],
+                                cursor["dni"],
+                                cursor["owner"],
+                                cursor["_id"])
+        return None
+    #----------------------------------------------------------------------------------------------
+
+    def get_paciente_by_db_id(self, db_id:str):
+        cursor = self._db.source_docs.find({"_id": db_id})
+        if len(cursor):
+            return ClienteInfo(cursor["nombre"],
+                                cursor["apellidos"],
+                                cursor["sexo"],
+                                cursor["fecha_nacimiento"],
+                                cursor["dni"],
+                                cursor["owner"],
+                                cursor["_id"])
+        return None
+    #----------------------------------------------------------------------------------------------
+
+    # ------------------ Source Docs ---------------------
+
+
+    def add_source_doc(self, owner, filename, file_path: pathlib.Path, source_created_at: datetime.datetime):
+        content     = None
+        db_path     = self._doc_path(owner, 'source', filename)
+
+        is_plain, mime = is_plaint_text_file(file_path)
+        if is_plain:
+            with open(file_path, "r", encoding="utf-8") as f:
+                content = f.read()
         
-        for obj in self._src_dir.iterdir():
-            if not obj.is_dir(): continue
+        self._save_file(file_path, db_path)
 
-            paciente_info = PacienteContextFactory.get_patient_id(obj)
-            if paciente_info:
-                paciente = PacienteShort \
-                (
-                    str(obj),
-                    paciente_info.id,
-                    paciente_info.id_interno,
-                    paciente_info.nombre,
-                    paciente_info.apellidos,
-                    paciente_info.fecha_nacimiento,
-                    paciente_info.sexo
-                )
-                ret.append(paciente)
+        doc = {
+            "owner":                owner,
+            "filename":             filename,
+            "mime":                 mime,
+            "path":                 str(db_path),
+            "created_at":           datetime.datetime.now(datetime.timezone.utc),
+            "source_created_at":    source_created_at,
+            "size_bytes":           file_path.stat().st_size
+        }
+        if content is not None:
+            doc["content"] = content
+
+        return self._db.source_docs.insert_one(doc).inserted_id
+    #----------------------------------------------------------------------------------------------
+
+    def get_all_source_docs(self, owner) -> list[SrcDocInfo]:
+        ret = [ ]
+        for record in self._db.source_docs.find({"owner": owner}):
+            record: dict
+            ret.append(SrcDocInfo(  record["_id"],
+                                    record["owner"],
+                                    record["filename"],
+                                    record["path"],
+                                    record["mime"],
+                                    record["created_at"],
+                                    record["source_created_at"],
+                                    record["size_bytes"],
+                                    record.get("content", None)))
         return ret
     #----------------------------------------------------------------------------------------------
 
-    def load_src_expediente(self, db_id: str) -> tuple[PacienteInfo, dict[str:FileInfo]]:
-        return self._files_factory.load_src_paciente(db_id)
+    def get_all_source_meta(self, owner) -> list[SrcDocInfo]:
+        ret = [ ]
+        for record in self._db.source_docs.find({"owner": owner}):
+            record: dict
+            ret.append(SrcDocInfo(  record["_id"],
+                                    record["owner"],
+                                    record["filename"],
+                                    record["path"],
+                                    record["mime"],
+                                    record["created_at"],
+                                    record["source_created_at"],
+                                    record["size_bytes"]))
+        return ret
     #----------------------------------------------------------------------------------------------
 
-    def load_consolidated_expediente(self, db_id: str) -> PacienteContext:
-        return self._files_factory.load_consolidated_paciente(db_id)
+    # ------------------ IADOCs ---------------------
+
+    def add_iadoc(self, owner, filename, file_path: pathlib.Path, source_id, source_mime, source_created_at: datetime.datetime, tokens):
+        source_id   = self._check_source_exists(source_id)
+        db_path     = self._doc_path(owner, 'iadoc', filename)
+
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        
+        self._save_file(file_path, db_path)
+        doc = {
+            "owner":                owner,
+            "filename":             filename,
+            "path":                 str(db_path),
+            "source_ref":           source_id,
+            "source_mime":          source_mime,
+            "source_created_at":    source_created_at,
+            "created_at":           datetime.datetime.now(datetime.timezone.utc),
+            "size_bytes":           file_path.stat().st_size,
+            "tokens":               tokens,
+            "content":              content
+        }
+        return self._db.iadocs.insert_one(doc).inserted_id
+    #----------------------------------------------------------------------------------------------
+
+    def get_all_iadocs(self, owner) -> list[IaDcoInfo]:
+        ret = [ ]
+        for record in self._db.iadocs.find({"owner": owner}):
+            record: dict
+            ret.append(IaDcoInfo(   record["_id"],
+                                    record["owner"],
+                                    record["filename"],
+                                    record["path"],
+                                    record["source_ref"],
+                                    record["source_mime"],
+                                    record["source_created_at"],
+                                    record["created_at"],
+                                    record["size_bytes"],
+                                    record["tokens"],
+                                    record.get("content", None)))
+        return ret
+    #----------------------------------------------------------------------------------------------
+
+    def get_all_iadoc_meta(self, owner) -> list[IaDcoInfo]:
+        ret = [ ]
+        for record in self._db.iadocs.find({"owner": owner}):
+            record: dict
+            ret.append(IaDcoInfo(   record["_id"],
+                                    record["owner"],
+                                    record["filename"],
+                                    record["path"],
+                                    record["source_ref"],
+                                    record["source_mime"],
+                                    record["source_created_at"],
+                                    record["created_at"],
+                                    record["size_bytes"],
+                                    record["tokens"]))
+        return ret
+    #----------------------------------------------------------------------------------------------
+
+    # ------------------ BIADOCs ---------------------
+
+    def add_biadoc(self, owner, filename, file_path: pathlib.Path, source_id, source_mime, source_created_at: datetime.datetime, tokens):
+        source_id   = self._check_source_exists(source_id)
+        iadoc_id    = self._check_iadoc_exists(iadoc_id)
+        db_path     = self._doc_path(owner, 'biadoc', filename)
+
+        self._save_file(file_path, db_path)
+
+        doc = {
+            "owner":                owner,
+            "filename":             filename,
+            "path":                 str(db_path),
+            "source_ref":           source_id,
+            "iadoc_ref":            iadoc_id,
+            "source_mime":          source_mime,
+            "source_created_at":    source_created_at,
+            "created_at":           datetime.datetime.now(datetime.timezone.utc),
+            "size_bytes":           file_path.stat().st_size,
+            "tokens":               tokens
+        }
+        return self._db.biadocs.insert_one(doc).inserted_id
+    #----------------------------------------------------------------------------------------------
+
+    def get_all_biadocs(self, owner) -> list[BIaDcoInfo]:
+        ret = []
+        for record in self._db.biadocs.find({"owner": owner}):
+            path            = pathlib.Path(record["path"])
+            binary_content  = self._read_binary(path)
+            ret.append(BIaDcoInfo(  record["_id"],
+                                    record["owner"],
+                                    record["filename"],
+                                    record["path"],
+                                    record["source_ref"],
+                                    record["iadoc_ref"],
+                                    record["source_mime"],
+                                    record["source_created_at"],
+                                    record["created_at"],
+                                    record["size_bytes"],
+                                    record["tokens"],
+                                    binary_content))
+        return ret
+    #----------------------------------------------------------------------------------------------
+
+    def get_all_biadoc_meta(self, owner) -> list[BIaDcoInfo]:
+        ret = []
+        for record in self._db.biadocs.find({"owner": owner}):
+            path            = pathlib.Path(record["path"])
+            binary_content  = self._read_binary(path)
+            ret.append(BIaDcoInfo(  record["_id"],
+                                    record["owner"],
+                                    record["filename"],
+                                    record["path"],
+                                    record["source_ref"],
+                                    record["iadoc_ref"],
+                                    record["source_mime"],
+                                    record["source_created_at"],
+                                    record["created_at"],
+                                    record["size_bytes"],
+                                    record["tokens"]))
+        return ret
+    #----------------------------------------------------------------------------------------------
+
+    # ------------------ Eliminación ---------------------
+
+    def delete_doc(self, tipo, owner, filename):
+        collection = {
+            "source": self._db.source_docs,
+            "iadoc": self._db.iadocs,
+            "biadoc": self._db.biadocs
+        }.get(tipo)
+
+        if not collection:
+            raise ValueError(f"Tipo no válido: {tipo}")
+
+        doc = collection.find_one({"owner": owner, "filename": filename})
+        if doc:
+            path = pathlib.Path(doc["path"])
+            self._remove_file(path)
+            collection.delete_one({"_id": doc["_id"]})
+            return True
+        return False
+    #----------------------------------------------------------------------------------------------
+
+    # ------------------ Usuarios ---------------------
+
+    def get_doc(self, mongo_db_id):
+        iadocs_collection       = self._db["iadocs"]
+        biadocs_collection      = self._db["biadocs"]
+        sourcedocs_collection   = self._db["sourcedocs"]
+
+        doc = iadocs_collection.find_one({"_id": mongo_db_id})
+        if not doc:
+            doc = biadocs_collection.find_one({"_id": mongo_db_id})
+        if not doc:
+            doc = sourcedocs_collection.find_one({"_id": mongo_db_id})
+        return doc
+    #----------------------------------------------------------------------------------------------
+
+    # ------------------ Usuarios ---------------------
+
+    def get_all_owners(self):
+        owners = set()
+        owners.update(self._db.source_docs.distinct("owner"))
+        owners.update(self._db.iadocs.distinct("owner"))
+        owners.update(self._db.biadocs.distinct("owner"))
+        return sorted(owners)
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------

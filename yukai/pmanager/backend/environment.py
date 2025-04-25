@@ -17,10 +17,15 @@ def dummy_fcn(*args):
 class Environment:
     log_fcn:                    ClassVar[Callable[..., None]] = dummy_fcn
     log:                        Logger
-    clientes_dir:               pathlib.Path
+    runtime:                    pathlib.Path
+    db_dir:                     pathlib.Path = None
+    db_docker_file:             pathlib.Path = None
     #----------------------------------------------------------------------------------------------
 
     def __post_init__(self):
         LogFwd.fwd_fcn = self.log.exception
+        self.db_dir   = self.runtime / "clients"
+        self.db_docker_file = self.runtime / f"docker/docker-compose.yml"
+        self.db_dir.mkdir(parents=True, exist_ok=True)
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------

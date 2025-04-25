@@ -1,7 +1,9 @@
 import  pathlib
 
-from    database.context                    import  PacienteInfo, FileInfo
-from    database.database                   import  PacientesDB 
+from    database.context                    import  ClienteInfo, ExpedienteFileInfo
+from    database.olddatabase                import  PacientesDB 
+from    database.database                   import  PacientesDocumentStore
+from    database.incomming                  import  IncommingStorage, IncommingFileInfo, IncommingCliente
 from    difflib                             import  SequenceMatcher
 from    models.models                       import  *
 from    pmanager.backend.environment        import  Environment
@@ -12,12 +14,13 @@ from    tools.viewtools                     import  OverlayCtrlWrapper
 class BackendService:
     def __init__(self, env: Environment, overlay_ctrl: OverlayCtrlWrapper):
         self._env           = env
-        self._pacientes_db  = PacientesDB(env.clientes_dir)
+        self._clientes_db  = PacientesDocumentStore(env.log, env.db_docker_file, env.db_dir)
+        self._incomming_db  = IncommingStorage(env.log, env.db_dir)
         self._overlay_ctrl  = overlay_ctrl
     #----------------------------------------------------------------------------------------------
 
     def check_db(self) -> StatusInfo[bool]: 
-        return self._pacientes_db.get_db_status()
+        return self._clientes_db.is_mongo_ready()
     #----------------------------------------------------------------------------------------------
 
     def log_info(self, info): self._env.log.info(info)
@@ -30,15 +33,15 @@ class BackendService:
     #----------------------------------------------------------------------------------------------
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener los pacientes"))
-    def load_all_consolidated_pacientes(self) -> StatusInfo[list[PacienteShort]]:
+    def load_all_consolidated_clientes(self) -> StatusInfo[list[PacienteShort]]:
         with self._overlay_ctrl.wait("Cargando pacientes consolidados"):
-            return StatusInfo.ok(self._pacientes_db.get_all_consolidated_pacientes())
+            return StatusInfo.ok(self._clientes_db.get_all_clientes())
     #----------------------------------------------------------------------------------------------
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener el paciente"))
     def get_consolidated_paciente(self, paciente_id: str) -> StatusInfo[Paciente]:
         with self._overlay_ctrl.wait("Leyendo el paciente"):
-            paciente = self._pacientes_db.get_consolidated_paciente(paciente_id)
+            paciente = None
             if paciente is None:
                 return StatusInfo.error("Paciente no encontrado")
             else:
@@ -46,45 +49,41 @@ class BackendService:
     #----------------------------------------------------------------------------------------------
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener los pacientes"))
-    def load_all_src_pacientes(self) -> StatusInfo[list[PacienteShort]]:
+    def load_all_src_clientes(self) -> StatusInfo[list[PacienteShort]]:
         with self._overlay_ctrl.wait("Cargando nuevos pacientes"):
-            return StatusInfo.ok(self._pacientes_db.get_all_src_pacientes())
+            return StatusInfo.ok(self._incomming_db.get_all())
     #----------------------------------------------------------------------------------------------
 
-    def consolidate_pacientes(self, pacientes: list[str]) -> StatusInfo[list[Paciente]]:
+    def consolidate_clientes(self, pacientes: list[str]) -> StatusInfo[list[Paciente]]:
         pass
     #----------------------------------------------------------------------------------------------
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al preprocesar el paciente"))
-    def preprocess_paciente(self, paciente_id: str) -> StatusInfo:
+    def preprocess_cliente(self, paciente_id: str) -> StatusInfo:
         pass
     #----------------------------------------------------------------------------------------------
 
-    def delete_src_pacientes(self, pacientes: list[str]):
-        return self.delete_pacientes(pacientes, self.load_all_src_pacientes)
+    def delete_src_clientes(self, pacientes: list[str]):
+        return self.delete_clientes(pacientes, self.load_all_src_clientes)
     #----------------------------------------------------------------------------------------------
 
-    def delete_consolidated_pacientes(self, pacientes: list[str]):
-        return self.delete_pacientes(pacientes, self.load_all_consolidated_pacientes)
+    def delete_consolidated_clientes(self, pacientes: list[str]):
+        return self.delete_clientes(pacientes, self.load_all_consolidated_clientes)
     #----------------------------------------------------------------------------------------------
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al eliminar el paciente"))
-    def delete_pacientes(self, pacientes: list[str], load_fcn: callable):
+    def delete_clientes(self, pacientes: list[str], load_fcn: callable):
         with self._overlay_ctrl.wait("Eliminando pacientes"):
-            for p in pacientes:
-                try:
-                    pathlib.Path(p).unlink(missing_ok=True)
-                except Exception as ex:
-                    self.log_exception(ex)
+            pass
             return load_fcn()
     #----------------------------------------------------------------------------------------------
 
     def remove_src_duplicates(self):
-        return self.remove_duplicates(self.check_src_duplicates(), self.load_all_src_pacientes)
+        return self.remove_duplicates(self.check_src_duplicates(), self.load_all_src_clientes)
     #----------------------------------------------------------------------------------------------
 
     def remove_consolidated_duplicates(self):
-        return self.remove_duplicates(self.check_consolidated_duplicates(), self.load_all_consolidated_pacientes)
+        return self.remove_duplicates(self.check_consolidated_duplicates(), self.load_all_consolidated_clientes)
     #----------------------------------------------------------------------------------------------
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al eliminar los duplicados del paciente"))
@@ -104,16 +103,16 @@ class BackendService:
                 return status
     #----------------------------------------------------------------------------------------------
 
-    def check_src_duplicates(self): return self.check_duplicates(self.load_all_src_pacientes())
+    def check_src_duplicates(self): return self.check_duplicates(self.load_all_src_clientes())
     #----------------------------------------------------------------------------------------------
 
-    def check_consolidated_duplicates(self): return self.check_duplicates(self.load_all_consolidated_pacientes())
+    def check_consolidated_duplicates(self): return self.check_duplicates(self.load_all_consolidated_clientes())
     #----------------------------------------------------------------------------------------------
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener los duplicados del paciente"))
     def check_duplicates(self, status) -> StatusInfo[list[(Paciente, Paciente)]]:
         with self._overlay_ctrl.wait("Buscando duplicados"):
-            status = self.load_all_src_pacientes()
+            status = self.load_all_src_clientes()
 
             if status:
                 pacientes: list[PacienteShort]= status.get()
@@ -144,72 +143,45 @@ class BackendService:
     #----------------------------------------------------------------------------------------------
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener la información del paciente"))
-    def inspect_src_pacientes(self, db_id: str) -> StatusInfo[list[ExpedienteSrc]]:
-        paciente:   PacienteInfo
-        files:      dict[str:str]
-        paciente, files = self._pacientes_db.load_src_expediente(db_id)
-
-        if paciente is not None:
-            docs = [ ]
-            for _, info in files.items():
-                info: FileInfo
-                docs.append(DocumentoSrc(info.name,
-                                         info.path,
-                                         info.mime,
-                                         info.size_str))
-                
-            expediente = ExpedienteSrc( db_id,
-                                        paciente.id,
-                                        paciente.id_interno,
-                                        paciente.nombre,
-                                        paciente.apellidos,
-                                        paciente.fecha_nacimiento,
-                                        paciente.sexo,
-                                        docs)
-            return StatusInfo.ok(expediente)
+    def inspect_src_clientes(self, db_id: pathlib.Path) -> StatusInfo[ExpedienteSrc]:
+        cliente = self._incomming_db.get_cliente_info(db_id)
+        if cliente:
+            return StatusInfo.ok(cliente)
         else:
             return StatusInfo.error("Paciente no encontrado")
     #----------------------------------------------------------------------------------------------
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener la información del paciente"))
-    def inspect_consolidated_pacientes(self, db_id: str) -> StatusInfo[list[ExpedienteCon]]:
-        context = self._pacientes_db.load_consolidated_expediente(db_id)
+    def inspect_consolidated_clientes(self, owner: str) -> StatusInfo[PacienteMetaInformation]:
+        cliente = self._clientes_db.get_cliente_by_id_interno(owner)
+        if cliente:
+            biadocs = self._clientes_db.get_all_biadoc_meta(owner)
+            iadocs  = self._clientes_db.get_all_iadoc_meta(owner)
+            srcdocs = self._clientes_db.get_all_source_meta(owner)
 
-        if context is not None:
-            docs    = [ ]
+            src_list:   list[SrcDocInfo]    = [ ]
+            ia_list:    list[IaDcoInfo]     = [ ]
+            bia_list:   list[BIaDcoInfo]    = [ ]
+            for src in srcdocs:
+                found = False
+                for bia in biadocs:
+                    if src.db_id == bia.source_ref:
+                        found = True
+                        bia_list.append(bia)
+                        break
+                if not found:
+                    for ia in iadocs:
+                        if src.db_id == ia.source_ref:
+                            found = True
+                            ia_list.append(bia)
+                            break
+                if not found:
+                    src_list.append(src)
 
-            for f, info in context.srcdocs.items():
-                info: FileInfo
-                if f in context.iadocs.keys():
-                    tokens = context.iadocs[f].tokens
-                else: 
-                    tokens = 0
-                docs.append(DocumentoCon(   info.name,
-                                            info.path,
-                                            info.mime,
-                                            info.size_str,
-                                            tokens))
-            
-            for f, info in context.iadocs.items():
-                info: FileInfo
-                if f not in context.srcdocs.keys():
-                    docs.append(DocumentoCon(   info.name,
-                                                info.path,
-                                                info.mime,
-                                                info.size_str,
-                                                info.tokens))
-                
-            expediente = ExpedienteCon( db_id,
-                                        context.id,
-                                        context.id_interno,
-                                        context.nombre,
-                                        context.apellidos,
-                                        context.fecha_nacimiento,
-                                        context.sexo,
-                                        docs)
-            return StatusInfo.ok(expediente)
+            return StatusInfo.ok(PacienteMetaInformation(cliente, src_list, ia_list, bia_list))
         else:
-            return StatusInfo.error("Paciente no encontrado")
+            return StatusInfo.error("El cliente no existe")
+        
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 

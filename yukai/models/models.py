@@ -1,6 +1,11 @@
+import  datetime
+import  mimetypes
+import  os
+import  pathlib
+import  tiktoken
+
 from    dataclasses             import  dataclass
-from    tools.tools             import  get_elapsed_years
-from difflib import SequenceMatcher
+from    tools.tools             import  get_elapsed_years, file_size_to_str, is_plaintext_mime
 #--------------------------------------------------------------------------------------------------
 
 @dataclass
@@ -188,4 +193,141 @@ class ExpedienteCon:
     fecha_nacimiento    : str
     sexo                : str
     documentos          : list[DocumentoCon]
+#--------------------------------------------------------------------------------------------------
+
+
+@dataclass
+class IncommingFileInfo:
+    path:       pathlib.Path
+    mime:       str
+    size:       int
+    tokens:     str   
+
+    @property
+    def name(self): return self.path.stem
+    #----------------------------------------------------------------------------------------------
+
+    @property
+    def size_str(self): return file_size_to_str(self.size)
+    #----------------------------------------------------------------------------------------------
+
+    @staticmethod
+    def build(path: pathlib.Path, encoding_model="cl100k_base") -> 'IncommingFileInfo':
+        # Tipo MIME
+        mime, _ = mimetypes.guess_type(str(path))
+
+        # Tamaño en bytes
+        size_bytes = os.path.getsize(str(path))
+
+        # Leer contenido para contar tokens
+        if is_plaintext_mime(mime):
+            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                contenido = f.read()
+
+                # Tokenización
+                tokenizer   = tiktoken.get_encoding(encoding_model)
+                num_tokens  = len(tokenizer.encode(contenido))
+        else:
+            num_tokens = "-"        
+        if path.suffix != ".txt" and path.suffix != "iadoc":
+            contenido = None
+        return IncommingFileInfo(path, mime, size_bytes, num_tokens)
+    #----------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
+
+@dataclass
+class ClienteInfo:
+    nombre:             str
+    apellidos:          str
+    fecha_nacimiento:   datetime.datetime
+    sexo:               str
+    id:                 str
+    id_interno:         str
+    db_id:              str|None = None
+    #----------------------------------------------------------------------------------------------
+
+    @property
+    def edad(self): return get_elapsed_years(self.fecha_nacimiento)
+    #----------------------------------------------------------------------------------------------
+
+    def __post_init__(self):
+        self.fecha_nacimiento.replace(tzinfo=datetime.timezone.utc)
+    #----------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
+
+@dataclass
+class IncommingCliente:
+    db_id:          pathlib.Path
+    personal_info:  ClienteInfo
+    docs:           list[IncommingFileInfo]
+#--------------------------------------------------------------------------------------------------
+
+@dataclass
+class SrcDocInfo:
+    db_id:              str
+    owner:              str
+    filename:           str
+    path:               str
+    mime:               str
+    created_at:         datetime.datetime
+    source_created_at:  datetime.datetime
+    size_bytes:         int
+    content:            str|None = None
+    #----------------------------------------------------------------------------------------------
+
+    def __post_init__(self):
+        self.created_at.replace(tzinfo=datetime.timezone.utc)
+        self.source_created_at.replace(tzinfo=datetime.timezone.utc)
+    #----------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
+
+@dataclass
+class IaDcoInfo:
+    db_id:              str
+    owner:              str
+    filename:           str
+    path:               str
+    source_ref:         str
+    source_mime:        str
+    source_created_at:  datetime.datetime
+    created_at:         datetime.datetime
+    size_bytes:         int
+    tokens:             int
+    content:            str|None = None
+    #----------------------------------------------------------------------------------------------
+
+    def __post_init__(self):
+        self.created_at.replace(tzinfo=datetime.timezone.utc)
+        self.source_created_at.replace(tzinfo=datetime.timezone.utc)
+    #----------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
+
+@dataclass
+class BIaDcoInfo:
+    db_id:              str
+    owner:              str
+    filename:           str
+    path:               str
+    source_ref:         str
+    iadoc_ref:          str
+    source_mime:        str
+    source_created_at:  datetime.datetime
+    created_at:         datetime.datetime
+    size_bytes:         int
+    tokens:             int
+    content:            bytes|None = None
+    #----------------------------------------------------------------------------------------------
+
+    def __post_init__(self):
+        self.created_at.replace(tzinfo=datetime.timezone.utc)
+        self.source_created_at.replace(tzinfo=datetime.timezone.utc)
+    #----------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
+
+@dataclass
+class PacienteMetaInformation:
+    personal_info:  ClienteInfo
+    src_docs:       list[SrcDocInfo]
+    iadocs:         list[IaDcoInfo]
+    biadocs:        list[BIaDcoInfo]
 #--------------------------------------------------------------------------------------------------

@@ -1,6 +1,7 @@
 import  datetime
 import  functools
 import  os
+import  mimetypes
 import  pathlib
 import  re
 import  sys
@@ -137,4 +138,26 @@ def void_try_catch(log_fcn: Callable, catch: tuple = (Exception,)):
                 log_fcn(e)
         return wrapper
     return decorator
+#--------------------------------------------------------------------------------------------------
+
+def file_size_to_str(bytes_int):
+    if bytes_int < 1024:
+        return f"{bytes_int} B"
+    elif bytes_int < 1024**2:
+        return f"{bytes_int / 1024:.2f} kB"
+    else:
+        return f"{bytes_int / (1024**2):.2f} MB"
+#--------------------------------------------------------------------------------------------------
+
+def is_plaintext_mime(mime_type: str) -> bool:
+    if mime_type.startswith("text/"):
+        return True
+    if mime_type in {"application/json", "application/xml", "application/javascript"}:
+        return True
+    return False        
+#--------------------------------------------------------------------------------------------------
+
+def is_plaint_text_file(file_path: str|pathlib.Path):
+    mime, _ = mimetypes.guess_type(str(file_path))
+    return is_plaint_text_file(mime), mime
 #--------------------------------------------------------------------------------------------------

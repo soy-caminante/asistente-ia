@@ -1,7 +1,7 @@
 import  os
 import  time
 
-from    database.database               import  PacientesDB
+from    database.olddatabase            import  PacientesDB
 from    ia.client                       import  InferenceModelClient
 from    ia.prompt                       import  DoctorPrompt
 from    models.models                   import  *

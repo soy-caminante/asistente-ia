@@ -440,7 +440,7 @@ class MainPanel(ft.Container, Factories):
 
     @void_try_catch(Environment.log_fcn)
     def reload_src_pacientes(self):
-        status = self._backend.load_all_src_pacientes()
+        status = self._backend.load_all_src_clientes()
         if status:
             self._src_list.set_values(status.get())
         else:
@@ -449,7 +449,7 @@ class MainPanel(ft.Container, Factories):
 
     @void_try_catch(Environment.log_fcn)
     def consolidate_src_pacientes(self, pacientes: list[str]):
-        status = self._backend.consolidate_pacientes(pacientes)
+        status = self._backend.consolidate_clientes(pacientes)
 
         if status:
             self._con_list.set_values(status.get())
@@ -469,7 +469,7 @@ class MainPanel(ft.Container, Factories):
 
     @void_try_catch(Environment.log_fcn)
     def delete_src_pacientes(self, pacientes: list[str]):
-        status = self._backend.delete_src_pacientes(pacientes)
+        status = self._backend.delete_src_clientes(pacientes)
 
         if status:
             self._src_list.set_values(status.get())
@@ -479,7 +479,7 @@ class MainPanel(ft.Container, Factories):
 
     @void_try_catch(Environment.log_fcn)
     def delete_consolidated_pacientes(self, pacientes: list[str]):
-        status = self._backend.delete_consolidated_pacientes(pacientes)
+        status = self._backend.delete_consolidated_clientes(pacientes)
 
         if status:
             self._con_list.set_values(status.get())
@@ -489,7 +489,7 @@ class MainPanel(ft.Container, Factories):
 
     @void_try_catch(Environment.log_fcn)
     def inspect_src_pacientes(self, paciente: str):
-        status = self._backend.inspect_src_pacientes(paciente)
+        status = self._backend.inspect_src_clientes(paciente)
 
         if status:
             self._main_layout.visible       = False
@@ -502,7 +502,7 @@ class MainPanel(ft.Container, Factories):
 
     @void_try_catch(Environment.log_fcn)
     def inspect_consolidated_pacientes(self, paciente: str):
-        status = self._backend.inspect_consolidated_pacientes(paciente)
+        status = self._backend.inspect_consolidated_clientes(paciente)
 
         if status:
             self._main_layout.visible       = False
@@ -514,8 +514,8 @@ class MainPanel(ft.Container, Factories):
     #----------------------------------------------------------------------------------------------
 
     def come_back(self):
-        con_list    = self._backend.load_all_consolidated_pacientes()
-        src_list    = self._backend.load_all_src_pacientes()
+        con_list    = self._backend.load_all_consolidated_clientes()
+        src_list    = self._backend.load_all_src_clientes()
 
         if not con_list or not src_list:
             status = self._backend.check_db()

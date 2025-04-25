@@ -19,8 +19,8 @@ class App:
     #----------------------------------------------------------------------------------------------
 
     def load_initial_data(self):
-        con_list    = self._backend.load_all_consolidated_pacientes()
-        src_list    = self._backend.load_all_src_pacientes()
+        con_list    = self._backend.load_all_consolidated_clientes()
+        src_list    = self._backend.load_all_src_clientes()
 
         if not con_list:
             self._env.log.error("No se ha podido cargar la lista de pacientes consolidados")
