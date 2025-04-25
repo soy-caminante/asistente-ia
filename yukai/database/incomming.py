@@ -45,18 +45,16 @@ class IncommingStorage:
     def get_cliente_info(self, db_id: pathlib.Path) -> IncommingCliente:
         ret: IncommingCliente = None
 
-        if db_id.exists():
+        id_file                         = db_id / "id.json"
+        docs: list[IncommingFileInfo]   = [ ]
+        if id_file.exists():
+            with open(id_file, "r", encoding="utf-8") as id_f:
+                personal_info    = ClienteInfo(**json.loads(id_f.read()))
+
             for iter_d in db_id.iterdir():
-                if iter_d.is_dir():
-                    id_file     = iter_d / "id.json"
-                    if not id_file.exists(): continue
-                    docs: list[IncommingFileInfo] = [ ]
-                    with open(id_file, "r", encoding="utf-8") as id_f:
-                        personal_info    = ClienteInfo(**json.loads(id_f.read()))
-                    
-                    for iter_c in iter_d.iterdir():
-                        if iter_c.name == "id.json": continue
-                        docs.append(IncommingFileInfo.build(iter_c))
+                if iter_d.is_dir():             continue
+                if iter_d.name == "id.json":    continue                
+                docs.append(IncommingFileInfo.build(iter_d))
             ret = IncommingCliente(iter_d, personal_info, docs)
         return ret
     #----------------------------------------------------------------------------------------------
