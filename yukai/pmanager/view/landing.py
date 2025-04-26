@@ -24,7 +24,7 @@ class Callbacks(IntEnum):
 
 class ExpedienteViwer(ft.Container, Factories):
     class HeaderCtrl(ft.Row, Factories):
-        def __init__(self,  data: DocumentoSrc | DocumentoCon,
+        def __init__(self,  data: IncommingFileInfo | SrcDocInfo | IaDcoInfo | BIaDcoInfo,
                             on_consolidate,
                             on_inspect,
                             on_delete):
@@ -37,13 +37,13 @@ class ExpedienteViwer(ft.Container, Factories):
             self.alignment          = ft.MainAxisAlignment.START
 
             if on_consolidate:
-                self.controls = [ ft.Text(f"{data.nombre}"), 
+                self.controls = [ ft.Text(f"{data.name}"), 
                                   ft.Container(expand=True),           
                                   self.bf.custom_button(ft.Icons.PLAY_ARROW,  self.on_consolidate, "Consolidar"),
                                   self.bf.custom_button(ft.Icons.PAGEVIEW,    self.on_inspect, "Inspeccionar"),
                                   self.bf.delete_button(self.on_delete) ]
             else:
-                self.controls = [ ft.Text(f"{data.nombre}"), 
+                self.controls = [ ft.Text(f"{data.name}"), 
                                   ft.Container(expand=True), 
                                   self.bf.custom_button(ft.Icons.PAGEVIEW, self.on_inspect, "Inspeccionar"),
                                   self.bf.delete_button(self.on_delete) ]
@@ -68,33 +68,44 @@ class ExpedienteViwer(ft.Container, Factories):
         self.build_ui()
     #----------------------------------------------------------------------------------------------
 
-    def populate(self, docs: ExpedienteSrc | ExpedienteCon):
+    def populate(self, cliente: IncommingCliente | ClienteMetaInformation):
         self._documents_ctrl.controls.clear()
-        if docs:
-            self._paciente.value    = f"{docs.apellidos}, {docs.nombre}"
-            self._dni.value         = f"{docs.dni} / {docs.ref_id}"
-            self._edad.value        = f"{docs.sexo} - {get_elapsed_years(docs.fecha_nacimiento)} años"
-            
-            if isinstance(docs, ExpedienteSrc):
-                self._tokens.visible = False
-                for d in  docs.documentos:
+        if cliente:
+            if isinstance(cliente, IncommingCliente):
+                personal_info           = cliente.personal_info
+                self._tokens.visible    = False
+                docs                    = sorted(cliente.docs, key=lambda x: x.ts, reverse=True)
+                for d in  docs:
                     self._documents_ctrl.controls.append(ft.ListTile(   title   = self.HeaderCtrl(  data           = d,
                                                                                                     on_consolidate = self.consolidate,
                                                                                                     on_inspect     = self.inspect,
                                                                                                     on_delete      = self.delete),
-                                                                        subtitle= ft.Text(f"{d.tipo}, {d.size}")))
+                                                                        subtitle= ft.Text(f"{d.mime}, {d.size_str}\n{d.ts_str}")))
             else:
+                personal_info           = cliente.personal_info
                 tokens                  = 0
                 self._tokens.visible    = True
-                for d in  docs.documentos:
-                    tokens += d.tokens
-                    self._documents_ctrl.controls.append(ft.ListTile(   title   = self.HeaderCtrl(  data           = d,
-                                                                                                    on_consolidate = None,
-                                                                                                    on_inspect     = self.inspect,
-                                                                                                    on_delete      = self.delete),
-                                                                        subtitle= ft.Text(f"{d.tipo}, {d.size}, {d.tokens} tokens")))
+                docs                    = sorted(cliente.src_docs + cliente.iadocs + cliente.biadocs, key=lambda x: x.ts, reverse=True)
+                for d in  docs:
+                    if isinstance(d, IaDcoInfo) or isinstance(d, BIaDcoInfo):
+                        tokens += d.tokens
+                        self._documents_ctrl.controls.append(ft.ListTile(   title   = self.HeaderCtrl(  data           = d,
+                                                                                                        on_consolidate = None,
+                                                                                                        on_inspect     = self.inspect,
+                                                                                                        on_delete      = self.delete),
+                                                                            subtitle= ft.Text(f"{d.source_mime}, {d.size_str}, {d.tokens} tokens\n{d.ts_str}")))
+                    else:
+                        self._documents_ctrl.controls.append(ft.ListTile(   title   = self.HeaderCtrl(  data           = d,
+                                                                                                        on_consolidate = None,
+                                                                                                        on_inspect     = self.inspect,
+                                                                                                        on_delete      = self.delete),
+                                                                            subtitle= ft.Text(f"{d.mime}, {d.size_str}\n{d.ts_str}")))
                 self._tokens.value = str(tokens)
-    #----------------------------------------------------------------------------------------------
+
+            self._paciente.value    = f"{personal_info.apellidos}, {personal_info.nombre}"
+            self._dni.value         = f"{personal_info.dni} / {personal_info.id_interno}"
+            self._edad.value        = f"{personal_info.sexo} - {get_elapsed_years(personal_info.fecha_nacimiento)} años"
+                #----------------------------------------------------------------------------------------------
 
     def consolidate(self, data):
         self._backend
@@ -261,6 +272,7 @@ class PacienteList(ft.Container, Factories):
                                                                                 on_inspect     = self.inspect_one,
                                                                                 on_delete      = self.delete_one),
                                                         subtitle= ft.Text(f"DNI: {p.dni} - ID: {p.id_local}")))
+        self.update()
     #----------------------------------------------------------------------------------------------
 
     def search(self, _):
@@ -305,7 +317,7 @@ class PacienteList(ft.Container, Factories):
 
     def delete_one(self, ref: 'PacienteList.Content'):
         self._list_content.clear()
-        self.set_values(self._delete_fcn([ref.db_id]))
+        self._delete_fcn([ref.db_id])
     #----------------------------------------------------------------------------------------------
 
     def inspect_one(self, ref: 'PacienteList.Content'):
@@ -314,7 +326,7 @@ class PacienteList(ft.Container, Factories):
 
     def reload(self, _):
         self._list_content.clear() 
-        self.set_values(self._reload_fcn())
+        self._reload_fcn()
     #----------------------------------------------------------------------------------------------
     
     def remove_selected(self, _):
@@ -411,8 +423,9 @@ class PacienteList(ft.Container, Factories):
 #--------------------------------------------------------------------------------------------------
 
 class MainPanel(ft.Container, Factories):
-    def __init__(self, backend: BackendService, **kwargs):
+    def __init__(self, overlay_ctrl: OverlayCtrl, backend: BackendService, **kwargs):
         super().__init__(**kwargs)
+        self._overlay_ctrl  = overlay_ctrl
         self._backend       = backend
         self._src_list      = PacienteList( "Nuevos",
                                             self.reload_src_pacientes,
@@ -428,6 +441,11 @@ class MainPanel(ft.Container, Factories):
                                             self.delete_consolidated_pacientes,
                                             self.inspect_consolidated_pacientes)
         self.build_ui()
+    #----------------------------------------------------------------------------------------------
+
+    def show_cannot_undo_warning(self) -> bool:
+        self._overlay_ctrl.show_warning(["Esta operación no se puede deshacer.\n¿Desea continuar?"])
+        return self._overlay_ctrl.wait_answer()
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
@@ -467,27 +485,29 @@ class MainPanel(ft.Container, Factories):
 
     @void_try_catch(Environment.log_fcn)
     def delete_src_pacientes(self, pacientes: list[str]):
-        status = self._backend.delete_src_clientes(pacientes)
+        if self.show_cannot_undo_warning():
+            status = self._backend.delete_src_clientes(pacientes)
 
-        if status:
-            self._src_list.set_values(status.get())
-        else:
-            show_snackbar("Error en el borrado de los pacientes")
+            if status:
+                self._src_list.set_values(status.get())
+            else:
+                show_snackbar("Error en el borrado de los pacientes")
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
     def delete_consolidated_pacientes(self, pacientes: list[str]):
-        status = self._backend.delete_consolidated_clientes(pacientes)
+        if self.show_cannot_undo_warning():
+            status = self._backend.delete_consolidated_clientes(pacientes)
 
-        if status:
-            self._con_list.set_values(status.get())
-        else:
-            show_snackbar("Error en el borrado de los pacientes")
+            if status:
+                self._con_list.set_values(status.get())
+            else:
+                show_snackbar("Error en el borrado de los pacientes")
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
     def inspect_src_pacientes(self, paciente: str):
-        status = self._backend.inspect_src_clientes(paciente)
+        status = self._backend.inspect_src_cliente(paciente)
 
         if status:
             self._main_layout.visible       = False
@@ -500,7 +520,7 @@ class MainPanel(ft.Container, Factories):
 
     @void_try_catch(Environment.log_fcn)
     def inspect_consolidated_pacientes(self, paciente: str):
-        status = self._backend.inspect_consolidated_clientes(paciente)
+        status = self._backend.inspect_consolidated_cliente(paciente)
 
         if status:
             self._main_layout.visible       = False
@@ -579,7 +599,7 @@ class LandingView(ft.View, Factories):
 
     def build_ui(self):
         logo_container          = self.lf.buil_logo(self.page, "/imgs/logo.png")
-        self._main_panel        = MainPanel(self._backend)
+        self._main_panel        = MainPanel(self._overlay_ctrl, self._backend)
 
         header_row = ft.Container \
         (

@@ -1,0 +1,94 @@
+Paciente: Juan Pérez Gómez
+DNI: 0001
+Edad: 58 años
+Sexo: Masculino
+Fecha de consulta: 3 de enero de 2024
+Motivo de consulta: Dolor torácico y disnea progresiva
+
+1. Antecedentes Médicos Relevantes:
+
+Hipertensión arterial diagnosticada hace 10 años.
+
+Dislipidemia.
+
+Antecedente familiar de enfermedad coronaria (padre fallecido por infarto agudo de miocardio a los 60 años).
+
+Sedentarismo.
+
+Sobrepeso (IMC: 28.5).
+
+2. Síntomas Actuales:
+
+El paciente refiere haber experimentado dolor torácico opresivo en el centro del pecho, irradiado hacia el brazo izquierdo, acompañado de sudoración y disnea. Los episodios se han incrementado en frecuencia y duración en los últimos tres meses, siendo más evidentes durante el esfuerzo físico moderado. También reporta episodios de palpitaciones y fatiga generalizada.
+
+3. Examen Físico:
+
+Presión arterial: 150/95 mmHg
+
+Frecuencia cardíaca: 95 latidos por minuto
+
+Frecuencia respiratoria: 18 respiraciones por minuto
+
+Peso: 85 kg
+
+Talla: 1.73 m
+
+IMC: 28.5 (Sobrepeso)
+
+Exploración cardiovascular: Se detecta un soplo sistólico en el foco mitral y signos de hipertrofia ventricular izquierda.
+
+4. Exámenes Complementarios Realizados:
+
+Electrocardiograma (ECG): Presencia de ondas T invertidas en derivaciones anterolaterales, sugerentes de isquemia miocárdica.
+
+Ecocardiograma: Hipertrofia ventricular izquierda con fracción de eyección del 50%.
+
+Perfil lipídico: Colesterol total: 240 mg/dL, LDL: 160 mg/dL, HDL: 35 mg/dL, Triglicéridos: 180 mg/dL.
+
+Prueba de esfuerzo: Positiva para isquemia inducible.
+
+5. Diagnóstico:
+
+Cardiopatía isquémica.
+
+Hipertrofia ventricular izquierda.
+
+Hipertensión arterial no controlada.
+
+Dislipidemia.
+
+6. Plan de Tratamiento:
+
+Tratamiento farmacológico:
+
+Betabloqueantes: Metoprolol 50 mg cada 12 horas.
+
+IECA: Enalapril 10 mg cada 12 horas.
+
+Estatinas: Atorvastatina 40 mg en la noche.
+
+Antiagregantes plaquetarios: Aspirina 100 mg diaria.
+
+Recomendaciones adicionales:
+
+Modificación de hábitos de vida:
+
+Realizar ejercicio físico moderado (caminar 30 minutos diarios, 5 veces por semana).
+
+Dieta baja en sodio, grasas saturadas y azúcares.
+
+Pérdida de peso gradual con objetivo de alcanzar un IMC inferior a 25.
+
+Abandono del tabaquismo (si aplica).
+
+Controles:
+
+Revisión en un mes para evaluar la respuesta al tratamiento.
+
+Realización de un Holter de 24 horas si persisten las palpitaciones.
+
+Conclusión:
+
+El paciente presenta un cuadro de cardiopatía isquémica asociado a factores de riesgo cardiovascular como hipertensión arterial, dislipidemia y sobrepeso. Se inicia tratamiento farmacológico y se enfatiza la importancia de los cambios en el estilo de vida para reducir el riesgo de eventos cardiovasculares futuros.
+
+Firma:Dr. Alejandro Rodríguez LópezCardiólogo – N° de Colegiado: 12345

@@ -3,14 +3,7 @@ import  pathlib
 
 from    logger                              import  Logger
 from    models.models                       import  IncommingCliente, IncommingFileInfo, ClienteInfo
-from    tools.tools                         import  StatusInfo, try_catch, void_try_catch
-#--------------------------------------------------------------------------------------------------
-
-class LoggerHandler:
-    log_fcn = None
-    @classmethod
-    def log_callback(cls, *args):
-        cls.log_fcn(*args)
+from    tools.tools                         import  timestamp_str_to_datetime
 #--------------------------------------------------------------------------------------------------
 
 class IncommingStorage:
@@ -18,7 +11,6 @@ class IncommingStorage:
         self._log               = log
         self._in_path           = path / "incomming"
         self._out_path          = path / "processed"
-        LoggerHandler.log_fcn   = log.exception
 
         self._in_path.mkdir(exist_ok=True, parents=True)
         self._out_path.mkdir(exist_ok=True, parents=True)
@@ -27,18 +19,25 @@ class IncommingStorage:
     def get_all(self) -> list[IncommingCliente]:
         ret: list[IncommingCliente] = [ ]
 
-        for iter_d in self._in_path.iterdir():
-            if iter_d.is_dir():
-                id_file     = iter_d / "id.json"
+        for iter_0 in self._in_path.iterdir():
+            if iter_0.is_dir():
+                id_file     = iter_0 / "id.json"
                 if not id_file.exists(): continue
                 docs: list[IncommingFileInfo] = [ ]
                 with open(id_file, "r", encoding="utf-8") as id_f:
                     personal_info    = ClienteInfo(**json.loads(id_f.read()))
                 
-                for iter_c in iter_d.iterdir():
-                    if iter_c.name == "id.json": continue
-                    docs.append(IncommingFileInfo.build(iter_c))
-                ret.append(IncommingCliente(iter_d, personal_info, docs))
+                for iter_1 in iter_0.iterdir():
+                    if not iter_1.is_dir(): continue
+                    for iter_2 in iter_1.iterdir():
+                        if not iter_2.is_file(): continue
+                        creation_time = timestamp_str_to_datetime(iter_1.name)
+                        if not creation_time:
+                            self._log.multi_warning("Directorio de entrada sin timestamp", iter_2)
+                            continue
+
+                        docs.append(IncommingFileInfo.build(iter_2, creation_time))
+                ret.append(IncommingCliente(iter_0, personal_info, docs))
         return ret
     #----------------------------------------------------------------------------------------------
 
@@ -51,20 +50,23 @@ class IncommingStorage:
             with open(id_file, "r", encoding="utf-8") as id_f:
                 personal_info    = ClienteInfo(**json.loads(id_f.read()))
 
-            for iter_d in db_id.iterdir():
-                if iter_d.is_dir():             continue
-                if iter_d.name == "id.json":    continue                
-                docs.append(IncommingFileInfo.build(iter_d))
-            ret = IncommingCliente(iter_d, personal_info, docs)
+            for iter_0 in db_id.iterdir():
+                if not iter_0.is_dir(): continue
+                creation_time = timestamp_str_to_datetime(iter_0.name)
+                if not creation_time:
+                    self._log.multi_warning("Directorio sin timestamp", iter_0)
+                    continue
+                for iter_1 in iter_0.iterdir():
+                    if not iter_1.is_file(): continue
+                    docs.append(IncommingFileInfo.build(iter_1, creation_time))
+            ret = IncommingCliente(db_id, personal_info, docs)
         return ret
     #----------------------------------------------------------------------------------------------
 
-    void_try_catch(LoggerHandler.log_callback)
     def remove(self, db_id: pathlib.Path):
         db_id.unlink(missing_ok=True)
     #----------------------------------------------------------------------------------------------
 
-    void_try_catch(LoggerHandler.log_callback)
     def set_as_consolidated(self, db_id: pathlib.Path):
         db_id.replace(self._out_path / db_id.name)
     #----------------------------------------------------------------------------------------------

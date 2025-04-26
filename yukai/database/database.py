@@ -7,7 +7,7 @@ import  time
 from    bson                import  ObjectId
 from    logger              import  Logger
 from    models.models       import  *
-from    pymongo             import  MongoClient
+from    pymongo             import  MongoClient, ReturnDocument
 from    pymongo.database    import  Database
 from    pymongo.errors      import  ServerSelectionTimeoutError
 from    tools.tools         import  is_plaintext_mime, is_plaint_text_file
@@ -116,6 +116,24 @@ class PacientesDocumentStore:
         return iadoc_id
     #----------------------------------------------------------------------------------------------
 
+    # ------------------ Contadores -----------------------
+
+    def check_counters_collection(self):
+        if self._db.counters.find_one({"_id": "file_id"}) is None:
+                self._db.counters.insert_one({"_id": "file_id", "seq": 0})
+    #----------------------------------------------------------------------------------------------
+
+    def get_next_file_id(self):
+        self.check_counters_collection()
+        counter = self._db.counters.find_one_and_update(
+            {"_id": "file_id"},
+            {"$inc": {"seq": 1}},
+            upsert=True,
+            return_document=ReturnDocument.AFTER
+        )
+        return counter["seq"]
+    #----------------------------------------------------------------------------------------------
+
     # ------------------ Pacientes -----------------------
 
     def add_cliente(self, nombre:str, apellidos:str, sexo:str, fecha_nacimiento: datetime.datetime, dni:str, id_interno:str):
@@ -176,7 +194,7 @@ class PacientesDocumentStore:
 
     def add_source_doc(self, owner, filename, file_path: pathlib.Path, source_created_at: datetime.datetime):
         content     = None
-        db_path     = self._doc_path(owner, 'source', filename)
+        db_path     = self._doc_path(owner, 'source', f"{self.get_next_file_id()}-{filename}")
 
         is_plain, mime = is_plaint_text_file(file_path)
         if is_plain:
@@ -235,7 +253,7 @@ class PacientesDocumentStore:
 
     def add_iadoc(self, owner, filename, file_path: pathlib.Path, source_id, source_mime, source_created_at: datetime.datetime, tokens):
         source_id   = self._check_source_exists(source_id)
-        db_path     = self._doc_path(owner, 'iadoc', filename)
+        db_path     = self._doc_path(owner, 'iadoc', f"{self.get_next_file_id()}-{filename}")
 
         with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
@@ -296,7 +314,7 @@ class PacientesDocumentStore:
     def add_biadoc(self, owner, filename, file_path: pathlib.Path, source_id, source_mime, source_created_at: datetime.datetime, tokens):
         source_id   = self._check_source_exists(source_id)
         iadoc_id    = self._check_iadoc_exists(iadoc_id)
-        db_path     = self._doc_path(owner, 'biadoc', filename)
+        db_path     = self._doc_path(owner, 'biadoc', f"{self.get_next_file_id()}-{filename}")
 
         self._save_file(file_path, db_path)
 

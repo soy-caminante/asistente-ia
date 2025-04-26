@@ -201,7 +201,8 @@ class IncommingFileInfo:
     path:       pathlib.Path
     mime:       str
     size:       int
-    tokens:     str   
+    tokens:     str
+    ts:         datetime.datetime
 
     @property
     def name(self): return self.path.stem
@@ -211,8 +212,16 @@ class IncommingFileInfo:
     def size_str(self): return file_size_to_str(self.size)
     #----------------------------------------------------------------------------------------------
 
+    @property
+    def is_plain_text(self): return is_plaintext_mime(self.mime)
+    #----------------------------------------------------------------------------------------------
+    
+    @property
+    def ts_str(self): return self.ts.strftime("%d-%m-%Y")
+    #----------------------------------------------------------------------------------------------
+
     @staticmethod
-    def build(path: pathlib.Path, encoding_model="cl100k_base") -> 'IncommingFileInfo':
+    def build(path: pathlib.Path, ts: datetime.datetime, encoding_model="cl100k_base") -> 'IncommingFileInfo':
         # Tipo MIME
         mime, _ = mimetypes.guess_type(str(path))
 
@@ -231,7 +240,7 @@ class IncommingFileInfo:
             num_tokens = "-"        
         if path.suffix != ".txt" and path.suffix != "iadoc":
             contenido = None
-        return IncommingFileInfo(path, mime, size_bytes, num_tokens)
+        return IncommingFileInfo(path, mime, size_bytes, num_tokens, ts)
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
@@ -277,6 +286,22 @@ class SrcDocInfo:
     content:            str|None = None
     #----------------------------------------------------------------------------------------------
 
+    @property
+    def ts(self): return self.source_created_at
+    #----------------------------------------------------------------------------------------------
+
+    @property
+    def ts_str(self): return self.source_created_at.strftime("%d-%m-%Y")
+    #----------------------------------------------------------------------------------------------
+
+    @property
+    def name(self): return self.filename
+    #----------------------------------------------------------------------------------------------
+
+    @property
+    def size_str(self): return file_size_to_str(self.size_bytes)
+    #----------------------------------------------------------------------------------------------
+
     def __post_init__(self):
         self.created_at.replace(tzinfo=datetime.timezone.utc)
         self.source_created_at.replace(tzinfo=datetime.timezone.utc)
@@ -296,6 +321,22 @@ class IaDcoInfo:
     size_bytes:         int
     tokens:             int
     content:            str|None = None
+    #----------------------------------------------------------------------------------------------
+
+    @property
+    def ts(self): return self.source_created_at
+    #----------------------------------------------------------------------------------------------
+
+    @property
+    def ts_str(self): return self.source_created_at.strftime("%d-%m-%Y")
+    #----------------------------------------------------------------------------------------------
+
+    @property
+    def name(self): return self.source_ref
+    #----------------------------------------------------------------------------------------------
+
+    @property
+    def size_str(self): return file_size_to_str(self.size_bytes)
     #----------------------------------------------------------------------------------------------
 
     def __post_init__(self):
@@ -320,6 +361,22 @@ class BIaDcoInfo:
     content:            bytes|None = None
     #----------------------------------------------------------------------------------------------
 
+    @property
+    def name(self): return self.source_ref
+    #----------------------------------------------------------------------------------------------
+
+    @property
+    def ts(self): return self.source_created_at
+    #----------------------------------------------------------------------------------------------
+
+    @property
+    def ts_str(self): return self.source_created_at.strftime("%d-%m-%Y")
+    #----------------------------------------------------------------------------------------------
+
+    @property
+    def size_str(self): return file_size_to_str(self.size_bytes)
+    #----------------------------------------------------------------------------------------------
+
     def __post_init__(self):
         self.created_at.replace(tzinfo=datetime.timezone.utc)
         self.source_created_at.replace(tzinfo=datetime.timezone.utc)
@@ -327,7 +384,7 @@ class BIaDcoInfo:
 #--------------------------------------------------------------------------------------------------
 
 @dataclass
-class PacienteMetaInformation:
+class ClienteMetaInformation:
     personal_info:  ClienteInfo
     src_docs:       list[SrcDocInfo]
     iadocs:         list[IaDcoInfo]

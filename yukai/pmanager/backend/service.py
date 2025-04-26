@@ -1,4 +1,5 @@
 import  pathlib
+import  shutil
 
 from    database.context                    import  ClienteInfo, ExpedienteFileInfo
 from    database.olddatabase                import  PacientesDB 
@@ -63,8 +64,13 @@ class BackendService:
         pass
     #----------------------------------------------------------------------------------------------
 
-    def delete_src_clientes(self, pacientes: list[str]):
-        return self.delete_clientes(pacientes, self.load_all_src_clientes)
+    @try_catch(Environment.log_fcn, StatusInfo.error("Error al eliminar el cliente"))
+    def delete_src_clientes(self, clientes: list[pathlib.Path]):
+        with self._overlay_ctrl.wait("Eliminando clientes"):
+            for c in clientes: 
+                if c.exists() and c.is_dir():
+                    shutil.rmtree(c)
+            return self.load_all_src_clientes()
     #----------------------------------------------------------------------------------------------
 
     def delete_consolidated_clientes(self, pacientes: list[str]):
@@ -143,7 +149,7 @@ class BackendService:
     #----------------------------------------------------------------------------------------------
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener la información del paciente"))
-    def inspect_src_clientes(self, db_id: pathlib.Path) -> StatusInfo[ExpedienteSrc]:
+    def inspect_src_cliente(self, db_id: pathlib.Path) -> StatusInfo[ExpedienteSrc]:
         cliente = self._incomming_db.get_cliente_info(db_id)
         if cliente:
             return StatusInfo.ok(cliente)
@@ -152,7 +158,7 @@ class BackendService:
     #----------------------------------------------------------------------------------------------
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener la información del paciente"))
-    def inspect_consolidated_clientes(self, owner: str) -> StatusInfo[PacienteMetaInformation]:
+    def inspect_consolidated_cliente(self, owner: str) -> StatusInfo[ClienteMetaInformation]:
         cliente = self._clientes_db.get_cliente_by_id_interno(owner)
         if cliente:
             biadocs = self._clientes_db.get_all_biadoc_meta(owner)
@@ -178,10 +184,9 @@ class BackendService:
                 if not found:
                     src_list.append(src)
 
-            return StatusInfo.ok(PacienteMetaInformation(cliente, src_list, ia_list, bia_list))
+            return StatusInfo.ok(ClienteMetaInformation(cliente, src_list, ia_list, bia_list))
         else:
             return StatusInfo.error("El cliente no existe")
-        
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 

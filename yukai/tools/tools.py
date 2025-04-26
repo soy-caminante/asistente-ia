@@ -51,7 +51,8 @@ def get_assets_dir_path(assets_dir, relative_to_cwd=False):
 
 def get_elapsed_years(fecha_nacimiento):
     # Convertir la cadena de texto a un objeto datetime
-    fecha_nacimiento = datetime.datetime.strptime(fecha_nacimiento, "%d-%m-%Y")
+    if isinstance(fecha_nacimiento, str):
+        fecha_nacimiento = datetime.datetime.strptime(fecha_nacimiento, "%d-%m-%Y")
     
     # Obtener la fecha actual
     fecha_actual = datetime.datetime.now()

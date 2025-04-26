@@ -1,0 +1,12 @@
+Informe Médico - Visita 1
+Fecha de la visita: 25-07-2021
+Año: 2021
+Dolencia: Cardiopatía isquémica
+Tratamiento: Estatinas, betabloqueantes y antiagregantes plaquetarios
+Pronóstico: Requiere monitoreo constante para prevenir eventos mayores.
+
+Historia Clínica:
+El paciente menciona dolor en el pecho al realizar esfuerzos moderados. La exploración y los estudios cardíacos revelan signos de cardiopatía isquémica.
+
+Comentarios del médico:
+El paciente deberá seguir estrictamente las recomendaciones para evitar complicaciones.
