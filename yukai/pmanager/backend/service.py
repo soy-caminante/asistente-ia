@@ -3,7 +3,7 @@ import  shutil
 
 from    database.context                    import  ClienteInfo, ExpedienteFileInfo
 from    database.olddatabase                import  PacientesDB 
-from    database.database                   import  PacientesDocumentStore
+from    database.database                   import  ClientesDocumentStore
 from    database.incomming                  import  IncommingStorage, IncommingFileInfo, IncommingCliente
 from    difflib                             import  SequenceMatcher
 from    models.models                       import  *
@@ -15,7 +15,7 @@ from    tools.viewtools                     import  OverlayCtrlWrapper
 class BackendService:
     def __init__(self, env: Environment, overlay_ctrl: OverlayCtrlWrapper):
         self._env           = env
-        self._clientes_db   = PacientesDocumentStore(env.log, env.db_dir, env.db_docker_file)
+        self._clientes_db   = ClientesDocumentStore(env.log, env.db_dir, env.db_docker_file)
         self._incomming_db  = IncommingStorage(env.log, env.db_dir)
         self._overlay_ctrl  = overlay_ctrl
     #----------------------------------------------------------------------------------------------
@@ -55,17 +55,18 @@ class BackendService:
             return StatusInfo.ok(self._incomming_db.get_all())
     #----------------------------------------------------------------------------------------------
 
-    def consolidate_clientes(self, pacientes: list[str]) -> StatusInfo[list[Paciente]]:
+    @try_catch(Environment.log_fcn, StatusInfo.error("Error al preprocesar el paciente"))
+    def preprocess_cliente(self, cliente_id: str) -> StatusInfo:
         pass
     #----------------------------------------------------------------------------------------------
 
-    @try_catch(Environment.log_fcn, StatusInfo.error("Error al preprocesar el paciente"))
-    def preprocess_cliente(self, paciente_id: str) -> StatusInfo:
-        pass
+    def consolidate_clientes(self, clientes_db_id: list[str]) -> StatusInfo[list[Paciente]]:
+        for db_id in clientes_db_id:
+            cliente: IncommingCliente = self._incomming_db.get_cliente_info(db_id)
     #----------------------------------------------------------------------------------------------
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al eliminar el cliente"))
-    def delete_src_clientes(self, clientes: list[pathlib.Path]):
+    def delete_src_clientes(self, clientes: list[pathlib.Path]) -> StatusInfo[list[IncommingCliente]]:
         with self._overlay_ctrl.wait("Eliminando clientes"):
             for c in clientes: 
                 if c.exists() and c.is_dir():
@@ -73,16 +74,12 @@ class BackendService:
             return self.load_all_src_clientes()
     #----------------------------------------------------------------------------------------------
 
-    def delete_consolidated_clientes(self, pacientes: list[str]):
-        return self.delete_clientes(pacientes, self.load_all_consolidated_clientes)
+    def delete_consolidated_clientes(self, clientes: list[str]) -> StatusInfo[list[ClienteInfo]]:
+        for c in clientes:
+            self._clientes_db.delete_cliente(c)
+        return self.load_all_consolidated_clientes() 
     #----------------------------------------------------------------------------------------------
 
-    @try_catch(Environment.log_fcn, StatusInfo.error("Error al eliminar el paciente"))
-    def delete_clientes(self, pacientes: list[str], load_fcn: callable):
-        with self._overlay_ctrl.wait("Eliminando pacientes"):
-            pass
-            return load_fcn()
-    #----------------------------------------------------------------------------------------------
 
     def remove_src_duplicates(self):
         return self.remove_duplicates(self.check_src_duplicates(), self.load_all_src_clientes)

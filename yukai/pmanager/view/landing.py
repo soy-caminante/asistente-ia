@@ -428,14 +428,14 @@ class MainPanel(ft.Container, Factories):
         self._overlay_ctrl  = overlay_ctrl
         self._backend       = backend
         self._src_list      = PacienteList( "Nuevos",
-                                            self.reload_src_pacientes,
+                                            self.reload_src_clientes,
                                             self.consolidate_src_pacientes,
                                             self.check_src_duplicates,
                                             self.delete_src_pacientes,
                                             self.inspect_src_pacientes)
         
         self._con_list      = PacienteList( "Consolidados",
-                                            None,
+                                            self.reload_consolidated_clientes,
                                             None,
                                             self.check_consolidated_duplicates,
                                             self.delete_consolidated_pacientes,
@@ -455,10 +455,19 @@ class MainPanel(ft.Container, Factories):
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
-    def reload_src_pacientes(self):
+    def reload_src_clientes(self):
         status = self._backend.load_all_src_clientes()
         if status:
             self._src_list.set_values(status.get())
+        else:
+            show_snackbar("Error en la recarga de los pacientes")
+    #----------------------------------------------------------------------------------------------
+
+    @void_try_catch(Environment.log_fcn)
+    def reload_consolidated_clientes(self):
+        status = self._backend.load_all_consolidated_clientes()
+        if status:
+            self._con_list.set_values(status.get())
         else:
             show_snackbar("Error en la recarga de los pacientes")
     #----------------------------------------------------------------------------------------------

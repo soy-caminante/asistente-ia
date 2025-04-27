@@ -2,9 +2,12 @@ import  datetime
 import  pathlib
 import  shutil
 import  subprocess
+import  tempfile
 import  time
 
+
 from    bson                import  ObjectId
+from    contextlib          import contextmanager
 from    logger              import  Logger
 from    models.models       import  *
 from    pymongo             import  MongoClient, ReturnDocument
@@ -13,7 +16,7 @@ from    pymongo.errors      import  ServerSelectionTimeoutError
 from    tools.tools         import  is_plaintext_mime, is_plaint_text_file
 #--------------------------------------------------------------------------------------------------
 
-class PacientesDocumentStore:
+class ClientesDocumentStore:
     def __init__(self,  log: Logger,
                         base_path, 
                         docker_file     = None,
@@ -68,6 +71,21 @@ class PacientesDocumentStore:
             time.sleep(2)
             
         return False
+    #----------------------------------------------------------------------------------------------
+
+    @contextmanager
+    def transaction(self):
+        """ Contexto de transacción segura en MongoDB """
+        self.ensure_mongo_ready()
+        with self._client.start_session() as session:
+            try:
+                with session.start_transaction():
+                    yield session
+                    # Al salir del with, commit automático
+            except Exception as e:
+                self._log.error(f"❌ Error en transacción: {str(e)}")
+                raise
+    #----------------------------------------------------------------------------------------------
     # ------------------ Helpers ---------------------
 
     def _save_file(self, scr_file: pathlib.Path, dest_file: pathlib.Path):
@@ -91,8 +109,12 @@ class PacientesDocumentStore:
             file_path.unlink()
     #----------------------------------------------------------------------------------------------
 
-    def _doc_path(self, owner, tipo, filename):
+    def _doc_path(self, owner, tipo, filename) -> pathlib.Path:
         return self._base_path / owner / tipo / filename
+    #----------------------------------------------------------------------------------------------
+
+    def _owner_path(self, owner, tipo) -> pathlib.Path:
+        return self._base_path / owner / tipo
     #----------------------------------------------------------------------------------------------
 
     def _validate_object_id(self, value):
@@ -151,9 +173,9 @@ class PacientesDocumentStore:
 
     def get_all_clientes(self) -> list[ClienteInfo]:
         ret = [ ]
-        for record in self._db.clientes.distinct("owner"):
+        for record in self._db.clientes.find({}):
             record: dict
-            ret.append(ClienteInfo(record["nombre"],
+            ret.append(ClienteInfo( record["nombre"],
                                     record["apellidos"],
                                     record["sexo"],
                                     record["fecha_nacimiento"],
@@ -163,34 +185,33 @@ class PacientesDocumentStore:
         return ret
     #----------------------------------------------------------------------------------------------
 
-    def get_cliente_by_id_interno(self, id: str):
-        cursor = self._db.source_docs.find({"owner": id})
-        if len(cursor):
-            return ClienteInfo(cursor["nombre"],
-                                cursor["apellidos"],
-                                cursor["sexo"],
-                                cursor["fecha_nacimiento"],
-                                cursor["dni"],
-                                cursor["owner"],
-                                cursor["_id"])
+    def get_cliente_by_id_interno(self, id: str) -> ClienteInfo | None:
+        record = self._db.clientes.find_one({"owner": id})
+        if record:
+            return ClienteInfo( record["nombre"],
+                                record["apellidos"],
+                                record["sexo"],
+                                record["fecha_nacimiento"],
+                                record["dni"],
+                                record["owner"],
+                                record["_id"])
         return None
     #----------------------------------------------------------------------------------------------
 
-    def get_paciente_by_db_id(self, db_id:str):
-        cursor = self._db.source_docs.find({"_id": db_id})
-        if len(cursor):
-            return ClienteInfo(cursor["nombre"],
-                                cursor["apellidos"],
-                                cursor["sexo"],
-                                cursor["fecha_nacimiento"],
-                                cursor["dni"],
-                                cursor["owner"],
-                                cursor["_id"])
+    def get_paciente_by_db_id(self, db_id:str) -> ClienteInfo | None:
+        record = self._db.source_docs.find_one({"_id": db_id})
+        if record:
+            return ClienteInfo( record["nombre"],
+                                record["apellidos"],
+                                record["sexo"],
+                                record["fecha_nacimiento"],
+                                record["dni"],
+                                record["owner"],
+                                record["_id"])
         return None
     #----------------------------------------------------------------------------------------------
 
     # ------------------ Source Docs ---------------------
-
 
     def add_source_doc(self, owner, filename, file_path: pathlib.Path, source_created_at: datetime.datetime):
         content     = None
@@ -236,7 +257,7 @@ class PacientesDocumentStore:
 
     def get_all_source_meta(self, owner) -> list[SrcDocInfo]:
         ret = [ ]
-        for record in self._db.source_docs.find({"owner": owner}):
+        for record in self._db.source_docs.find({"owner": owner}, {"content": 0}):
             record: dict
             ret.append(SrcDocInfo(  record["_id"],
                                     record["owner"],
@@ -294,7 +315,7 @@ class PacientesDocumentStore:
 
     def get_all_iadoc_meta(self, owner) -> list[IaDcoInfo]:
         ret = [ ]
-        for record in self._db.iadocs.find({"owner": owner}):
+        for record in self._db.iadocs.find({"owner": owner}, { "content": 0 }):
             record: dict
             ret.append(IaDcoInfo(   record["_id"],
                                     record["owner"],
@@ -355,9 +376,7 @@ class PacientesDocumentStore:
 
     def get_all_biadoc_meta(self, owner) -> list[BIaDcoInfo]:
         ret = []
-        for record in self._db.biadocs.find({"owner": owner}):
-            path            = pathlib.Path(record["path"])
-            binary_content  = self._read_binary(path)
+        for record in self._db.biadocs.find({"owner": owner}, {"content": 0}):
             ret.append(BIaDcoInfo(  record["_id"],
                                     record["owner"],
                                     record["filename"],
@@ -376,21 +395,65 @@ class PacientesDocumentStore:
 
     def delete_doc(self, tipo, owner, filename):
         collection = {
-            "source": self._db.source_docs,
-            "iadoc": self._db.iadocs,
-            "biadoc": self._db.biadocs
+            "source":   self._db.source_docs,
+            "iadoc":    self._db.iadocs,
+            "biadoc":   self._db.biadocs
         }.get(tipo)
 
         if not collection:
-            raise ValueError(f"Tipo no válido: {tipo}")
+            self._log.error(f"Tipo no válido: {tipo}")
 
         doc = collection.find_one({"owner": owner, "filename": filename})
+
         if doc:
-            path = pathlib.Path(doc["path"])
-            self._remove_file(path)
-            collection.delete_one({"_id": doc["_id"]})
-            return True
+            with self.transaction() as session:
+                path = pathlib.Path(doc["path"])
+                self._remove_file(path)  # Si falla aquí, no se borra de Mongo
+                collection.delete_one({"_id": doc["_id"]}, session=session)
+                return True
         return False
+    #----------------------------------------------------------------------------------------------
+
+    def delete_cliente(self, owner):
+        temp_dirs = []
+
+        with self.transaction() as session:
+            try:
+                # 1. Mover directorios físicos a un temporal
+                for collection_name in ["source", "iadoc", "biadoc"]:
+                    src_path = self._owner_path(owner, collection_name)
+                    if src_path.exists():
+                        temp_dir = pathlib.Path(tempfile.gettempdir()) / f"{owner}_{collection_name}_{int(time.time())}"
+                        shutil.move(str(src_path), str(temp_dir))
+                        temp_dirs.append((src_path, temp_dir))
+
+                # 2. Borrar documentos en Mongo dentro de la transacción
+                for collection_name, collection in [
+                        ("source",  self._db.source_docs),
+                        ("iadoc",   self._db.iadocs),
+                        ("biadoc",  self._db.biadocs)
+                    ]:
+                    collection.delete_many({"owner": owner}, session=session)
+
+                self._db.clientes.delete_many({"owner": owner}, session=session)
+
+            except Exception as e:
+                self._log.error(f"❌ Error durante eliminación: {e}")
+                # 3. Si falla, restaurar los directorios movidos
+                for original_path, temp_dir in temp_dirs:
+                    if temp_dir.exists():
+                        shutil.move(str(temp_dir), str(original_path))
+                return False
+
+        # 4. Si todo fue bien: eliminar los temporales
+        for _, temp_dir in temp_dirs:
+            if temp_dir.exists():
+                try:
+                    shutil.rmtree(temp_dir)
+                except Exception as cleanup_error:
+                    self._log.warning(f"⚠️ Error al eliminar temporal {temp_dir}: {cleanup_error}")
+
+        return True    
     #----------------------------------------------------------------------------------------------
 
     # ------------------ Usuarios ---------------------

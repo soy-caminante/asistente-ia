@@ -390,3 +390,18 @@ class ClienteMetaInformation:
     iadocs:         list[IaDcoInfo]
     biadocs:        list[BIaDcoInfo]
 #--------------------------------------------------------------------------------------------------
+
+@dataclass
+class StructuredExpediente:
+    content: str
+#--------------------------------------------------------------------------------------------------
+
+@dataclass
+class ExpedienteBasicInfo:
+    antecedentes_familiares:        str
+    factores_riesgo_cardiovascular: str
+    medicacion:                     str
+    alergias:                       str
+    ingresos:                       str
+    ultimas_visitas:                str
+#--------------------------------------------------------------------------------------------------

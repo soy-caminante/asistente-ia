@@ -1,9 +1,14 @@
+import  httpx
 import  tiktoken
-from    huggingface_hub                                         import InferenceClient
-from    huggingface_hub.inference._generated.types              import ChatCompletionOutput
-from    openai                                                  import OpenAI
-from    ia.prompt                                               import IndexerPrompt, DoctorPrompt
+
+from    huggingface_hub                                         import  InferenceClient
+from    huggingface_hub.inference._generated.types              import  ChatCompletionOutput
+from    ia.prompt                                               import  IndexerPrompt, DoctorPrompt
+from    models.models                                           import  ExpedienteBasicInfo, StructuredExpediente
+from    openai                                                  import  OpenAI
 from    transformers                                            import  AutoTokenizer
+from    tools.tools                                             import  StatusInfo
+from    logger                                                  import  Logger
 #--------------------------------------------------------------------------------------------------
 
 # hyperstack api-key: 18d10645-1279-4b5d-9df0-78caab8fd1a7
@@ -150,4 +155,135 @@ class InferenceModelClient:
 
         return completion.choices[0].message.content
     #----------------------------------------------------------------------------------------------    
+#--------------------------------------------------------------------------------------------------
+
+class ChatClient:
+    SUMMARY_EXPLANATION     =   "Eres un asistente médico que estructura información clínica en las siguientes categorías, " \
+                                "fecha: fecha consignada en el documento." \
+                                "motivo: motivo de la visista." \
+                                "síntomas: sintomatología referida por el paciente." + \
+                                "esatdo físico: estado físico del paciente." + \
+                                "medicación: medicación pautada o referida." + \
+                                "tratamiento: tratamiento recomendado." + \
+                                "recomendaciones: instrucciones dadas al paciente." + \
+                                "ingresos: ingresos hospitalarios." + \
+                                "comentarios: comentatios recogidos en el documento."  + \
+                                "diagnósticos: diagnóstico efectuado." + \
+                                "antecedentes familiares: antecedentes familiares." + \
+                                "factores riesgo cardivascular: factores de riesgo cardiovascular del paciente." + \
+                                "alergias: alergias del paciente." + \
+                                "operaciones: operaciones sufridas por el paciente." + \
+                                "implantes: implantes que tiene el paciente." + \
+                                "otros: cualquier cosa no recogida en los campos anteriores." + \
+                                "keywords: keywords del texto." + \
+                                "tags: tags del texto."
+    
+    SUMMARY_QUESTION        =   "Retorna la información en un json." \
+                                "si algún campo no está presente en el documento no lo incluyas en el json." + \
+                                "condensa la información lo más posible. se sucinto y conciso." + \
+                                "si alguna información no aparece o no se menciona, ni incluyas el campo ni lo indiques." + \
+                                "retorna únicamente el json"
+    
+    BASIC_INFO_EXPLANATION  =   "Eres un asistente médico experto en interpretación de historiales clínicos. Responde a las preguntas sobre este historial." \
+                                "Responde solo sobre el contenido del expediente. No inventes ni interpoles ni supongas nada."  \
+                                "Siempre que sea posible indica la fecha de la información que suministras." \
+                                "Formatea la respuesta en markdown. No resumas al final." \
+                                "El historial está estructurado de la siguiente manera:" \
+                                "edad del paciente**sexo del paciente**documento 1**documento 2**...**documento N" \
+                                "Formato de cada documento: cada campo se codifica como n.valor. Campos múltiples separados por |. Listas separadas por ;.Delimitadores internos reemplazados por ¬.Fin de documento ||. Mapeo:0:nombre documento,1=fecha documento,2=motivo,3=síntomas,4=estado físico,5=medicación,6=tratamiento,7=recomendaciones,8=ingresos,9=comentarios,19=diagnósticos,11=antecedentes familiares,12=factores riesgo cardiovascular,13=alergias,14=operaciones,15=implantes,16=otros."
+    #----------------------------------------------------------------------------------------------
+
+    def __init__(self,  end_point:  str,
+                        model_name: str,
+                        log:        Logger):
+        self._end_point     = f"{end_point}/v1/chat/completions"
+        self._model_name    = model_name
+        self._client        = httpx.Client()
+        self._log           = log
+    #----------------------------------------------------------------------------------------------
+
+    def get_doc_summary(self, document) -> StatusInfo[StructuredExpediente]:
+        message     = \
+        [
+            {"role": "system", "content": f"{self.SUMMARY_EXPLANATION}: {document}"},
+            {"role": "user", "content": self.SUMMARY_QUESTION}
+        ]
+
+        payload = \
+        {
+            "model":        self._model_name,
+            "messages":     message,
+            "temperature":  0.3,
+            "top_p":        0.9,
+            "stream":       False
+        }
+
+        try:
+            response = self._client.post(self._end_point, headers={"Content-Type": "application/json"}, json=payload, timeout=300)
+            if response.status_code == 200:
+                if response.text.lower() != "nada":
+                    return StatusInfo.ok(StructuredExpediente(response.text))
+
+        except Exception as ex:
+            self._log.exception(ex)
+            return StatusInfo.error("Error al estructurar el expediente")
+    #----------------------------------------------------------------------------------------------
+
+    def get_expediente_basic_info(self, expediente) -> StatusInfo[ExpedienteBasicInfo]:
+        riesgo          = [ None ]
+        antecedentes    = [ None ]
+        medicacion      = [ None ]
+        visitas         = [ None ]
+        ingresos        = [ None ]
+        alergias        = [ None ]
+        queries = \
+        [ 
+            (   "Dame una lista con los factores de riesgo cardiovascular del paciente. Si no puedes saberlo responde NADA.",
+                riesgo),
+            (   "Dame una lista con los antecedentes familiares del paciente. Si no puedes saberlo responde NADA.",
+                antecedentes),
+            (   "Dame una lista con las alergias del paciente. Si no puedes saberlo responde NADA.",
+                alergias),
+            (   "Dame una lista con medicación pautada al paciente. Ordena la lista de más reciente a más antiguo. Si no puedes saberlo responde NADA.",
+                medicacion),
+            (   "Dame una lista de los documentos aportados, indicando su fecha y un resumen muy breve de lo que contiene. Si no puedes saberlo responde NADA.",
+                visitas),
+            (   "Dame una lista con los ingresos hospitalarios del paciente. Ordena la lista de más reciente a más antiguo. Si no puedes saberlo responde NADA.",
+                ingresos)
+        ]
+        
+        for query, info in queries:
+            question    = query
+            message     = \
+            [
+                {"role": "system", "content": f"{self.BASIC_INFO_EXPLANATION}: {expediente}"},
+                {"role": "user", "content": question}
+            ]
+
+            payload = \
+            {
+                "model":        self._model_name,
+                "messages":     message,
+                "temperature":  0.3,
+                "top_p":        0.9,
+                "stream":       False
+            }
+
+            try:
+                response = self._client.post(self._end_point, headers={"Content-Type": "application/json"}, json=payload, timeout=300)
+                if response.status_code == 200:
+                    if response.text.lower() != "nada":
+                        info[0] = response.text                        
+
+            except Exception as ex:
+                self._log.exception(ex)
+                return StatusInfo.error("Error al analizar el expediente")
+            
+        return StatusInfo.ok(ExpedienteBasicInfo(antecedentes[0],
+                                                 riesgo[0],
+                                                 medicacion[0],
+                                                 alergias[0],
+                                                 ingresos[0],
+                                                 visitas[0]))
+    #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
