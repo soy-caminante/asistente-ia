@@ -119,7 +119,15 @@ class ClientesDocumentStore:
 
     # ------------------ Clientes -----------------------
 
-    def add_cliente(self, nombre: str, apellidos: str, sexo: str, fecha_nacimiento: datetime.datetime, dni: str, id_interno: str):
+    def add_cliente(self,   nombre: str, 
+                            apellidos: str, 
+                            sexo: str, 
+                            fecha_nacimiento: datetime.datetime, 
+                            dni: str, 
+                            id_interno: str,
+                            src_docs: list[dict],
+                            iadocs: list[dict],
+                            biadocs: list[dict]):
         doc = {
             "owner": id_interno,
             "nombre": nombre,

@@ -65,8 +65,31 @@ class PretrainedManger:
             self._db_op.set_summary_question(binary)
             
         if not self._chat_explanation:
-            self._chat_explanation, binary = self._model.embed_prembed_prompt_binaryompt(SystemPromts.CHAT_INFO_EXPLANATION)
+            self._chat_explanation, binary = self._model.embed_prompt_binary(SystemPromts.CHAT_INFO_EXPLANATION)
             self._db_op.set_chat_explanation(binary)
+    #----------------------------------------------------------------------------------------------
+
+    def generate_embeddings(self, text):
+        _, binary = self._model.embed_prompt_binary(text)
+        return binary
+    #----------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
+
+class BIaDocGenerator:
+    def __init__(self, personal_info: ClienteInfo):
+        self._personal_info     = personal_info
+        self._docs: list[str]   = []
+    #----------------------------------------------------------------------------------------------
+
+    def add(self, doc): self._docs.append(doc)
+    #----------------------------------------------------------------------------------------------
+
+    def generate(self):
+        ret = f"{self._personal_info.edad}**{self._personal_info.sexo}"
+        for doc in self._docs:
+            if ret != "":
+                ret += "**"
+            ret += doc
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
@@ -133,7 +156,16 @@ class BackendService:
 
     def consolidate_clientes(self, clientes_db_id: list[str]) -> StatusInfo[list[Paciente]]:
         for db_id in clientes_db_id:
-            cliente: IncommingCliente = self._incomming_db.get_cliente_info(db_id)
+            cliente: IncommingCliente   = self._incomming_db.get_cliente_info(db_id)
+            biadoc_gen                  = BIaDocGenerator(cliente.personal_info)
+            for doc in cliente.docs:
+                if doc.is_plain_text: 
+                    iadoc = "" # Obtener el iadoc del modelo de ia
+                    biadoc_gen.add(doc)
+
+            biadoc = self._pretrained.generate_embeddings(biadoc_gen.generate())
+            self._clientes_db.add_cliente()
+
     #----------------------------------------------------------------------------------------------
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al eliminar el cliente"))

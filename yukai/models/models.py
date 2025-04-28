@@ -203,6 +203,7 @@ class IncommingFileInfo:
     size:       int
     tokens:     str
     ts:         datetime.datetime
+    content:    str = None
 
     @property
     def name(self): return self.path.stem
@@ -237,10 +238,10 @@ class IncommingFileInfo:
                 tokenizer   = tiktoken.get_encoding(encoding_model)
                 num_tokens  = len(tokenizer.encode(contenido))
         else:
-            num_tokens = "-"        
-        if path.suffix != ".txt" and path.suffix != "iadoc":
-            contenido = None
-        return IncommingFileInfo(path, mime, size_bytes, num_tokens, ts)
+            contenido   = None
+            num_tokens  = "-"        
+    
+        return IncommingFileInfo(path, mime, size_bytes, num_tokens, ts, contenido)
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
