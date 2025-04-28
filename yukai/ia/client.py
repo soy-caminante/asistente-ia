@@ -1,12 +1,15 @@
 import  httpx
+import  os
 import  tiktoken
+import  torch
 
+from    enum                                                    import  IntEnum
 from    huggingface_hub                                         import  InferenceClient
 from    huggingface_hub.inference._generated.types              import  ChatCompletionOutput
 from    ia.prompt                                               import  IndexerPrompt, DoctorPrompt
 from    models.models                                           import  ExpedienteBasicInfo, StructuredExpediente
 from    openai                                                  import  OpenAI
-from    transformers                                            import  AutoTokenizer
+from    transformers                                            import  AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from    tools.tools                                             import  StatusInfo
 from    logger                                                  import  Logger
 #--------------------------------------------------------------------------------------------------
@@ -155,6 +158,102 @@ class InferenceModelClient:
 
         return completion.choices[0].message.content
     #----------------------------------------------------------------------------------------------    
+#--------------------------------------------------------------------------------------------------
+
+class Quatization(IntEnum):
+    B4      = 0
+    FP16    = 1
+    FP32    = 2
+#--------------------------------------------------------------------------------------------------
+
+class SystemPromts:
+    SUMMARY_EXPLANATION     =   "Eres un asistente médico que estructura información clínica en las siguientes categorías, " \
+                                "fecha: fecha consignada en el documento." \
+                                "motivo: motivo de la visista." \
+                                "síntomas: sintomatología referida por el paciente." + \
+                                "esatdo físico: estado físico del paciente." + \
+                                "medicación: medicación pautada o referida." + \
+                                "tratamiento: tratamiento recomendado." + \
+                                "recomendaciones: instrucciones dadas al paciente." + \
+                                "ingresos: ingresos hospitalarios." + \
+                                "comentarios: comentatios recogidos en el documento."  + \
+                                "diagnósticos: diagnóstico efectuado." + \
+                                "antecedentes familiares: antecedentes familiares." + \
+                                "factores riesgo cardivascular: factores de riesgo cardiovascular del paciente." + \
+                                "alergias: alergias del paciente." + \
+                                "operaciones: operaciones sufridas por el paciente." + \
+                                "implantes: implantes que tiene el paciente." + \
+                                "otros: cualquier cosa no recogida en los campos anteriores." + \
+                                "keywords: keywords del texto." + \
+                                "tags: tags del texto."
+    
+    SUMMARY_QUESTION        =   "Retorna la información en un json." \
+                                "si algún campo no está presente en el documento no lo incluyas en el json." + \
+                                "condensa la información lo más posible. se sucinto y conciso." + \
+                                "si alguna información no aparece o no se menciona, ni incluyas el campo ni lo indiques." + \
+                                "retorna únicamente el json"
+    
+    CHAT_INFO_EXPLANATION  =   "Eres un asistente médico experto en interpretación de historiales clínicos. Responde a las preguntas sobre este historial." \
+                                "Responde solo sobre el contenido del expediente. No inventes ni interpoles ni supongas nada."  \
+                                "Siempre que sea posible indica la fecha de la información que suministras." \
+                                "Formatea la respuesta en markdown. No resumas al final." \
+                                "El historial está estructurado de la siguiente manera:" \
+                                "edad del paciente**sexo del paciente**documento 1**documento 2**...**documento N" \
+                                "Formato de cada documento: cada campo se codifica como n.valor. Campos múltiples separados por |. Listas separadas por ;.Delimitadores internos reemplazados por ¬.Fin de documento ||. Mapeo:0:nombre documento,1=fecha documento,2=motivo,3=síntomas,4=estado físico,5=medicación,6=tratamiento,7=recomendaciones,8=ingresos,9=comentarios,19=diagnósticos,11=antecedentes familiares,12=factores riesgo cardiovascular,13=alergias,14=operaciones,15=implantes,16=otros."
+#--------------------------------------------------------------------------------------------------
+
+class ModelLoader:
+    def __init__(self, model_name: str, quantization: Quatization = Quatization.B4):
+        self._model_name    = model_name
+        self._quantization  = quantization
+        self._tokenizer     = AutoTokenizer.from_pretrained(model_name, token=os.getenv("hf_api_key"))
+        self._model         = self._load_model()
+    #----------------------------------------------------------------------------------------------
+
+    def _load_model(self):
+        if self._quantization == Quatization.B4:
+            bnb_config = BitsAndBytesConfig(
+                load_in_4bit                = True,
+                bnb_4bit_compute_dtype      = torch.float16,
+                bnb_4bit_use_double_quant   = True
+            )
+            model = AutoModelForCausalLM.from_pretrained(
+                self._model_name,
+                quantization_config = bnb_config,
+                device_map          = "auto"
+            )
+        elif self._quantization == Quatization.FP16:
+            model = AutoModelForCausalLM.from_pretrained(
+                self._model_name,
+                torch_dtype = torch.float16,
+                device_map  = "auto"
+            )
+        elif self._quantization == Quatization.FP32:
+            model = AutoModelForCausalLM.from_pretrained(
+                self._model_name,
+                torch_dtype = torch.float32,
+                device_map  = "auto"
+            )
+        else:
+            raise ValueError("Unsupported quantization type")
+        model.eval()
+        return model
+    #----------------------------------------------------------------------------------------------
+
+    def embed_prompt(self, text):
+        inputs = self._tokenizer(text, return_tensors="pt", add_special_tokens=False).to(self._model.device)
+        with torch.no_grad():
+            embeddings = self._model.model.embed_tokens(inputs.input_ids)
+        return embeddings.squeeze(0).cpu().tolist()
+    #----------------------------------------------------------------------------------------------
+    
+    def embed_prompt_binary(self, text):
+        embedding_tensor    = self.embed_prompt(text)
+        buffer              = torch.io.BytesIO()
+        torch.save(embedding_tensor, buffer)
+        buffer.seek(0)
+        return embedding_tensor.tolist(), buffer
+    #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
 class ChatClient:

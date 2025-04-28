@@ -1,6 +1,7 @@
 import  argparse
 import  flet                            as ft 
 import  pathlib
+import  os
 
 from    dataclasses                     import  dataclass
 from    logger                          import  Logger
@@ -88,7 +89,7 @@ class Booter:
     def run(self):
         self._args.log.info("YUKAI pmanager running")
         self._args.log.info("assets: ", self._args.assets_dir)
-
+        
         if self._args.mode == "console":    
             ft.app( target      = self.run_app, 
                     assets_dir  = self._args.assets_dir)

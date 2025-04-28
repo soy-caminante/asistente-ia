@@ -20,6 +20,7 @@ class Environment:
     runtime:                    pathlib.Path
     db_dir:                     pathlib.Path = None
     db_docker_file:             pathlib.Path = None
+    model_name:                 str = "meta-llama/Meta-Llama-3-8B-Instruct"
     #----------------------------------------------------------------------------------------------
 
     def __post_init__(self):

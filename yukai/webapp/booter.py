@@ -88,7 +88,7 @@ class Booter:
     
     def run(self):
         self._backend = BackendService(BackEnvironment( self._args.log,
-                                                        self._args.runtime / "consolidated"))
+                                                        self._args.runtime))
 
         self._args.log.info("YUKAI web running")
         self._args.log.info("assets: ", self._args.assets_dir)

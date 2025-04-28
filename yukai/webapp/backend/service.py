@@ -72,6 +72,10 @@ class BackendService:
                         model = "microsoft/phi-2"
                     elif "-4" in model_ref.lower():
                         model = "microsoft/Phi-4-mini-instruct"
+                elif "mistral" in model_ref.lower():
+                    model = "mistralai/Mistral-7B-Instruct-v0.3"
+                elif "c4ai" in model_ref.lower():
+                    model = "CohereLabs/c4ai-command-r7b-12-2024"
             if model_ref is None:
                     model = "meta-llama/Llama-3.2-3B-Instruct"
 

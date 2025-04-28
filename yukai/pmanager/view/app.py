@@ -37,13 +37,16 @@ class App:
     #----------------------------------------------------------------------------------------------
 
     def load_initial_data(self):
-        con_list    = self._backend.load_all_consolidated_clientes()
-        src_list    = self._backend.load_all_src_clientes()
-
+        con_list            = self._backend.load_all_consolidated_clientes()
+        src_list            = self._backend.load_all_src_clientes()
+        pretrained_status   = self._backend.load_pretrained()
+        
         if not con_list:
             self._env.log.error("No se ha podido cargar la lista de pacientes consolidados")
         if not src_list:
             self._env.log.error("No se ha podido cargar la lista de pacientes por consolidar")
+        if not pretrained_status:
+            self._env.log.error("No se han podido generar los contextos preentrenados")
 
         if not con_list or not src_list:
             status = self._backend.check_db()

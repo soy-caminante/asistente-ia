@@ -1,34 +1,30 @@
 import  datetime
+import  gridfs
 import  pathlib
-import  shutil
 import  subprocess
-import  tempfile
 import  time
 
-
-from    bson                import  ObjectId
-from    contextlib          import contextmanager
-from    logger              import  Logger
-from    models.models       import  *
-from    pymongo             import  MongoClient, ReturnDocument
-from    pymongo.database    import  Database
-from    pymongo.errors      import  ServerSelectionTimeoutError
-from    tools.tools         import  is_plaintext_mime, is_plaint_text_file
+from    bson                        import  ObjectId
+from    contextlib                  import  contextmanager
+from    logger                      import  Logger
+from    models.models               import  ClienteInfo, SrcDocInfo, IaDcoInfo, BIaDcoInfo
+from    pymongo                     import  MongoClient, ReturnDocument
+from    pymongo.database            import  Database
+from    pymongo.errors              import  ServerSelectionTimeoutError
+from    tools.tools                 import  is_plaint_text_file
 #--------------------------------------------------------------------------------------------------
 
 class ClientesDocumentStore:
-    def __init__(self,  log: Logger,
-                        base_path, 
-                        docker_file     = None,
-                        mongo_uri       = "mongodb://localhost:27017", 
-                        db_name         = "docstore"):
+    def __init__(self, log: Logger,
+                       docker_file  = None,
+                       mongo_uri    = "mongodb://localhost:27017",
+                       db_name      = "docstore"):
         self._log           = log
         self._docker_file   = docker_file
         self._mongo_uri     = mongo_uri
         self._client        = MongoClient(mongo_uri)
         self._db: Database  = self._client[db_name]
-        self._base_path     = pathlib.Path(base_path) / "consolidated"
-        self._base_path.mkdir(parents=True, exist_ok=True)
+        self._fs            = gridfs.GridFS(self._db)
     #----------------------------------------------------------------------------------------------
 
     # ------------------ Mongo Ready ---------------------
@@ -36,7 +32,6 @@ class ClientesDocumentStore:
     def is_mongo_ready(self, uri=None, timeout=1):
         try:
             if uri is None: uri = self._mongo_uri
-
             client = MongoClient(uri, serverSelectionTimeoutMS=timeout * 1000)
             client.admin.command('ping')
             return True
@@ -46,77 +41,49 @@ class ClientesDocumentStore:
 
     def ensure_mongo_ready(self, uri=None):
         if uri is None: uri = self._mongo_uri
-        else:
-            self._mongo_uri = uri
+        else: self._mongo_uri = uri
 
         self._log.info("Comprobando el estado de MongoDB")
-
         if self.is_mongo_ready(uri):
             self._log.info("✅ MongoDB ya está disponible.")
             return True
-        
+
         self._log.info("🚀 MongoDB no está disponible. Iniciando con Docker Compose...")
 
         if self._docker_file:
             subprocess.run(["docker", "compose", "-f", self._docker_file, "up", "-d", "mongo"], check=True)
         else:
             subprocess.run(["docker", "compose", "up", "-d", "mongo"], check=True)
-        
+
         for i in range(20):
             if self.is_mongo_ready(uri):
                 self._log.info("✅ MongoDB está listo.")
                 return True
-            
             self._log.info(f"⏳ Esperando que MongoDB arranque... ({i+1}/20)")
             time.sleep(2)
-            
+
         return False
+    #----------------------------------------------------------------------------------------------
+
+    def setup_db(self):
+        self._db.pretrained_docs.create_index("filename", unique=True)
+        if self._db.counters.find_one({"_id": "file_id"}) is None:
+            self._db.counters.insert_one({"_id": "file_id", "seq": 0})
     #----------------------------------------------------------------------------------------------
 
     @contextmanager
     def transaction(self):
-        """ Contexto de transacción segura en MongoDB """
         self.ensure_mongo_ready()
         with self._client.start_session() as session:
             try:
                 with session.start_transaction():
                     yield session
-                    # Al salir del with, commit automático
             except Exception as e:
-                self._log.error(f"❌ Error en transacción: {str(e)}")
+                self._log.error(f"❌ Error en transacción: {e}")
                 raise
     #----------------------------------------------------------------------------------------------
+
     # ------------------ Helpers ---------------------
-
-    def _save_file(self, scr_file: pathlib.Path, dest_file: pathlib.Path):
-        dest_file.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(scr_file, dest_file)
-        return dest_file
-    #----------------------------------------------------------------------------------------------
-
-    def _read_text(self, file_path: pathlib.Path):
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return f.read()
-    #----------------------------------------------------------------------------------------------
-
-    def _read_binary(self, file_path: pathlib.Path):
-        with open(file_path, 'rb') as f:
-            return f.read()
-    #----------------------------------------------------------------------------------------------
-
-    def _remove_file(self, file_path):
-        if file_path.exists():
-            file_path.unlink()
-    #----------------------------------------------------------------------------------------------
-
-    def _doc_path(self, owner, tipo, filename) -> pathlib.Path:
-        return self._base_path / owner / tipo / filename
-    #----------------------------------------------------------------------------------------------
-
-    def _owner_path(self, owner, tipo) -> pathlib.Path:
-        return self._base_path / owner / tipo
-    #----------------------------------------------------------------------------------------------
-
     def _validate_object_id(self, value):
         try:
             return ObjectId(value)
@@ -138,15 +105,9 @@ class ClientesDocumentStore:
         return iadoc_id
     #----------------------------------------------------------------------------------------------
 
-    # ------------------ Contadores -----------------------
-
-    def check_counters_collection(self):
-        if self._db.counters.find_one({"_id": "file_id"}) is None:
-                self._db.counters.insert_one({"_id": "file_id", "seq": 0})
-    #----------------------------------------------------------------------------------------------
+    # ------------------ Contadores ---------------------
 
     def get_next_file_id(self):
-        self.check_counters_collection()
         counter = self._db.counters.find_one_and_update(
             {"_id": "file_id"},
             {"$inc": {"seq": 1}},
@@ -156,200 +117,253 @@ class ClientesDocumentStore:
         return counter["seq"]
     #----------------------------------------------------------------------------------------------
 
-    # ------------------ Pacientes -----------------------
+    # ------------------ Clientes -----------------------
 
-    def add_cliente(self, nombre:str, apellidos:str, sexo:str, fecha_nacimiento: datetime.datetime, dni:str, id_interno:str):
+    def add_cliente(self, nombre: str, apellidos: str, sexo: str, fecha_nacimiento: datetime.datetime, dni: str, id_interno: str):
         doc = {
-            "owner":            id_interno,
-            "nombre":           nombre,
-            "apellidos":        apellidos,
-            "sexo":             sexo,
+            "owner": id_interno,
+            "nombre": nombre,
+            "apellidos": apellidos,
+            "sexo": sexo,
             "fecha_nacimiento": fecha_nacimiento,
-            "dni":              dni
+            "dni": dni
         }
-
         return self._db.clientes.insert_one(doc).inserted_id
     #----------------------------------------------------------------------------------------------
 
     def get_all_clientes(self) -> list[ClienteInfo]:
-        ret = [ ]
+        ret = []
         for record in self._db.clientes.find({}):
-            record: dict
-            ret.append(ClienteInfo( record["nombre"],
-                                    record["apellidos"],
-                                    record["sexo"],
-                                    record["fecha_nacimiento"],
-                                    record["dni"],
-                                    record["owner"],
-                                    record["_id"]))
+            ret.append(ClienteInfo(record["nombre"],
+                                   record["apellidos"],
+                                   record["sexo"],
+                                   record["fecha_nacimiento"],
+                                   record["dni"],
+                                   record["owner"],
+                                   record["_id"]))
         return ret
     #----------------------------------------------------------------------------------------------
 
     def get_cliente_by_id_interno(self, id: str) -> ClienteInfo | None:
         record = self._db.clientes.find_one({"owner": id})
         if record:
-            return ClienteInfo( record["nombre"],
-                                record["apellidos"],
-                                record["sexo"],
-                                record["fecha_nacimiento"],
-                                record["dni"],
-                                record["owner"],
-                                record["_id"])
+            return ClienteInfo(record["nombre"],
+                               record["apellidos"],
+                               record["sexo"],
+                               record["fecha_nacimiento"],
+                               record["dni"],
+                               record["owner"],
+                               record["_id"])
         return None
     #----------------------------------------------------------------------------------------------
 
-    def get_paciente_by_db_id(self, db_id:str) -> ClienteInfo | None:
-        record = self._db.source_docs.find_one({"_id": db_id})
+    def get_cliente_by_db_id(self, db_id: str) -> ClienteInfo | None:
+        record = self._db.clientes.find_one({"_id": self._validate_object_id(db_id)})
         if record:
-            return ClienteInfo( record["nombre"],
-                                record["apellidos"],
-                                record["sexo"],
-                                record["fecha_nacimiento"],
-                                record["dni"],
-                                record["owner"],
-                                record["_id"])
+            return ClienteInfo(record["nombre"],
+                               record["apellidos"],
+                               record["sexo"],
+                               record["fecha_nacimiento"],
+                               record["dni"],
+                               record["owner"],
+                               record["_id"])
         return None
+    #----------------------------------------------------------------------------------------------
+
+    def delete_cliente(self, owner):
+        with self.transaction() as session:
+            try:
+                # 1. Eliminar GridFS asociado a source_docs
+                for record in self._db.source_docs.find({"owner": owner}, {"gridfs_file_id": 1}):
+                    gridfs_id = record.get("gridfs_file_id")
+                    if gridfs_id:
+                        self._fs.delete(gridfs_id)
+
+                # 2. Eliminar GridFS asociado a iadocs
+                for record in self._db.iadocs.find({"owner": owner}, {"gridfs_file_id": 1}):
+                    gridfs_id = record.get("gridfs_file_id")
+                    if gridfs_id:
+                        self._fs.delete(gridfs_id)
+
+                # 3. Eliminar GridFS asociado a biadocs
+                for record in self._db.biadocs.find({"owner": owner}, {"gridfs_file_id": 1}):
+                    gridfs_id = record.get("gridfs_file_id")
+                    if gridfs_id:
+                        self._fs.delete(gridfs_id)
+
+                # 4. Borrar documentos de las colecciones
+                self._db.source_docs.delete_many({"owner": owner}, session=session)
+                self._db.iadocs.delete_many({"owner": owner}, session=session)
+                self._db.biadocs.delete_many({"owner": owner}, session=session)
+
+                # 5. Borrar cliente
+                self._db.clientes.delete_many({"owner": owner}, session=session)
+
+            except Exception as e:
+                self._log.error(f"❌ Error durante eliminación del cliente: {e}")
+                raise
+
+        return True
     #----------------------------------------------------------------------------------------------
 
     # ------------------ Source Docs ---------------------
 
-    def add_source_doc(self, owner, filename, file_path: pathlib.Path, source_created_at: datetime.datetime):
-        content     = None
-        db_path     = self._doc_path(owner, 'source', f"{self.get_next_file_id()}-{filename}")
+    def add_source_doc(self, owner, filename, file_input: pathlib.Path | bytes, source_created_at: datetime.datetime):
+        is_plain = False
+        mime = None
 
-        is_plain, mime = is_plaint_text_file(file_path)
-        if is_plain:
-            with open(file_path, "r", encoding="utf-8") as f:
-                content = f.read()
-        
-        self._save_file(file_path, db_path)
+        if isinstance(file_input, pathlib.Path):
+            is_plain, mime = is_plaint_text_file(file_input)
+            with open(file_input, "rb") as f:
+                content_data = f.read()
+        elif isinstance(file_input, bytes):
+            content_data = file_input
+            mime = "application/octet-stream"
+        else:
+            raise TypeError("file_input debe ser pathlib.Path o bytes")
+
+        file_id = self._fs.put(content_data, filename=filename, owner=owner, mime=mime, type="source")
 
         doc = {
-            "owner":                owner,
-            "filename":             filename,
-            "mime":                 mime,
-            "path":                 str(db_path),
-            "created_at":           datetime.datetime.now(datetime.timezone.utc),
-            "source_created_at":    source_created_at,
-            "size_bytes":           file_path.stat().st_size
+            "owner": owner,
+            "filename": filename,
+            "mime": mime,
+            "gridfs_file_id": file_id,
+            "created_at": datetime.datetime.now(datetime.timezone.utc),
+            "source_created_at": source_created_at,
+            "size_bytes": len(content_data)
         }
-        if content is not None:
-            doc["content"] = content
-
         return self._db.source_docs.insert_one(doc).inserted_id
     #----------------------------------------------------------------------------------------------
 
     def get_all_source_docs(self, owner) -> list[SrcDocInfo]:
-        ret = [ ]
+        ret = []
         for record in self._db.source_docs.find({"owner": owner}):
-            record: dict
-            ret.append(SrcDocInfo(  record["_id"],
-                                    record["owner"],
-                                    record["filename"],
-                                    record["path"],
-                                    record["mime"],
-                                    record["created_at"],
-                                    record["source_created_at"],
-                                    record["size_bytes"],
-                                    record.get("content", None)))
+            binary_content = self._fs.get(record["gridfs_file_id"]).read()
+            ret.append(SrcDocInfo(
+                record["_id"],
+                record["owner"],
+                record["filename"],
+                None,
+                record["mime"],
+                record["created_at"],
+                record["source_created_at"],
+                record["size_bytes"],
+                binary_content
+            ))
         return ret
     #----------------------------------------------------------------------------------------------
 
     def get_all_source_meta(self, owner) -> list[SrcDocInfo]:
-        ret = [ ]
-        for record in self._db.source_docs.find({"owner": owner}, {"content": 0}):
-            record: dict
-            ret.append(SrcDocInfo(  record["_id"],
-                                    record["owner"],
-                                    record["filename"],
-                                    record["path"],
-                                    record["mime"],
-                                    record["created_at"],
-                                    record["source_created_at"],
-                                    record["size_bytes"]))
+        ret = []
+        for record in self._db.source_docs.find({"owner": owner}, {"gridfs_file_id": 0}):
+            ret.append(SrcDocInfo(
+                record["_id"],
+                record["owner"],
+                record["filename"],
+                None,
+                record["mime"],
+                record["created_at"],
+                record["source_created_at"],
+                record["size_bytes"]
+            ))
         return ret
     #----------------------------------------------------------------------------------------------
 
     # ------------------ IADOCs ---------------------
 
-    def add_iadoc(self, owner, filename, file_path: pathlib.Path, source_id, source_mime, source_created_at: datetime.datetime, tokens):
-        source_id   = self._check_source_exists(source_id)
-        db_path     = self._doc_path(owner, 'iadoc', f"{self.get_next_file_id()}-{filename}")
+    def add_iadoc(self, owner, filename, file_input: pathlib.Path | bytes, source_id, source_mime, source_created_at: datetime.datetime, tokens):
+        source_id = self._check_source_exists(source_id)
 
-        with open(file_path, "r", encoding="utf-8") as f:
-            content = f.read()
-        
-        self._save_file(file_path, db_path)
+        if isinstance(file_input, pathlib.Path):
+            with open(file_input, "rb") as f:
+                content_data = f.read()
+        elif isinstance(file_input, bytes):
+            content_data = file_input
+        else:
+            raise TypeError("file_input debe ser pathlib.Path o bytes")
+
+        file_id = self._fs.put(content_data, filename=filename, owner=owner, type="iadoc")
+
         doc = {
-            "owner":                owner,
-            "filename":             filename,
-            "path":                 str(db_path),
-            "source_ref":           source_id,
-            "source_mime":          source_mime,
-            "source_created_at":    source_created_at,
-            "created_at":           datetime.datetime.now(datetime.timezone.utc),
-            "size_bytes":           file_path.stat().st_size,
-            "tokens":               tokens,
-            "content":              content
+            "owner": owner,
+            "filename": filename,
+            "gridfs_file_id": file_id,
+            "source_ref": source_id,
+            "source_mime": source_mime,
+            "source_created_at": source_created_at,
+            "created_at": datetime.datetime.now(datetime.timezone.utc),
+            "size_bytes": len(content_data),
+            "tokens": tokens
         }
         return self._db.iadocs.insert_one(doc).inserted_id
     #----------------------------------------------------------------------------------------------
 
     def get_all_iadocs(self, owner) -> list[IaDcoInfo]:
-        ret = [ ]
+        ret = []
         for record in self._db.iadocs.find({"owner": owner}):
-            record: dict
-            ret.append(IaDcoInfo(   record["_id"],
-                                    record["owner"],
-                                    record["filename"],
-                                    record["path"],
-                                    record["source_ref"],
-                                    record["source_mime"],
-                                    record["source_created_at"],
-                                    record["created_at"],
-                                    record["size_bytes"],
-                                    record["tokens"],
-                                    record.get("content", None)))
+            binary_content = self._fs.get(record["gridfs_file_id"]).read()
+            ret.append(IaDcoInfo(
+                record["_id"],
+                record["owner"],
+                record["filename"],
+                None,
+                record["source_ref"],
+                record["source_mime"],
+                record["source_created_at"],
+                record["created_at"],
+                record["size_bytes"],
+                record["tokens"],
+                binary_content
+            ))
         return ret
     #----------------------------------------------------------------------------------------------
 
     def get_all_iadoc_meta(self, owner) -> list[IaDcoInfo]:
-        ret = [ ]
-        for record in self._db.iadocs.find({"owner": owner}, { "content": 0 }):
-            record: dict
-            ret.append(IaDcoInfo(   record["_id"],
-                                    record["owner"],
-                                    record["filename"],
-                                    record["path"],
-                                    record["source_ref"],
-                                    record["source_mime"],
-                                    record["source_created_at"],
-                                    record["created_at"],
-                                    record["size_bytes"],
-                                    record["tokens"]))
+        ret = []
+        for record in self._db.iadocs.find({"owner": owner}, {"gridfs_file_id": 0}):
+            ret.append(IaDcoInfo(
+                record["_id"],
+                record["owner"],
+                record["filename"],
+                None,
+                record["source_ref"],
+                record["source_mime"],
+                record["source_created_at"],
+                record["created_at"],
+                record["size_bytes"],
+                record["tokens"]
+            ))
         return ret
     #----------------------------------------------------------------------------------------------
 
     # ------------------ BIADOCs ---------------------
 
-    def add_biadoc(self, owner, filename, file_path: pathlib.Path, source_id, source_mime, source_created_at: datetime.datetime, tokens):
-        source_id   = self._check_source_exists(source_id)
-        iadoc_id    = self._check_iadoc_exists(iadoc_id)
-        db_path     = self._doc_path(owner, 'biadoc', f"{self.get_next_file_id()}-{filename}")
+    def add_biadoc(self, owner, filename, file_input: pathlib.Path | bytes, source_id, iadoc_id, source_mime, source_created_at: datetime.datetime, tokens):
+        source_id = self._check_source_exists(source_id)
+        iadoc_id = self._check_iadoc_exists(iadoc_id)
 
-        self._save_file(file_path, db_path)
+        if isinstance(file_input, pathlib.Path):
+            with open(file_input, "rb") as f:
+                content_data = f.read()
+        elif isinstance(file_input, bytes):
+            content_data = file_input
+        else:
+            raise TypeError("file_input debe ser pathlib.Path o bytes")
+
+        file_id = self._fs.put(content_data, filename=filename, owner=owner, type="biadoc")
 
         doc = {
-            "owner":                owner,
-            "filename":             filename,
-            "path":                 str(db_path),
-            "source_ref":           source_id,
-            "iadoc_ref":            iadoc_id,
-            "source_mime":          source_mime,
-            "source_created_at":    source_created_at,
-            "created_at":           datetime.datetime.now(datetime.timezone.utc),
-            "size_bytes":           file_path.stat().st_size,
-            "tokens":               tokens
+            "owner": owner,
+            "filename": filename,
+            "gridfs_file_id": file_id,
+            "source_ref": source_id,
+            "iadoc_ref": iadoc_id,
+            "source_mime": source_mime,
+            "source_created_at": source_created_at,
+            "created_at": datetime.datetime.now(datetime.timezone.utc),
+            "size_bytes": len(content_data),
+            "tokens": tokens
         }
         return self._db.biadocs.insert_one(doc).inserted_id
     #----------------------------------------------------------------------------------------------
@@ -357,127 +371,149 @@ class ClientesDocumentStore:
     def get_all_biadocs(self, owner) -> list[BIaDcoInfo]:
         ret = []
         for record in self._db.biadocs.find({"owner": owner}):
-            path            = pathlib.Path(record["path"])
-            binary_content  = self._read_binary(path)
-            ret.append(BIaDcoInfo(  record["_id"],
-                                    record["owner"],
-                                    record["filename"],
-                                    record["path"],
-                                    record["source_ref"],
-                                    record["iadoc_ref"],
-                                    record["source_mime"],
-                                    record["source_created_at"],
-                                    record["created_at"],
-                                    record["size_bytes"],
-                                    record["tokens"],
-                                    binary_content))
+            binary_content = self._fs.get(record["gridfs_file_id"]).read()
+            ret.append(BIaDcoInfo(
+                record["_id"],
+                record["owner"],
+                record["filename"],
+                None,
+                record["source_ref"],
+                record["iadoc_ref"],
+                record["source_mime"],
+                record["source_created_at"],
+                record["created_at"],
+                record["size_bytes"],
+                record["tokens"],
+                binary_content
+            ))
         return ret
     #----------------------------------------------------------------------------------------------
 
     def get_all_biadoc_meta(self, owner) -> list[BIaDcoInfo]:
         ret = []
-        for record in self._db.biadocs.find({"owner": owner}, {"content": 0}):
-            ret.append(BIaDcoInfo(  record["_id"],
-                                    record["owner"],
-                                    record["filename"],
-                                    record["path"],
-                                    record["source_ref"],
-                                    record["iadoc_ref"],
-                                    record["source_mime"],
-                                    record["source_created_at"],
-                                    record["created_at"],
-                                    record["size_bytes"],
-                                    record["tokens"]))
+        for record in self._db.biadocs.find({"owner": owner}, {"gridfs_file_id": 0}):
+            ret.append(BIaDcoInfo(
+                record["_id"],
+                record["owner"],
+                record["filename"],
+                None,
+                record["source_ref"],
+                record["iadoc_ref"],
+                record["source_mime"],
+                record["source_created_at"],
+                record["created_at"],
+                record["size_bytes"],
+                record["tokens"]
+            ))
         return ret
     #----------------------------------------------------------------------------------------------
 
-    # ------------------ Eliminación ---------------------
+    # ------------------ Pretrained ---------------------
 
-    def delete_doc(self, tipo, owner, filename):
-        collection = {
-            "source":   self._db.source_docs,
-            "iadoc":    self._db.iadocs,
-            "biadoc":   self._db.biadocs
-        }.get(tipo)
+    def add_pretrained(self, filename: str, file_content: bytes):
+        """ Almacena un documento pretrained como binario en GridFS, sobrescribiendo si existe. """
+        with self.transaction() as session:
+            # Buscar si ya existe un pretrained con ese filename
+            existing = self._db.pretrained_docs.find_one({"filename": filename})
 
-        if not collection:
-            self._log.error(f"Tipo no válido: {tipo}")
+            if existing:
+                self._log.info(f"ℹ️ Pretrained '{filename}' ya existe. Sobrescribiendo...")
+                if "gridfs_file_id" in existing:
+                    self._fs.delete(existing["gridfs_file_id"])
+                self._db.pretrained_docs.delete_one({"_id": existing["_id"]}, session=session)
 
-        doc = collection.find_one({"owner": owner, "filename": filename})
+            # Guardar el nuevo contenido
+            file_id = self._fs.put(file_content, filename=filename, type="pretrained")
 
-        if doc:
-            with self.transaction() as session:
-                path = pathlib.Path(doc["path"])
-                self._remove_file(path)  # Si falla aquí, no se borra de Mongo
-                collection.delete_one({"_id": doc["_id"]}, session=session)
-                return True
-        return False
+            doc = {
+                "filename": filename,
+                "gridfs_file_id": file_id,
+                "created_at": datetime.datetime.now(datetime.timezone.utc),
+                "size_bytes": len(file_content)
+            }
+        return self._db.pretrained_docs.insert_one(doc, session=session).inserted_id
     #----------------------------------------------------------------------------------------------
 
-    def delete_cliente(self, owner):
-        temp_dirs = []
+    def get_pretrained_by_filename(self, filename: str) -> bytes | None:
+        """ Recupera el contenido binario de un pretrained dado su owner y filename. """
+        record = self._db.pretrained_docs.find_one({"filename": filename})
+
+        if not record:
+            self._log.warning(f"⚠️ No se encontró pretrained '{filename}'")
+            return None
+
+        return self._fs.get(record["gridfs_file_id"]).read()
+    #----------------------------------------------------------------------------------------------
+
+    def delete_pretrained_by_filename(self, filename: str) -> bool:
+        """ Elimina un pretrained por su owner y filename, incluyendo su binario en GridFS. """
+        record = self._db.pretrained_docs.find_one({"filename": filename})
+
+        if not record:
+            self._log.warning(f"⚠️ No se encontró pretrained '{filename}'")
+            return False
 
         with self.transaction() as session:
-            try:
-                # 1. Mover directorios físicos a un temporal
-                for collection_name in ["source", "iadoc", "biadoc"]:
-                    src_path = self._owner_path(owner, collection_name)
-                    if src_path.exists():
-                        temp_dir = pathlib.Path(tempfile.gettempdir()) / f"{owner}_{collection_name}_{int(time.time())}"
-                        shutil.move(str(src_path), str(temp_dir))
-                        temp_dirs.append((src_path, temp_dir))
+            if "gridfs_file_id" in record:
+                self._fs.delete(record["gridfs_file_id"])
+            self._db.pretrained_docs.delete_one({"_id": record["_id"]}, session=session)
 
-                # 2. Borrar documentos en Mongo dentro de la transacción
-                for collection_name, collection in [
-                        ("source",  self._db.source_docs),
-                        ("iadoc",   self._db.iadocs),
-                        ("biadoc",  self._db.biadocs)
-                    ]:
-                    collection.delete_many({"owner": owner}, session=session)
-
-                self._db.clientes.delete_many({"owner": owner}, session=session)
-
-            except Exception as e:
-                self._log.error(f"❌ Error durante eliminación: {e}")
-                # 3. Si falla, restaurar los directorios movidos
-                for original_path, temp_dir in temp_dirs:
-                    if temp_dir.exists():
-                        shutil.move(str(temp_dir), str(original_path))
-                return False
-
-        # 4. Si todo fue bien: eliminar los temporales
-        for _, temp_dir in temp_dirs:
-            if temp_dir.exists():
-                try:
-                    shutil.rmtree(temp_dir)
-                except Exception as cleanup_error:
-                    self._log.warning(f"⚠️ Error al eliminar temporal {temp_dir}: {cleanup_error}")
-
-        return True    
+        self._log.info(f"✅ Pretrained '{filename}' eliminado")
+        return True
     #----------------------------------------------------------------------------------------------
 
-    # ------------------ Usuarios ---------------------
+    # ------------------ Docs management ---------------------
 
-    def get_doc(self, mongo_db_id):
-        iadocs_collection       = self._db["iadocs"]
-        biadocs_collection      = self._db["biadocs"]
-        sourcedocs_collection   = self._db["sourcedocs"]
+    def delete_doc_by_id(self, collection_name: str, document_id: str):
+        """ Elimina un documento y su binario GridFS dado su _id. """
+        collection = {
+            "source": self._db.source_docs,
+            "iadoc": self._db.iadocs,
+            "biadoc": self._db.biadocs
+        }.get(collection_name)
 
-        doc = iadocs_collection.find_one({"_id": mongo_db_id})
-        if not doc:
-            doc = biadocs_collection.find_one({"_id": mongo_db_id})
-        if not doc:
-            doc = sourcedocs_collection.find_one({"_id": mongo_db_id})
-        return doc
+        if not collection:
+            raise ValueError(f"❌ Tipo de colección no válido: {collection_name}")
+
+        doc_id = self._validate_object_id(document_id)
+        record = collection.find_one({"_id": doc_id})
+
+        if not record:
+            self._log.warning(f"⚠️ No se encontró documento en {collection_name} con _id {document_id}")
+            return False
+
+        with self.transaction() as session:
+            if "gridfs_file_id" in record:
+                self._fs.delete(record["gridfs_file_id"])
+            collection.delete_one({"_id": doc_id}, session=session)
+
+        self._log.info(f"✅ Documento {document_id} eliminado de {collection_name}")
+        return True
     #----------------------------------------------------------------------------------------------
 
-    # ------------------ Usuarios ---------------------
+    def get_doc_by_id(self, collection_name: str, document_id: str) -> dict | None:
+        """ Recupera un documento y su contenido binario desde su _id. """
+        collection = {
+            "source": self._db.source_docs,
+            "iadoc": self._db.iadocs,
+            "biadoc": self._db.biadocs
+        }.get(collection_name)
 
-    def get_all_owners(self):
-        owners = set()
-        owners.update(self._db.source_docs.distinct("owner"))
-        owners.update(self._db.iadocs.distinct("owner"))
-        owners.update(self._db.biadocs.distinct("owner"))
-        return sorted(owners)
+        if not collection:
+            raise ValueError(f"❌ Tipo de colección no válido: {collection_name}")
+
+        doc_id = self._validate_object_id(document_id)
+        record = collection.find_one({"_id": doc_id})
+
+        if not record:
+            self._log.warning(f"⚠️ No se encontró documento en {collection_name} con _id {document_id}")
+            return None
+
+        if "gridfs_file_id" in record:
+            record["binary_content"] = self._fs.get(record["gridfs_file_id"]).read()
+        else:
+            record["binary_content"] = None
+
+        return record
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------

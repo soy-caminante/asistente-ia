@@ -2,26 +2,90 @@ import  pathlib
 import  shutil
 
 from    database.context                    import  ClienteInfo, ExpedienteFileInfo
-from    database.olddatabase                import  PacientesDB 
 from    database.database                   import  ClientesDocumentStore
 from    database.incomming                  import  IncommingStorage, IncommingFileInfo, IncommingCliente
 from    difflib                             import  SequenceMatcher
 from    models.models                       import  *
+from    ia.client                           import  ModelLoader, SystemPromts
 from    pmanager.backend.environment        import  Environment
 from    tools.tools                         import  StatusInfo, try_catch
 from    tools.viewtools                     import  OverlayCtrlWrapper
 #--------------------------------------------------------------------------------------------------
 
+class DBOperator:
+    def __init__(self,  db: ClientesDocumentStore):
+        self._db    = db
+    #----------------------------------------------------------------------------------------------
+
+    def get_summary_explanation(self):
+        return self._db.get_pretrained_by_filename("summary-explanation")
+    #----------------------------------------------------------------------------------------------
+
+    def get_summary_question(self):
+        return self._db.get_pretrained_by_filename("summary-question")
+    #----------------------------------------------------------------------------------------------
+
+    def get_chat_explanation(self):
+        return self._db.get_pretrained_by_filename("chat-explanation")
+    #----------------------------------------------------------------------------------------------
+
+    def set_summary_explanation(self, content: bytes):
+        return self._db.add_pretrained("summary-explanation", content)
+    #----------------------------------------------------------------------------------------------
+
+    def set_summary_question(self, content: bytes):
+        return self._db.add_pretrained("summary-question", content)
+    #----------------------------------------------------------------------------------------------
+
+    def set_chat_explanation(self, content: bytes):
+        return self._db.add_pretrained("chat-explanation", content)
+    #----------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
+
+class PretrainedManger:
+    def __init__(self,  db_operator: DBOperator, model: ModelLoader):
+        self._db_op                 = db_operator
+        self._model                 = model
+        self._summary_explanation   = None
+        self._summary_question      = None
+        self._chat_explanation      = None
+    #----------------------------------------------------------------------------------------------
+
+    def load_pretrained(self):
+        self._summary_explanation = self._db_op.get_summary_explanation()
+        self._summary_question    = self._db_op.get_summary_question()
+        self._chat_explanation    = self._db_op.get_chat_explanation()
+
+        if not self._summary_explanation:
+            self._summary_explanation, binary = self._model.embed_prompt_binary(SystemPromts.SUMMARY_EXPLANATION)
+            self._db_op.set_summary_explanation(binary)
+        
+        if not self._summary_question:
+            self._summary_question, binary = self._model.embed_prompt_binary(SystemPromts.SUMMARY_QUESTION)
+            self._db_op.set_summary_question(binary)
+            
+        if not self._chat_explanation:
+            self._chat_explanation, binary = self._model.embed_prembed_prompt_binaryompt(SystemPromts.CHAT_INFO_EXPLANATION)
+            self._db_op.set_chat_explanation(binary)
+    #----------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
+
 class BackendService:
     def __init__(self, env: Environment, overlay_ctrl: OverlayCtrlWrapper):
         self._env           = env
-        self._clientes_db   = ClientesDocumentStore(env.log, env.db_dir, env.db_docker_file)
+        self._model         = ModelLoader(env.model_name)
+        self._clientes_db   = ClientesDocumentStore(env.log, env.db_docker_file)
+        self._db_operator   = DBOperator(self._clientes_db)
+        self._pretrained    = PretrainedManger(self._db_operator, self._model)
         self._incomming_db  = IncommingStorage(env.log, env.db_dir)
         self._overlay_ctrl  = overlay_ctrl
     #----------------------------------------------------------------------------------------------
 
     def check_db(self) -> bool: 
-        return self._clientes_db.ensure_mongo_ready()
+        if self._clientes_db.ensure_mongo_ready():
+            self._clientes_db.setup_db()
+            return True
+        return False
     #----------------------------------------------------------------------------------------------
 
     def log_info(self, info): self._env.log.info(info)
@@ -31,6 +95,13 @@ class BackendService:
     #----------------------------------------------------------------------------------------------
 
     def log_exception(self, ex): self._env.log.exception(ex)
+    #----------------------------------------------------------------------------------------------
+
+    @try_catch(Environment.log_fcn, StatusInfo.error("Error al cargar los contextos preentrenados"))
+    def load_pretrained(self) -> StatusInfo[bool]:
+        with self._overlay_ctrl.wait("Cargando contextos preentrenados"):
+            self._pretrained.load_pretrained()
+            return StatusInfo.ok(True)
     #----------------------------------------------------------------------------------------------
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener los pacientes"))
