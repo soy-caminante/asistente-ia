@@ -15,7 +15,12 @@ class App:
         self._page      = page
         self._overlay   = OverlayCtrl()
         self._ov_wrap   = OverlayCtrlWrapper(self._overlay)
-        self._backend   = BackendService(BackEnvironment(env.log, env.runtime, env.model), self._ov_wrap)
+        self._backend   = BackendService(   BackEnvironment(env.log, 
+                                                            env.runtime, 
+                                                            env.model,
+                                                            env.chat_endpoint,
+                                                            env.db_endpoint), 
+                                            self._ov_wrap)
         self._view      = LandingView(page, "/", env, self._overlay, self._backend)
 
         self.build_ui(page)

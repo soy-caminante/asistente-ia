@@ -238,8 +238,9 @@ class IncommingFileInfo:
                 tokenizer   = tiktoken.get_encoding(encoding_model)
                 num_tokens  = len(tokenizer.encode(contenido))
         else:
-            contenido   = None
-            num_tokens  = "-"        
+            with open(path, "rb") as f:
+                contenido   = f.read()
+                num_tokens  = 0      
     
         return IncommingFileInfo(path, mime, size_bytes, num_tokens, ts, contenido)
     #----------------------------------------------------------------------------------------------

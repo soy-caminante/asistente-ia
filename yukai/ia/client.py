@@ -256,7 +256,7 @@ class ModelLoader:
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
-class ChatClient:
+class OpenAiChatClient:
     SUMMARY_EXPLANATION     =   "Eres un asistente médico que estructura información clínica en las siguientes categorías, " \
                                 "fecha: fecha consignada en el documento." \
                                 "motivo: motivo de la visista." \
@@ -282,8 +282,8 @@ class ChatClient:
                                 "condensa la información lo más posible. se sucinto y conciso." + \
                                 "si alguna información no aparece o no se menciona, ni incluyas el campo ni lo indiques." + \
                                 "retorna únicamente el json"
-    
-    BASIC_INFO_EXPLANATION  =   "Eres un asistente médico experto en interpretación de historiales clínicos. Responde a las preguntas sobre este historial." \
+            
+    CHAT_EXPLANATION        =   "Eres un asistente médico experto en interpretación de historiales clínicos. Responde a las preguntas sobre este historial." \
                                 "Responde solo sobre el contenido del expediente. No inventes ni interpoles ni supongas nada."  \
                                 "Siempre que sea posible indica la fecha de la información que suministras." \
                                 "Formatea la respuesta en markdown. No resumas al final." \
@@ -292,43 +292,35 @@ class ChatClient:
                                 "Formato de cada documento: cada campo se codifica como n.valor. Campos múltiples separados por |. Listas separadas por ;.Delimitadores internos reemplazados por ¬.Fin de documento ||. Mapeo:0:nombre documento,1=fecha documento,2=motivo,3=síntomas,4=estado físico,5=medicación,6=tratamiento,7=recomendaciones,8=ingresos,9=comentarios,19=diagnósticos,11=antecedentes familiares,12=factores riesgo cardiovascular,13=alergias,14=operaciones,15=implantes,16=otros."
     #----------------------------------------------------------------------------------------------
 
-    def __init__(self,  end_point:  str,
+    def __init__(self,  api_key:    str,
                         model_name: str,
                         log:        Logger):
-        self._end_point     = f"{end_point}/v1/chat/completions"
+        self._client        = OpenAI(api_key)
         self._model_name    = model_name
-        self._client        = httpx.Client()
         self._log           = log
     #----------------------------------------------------------------------------------------------
 
-    def get_doc_summary(self, document) -> StatusInfo[StructuredExpediente]:
-        message     = \
+    def get_structured_document(self, request_id:str, document: str) -> StatusInfo[str]:
+        messages     = \
         [
             {"role": "system", "content": f"{self.SUMMARY_EXPLANATION}: {document}"},
             {"role": "user", "content": self.SUMMARY_QUESTION}
         ]
 
-        payload = \
-        {
-            "model":        self._model_name,
-            "messages":     message,
-            "temperature":  0.3,
-            "top_p":        0.9,
-            "stream":       False
-        }
-
         try:
-            response = self._client.post(self._end_point, headers={"Content-Type": "application/json"}, json=payload, timeout=300)
-            if response.status_code == 200:
-                if response.text.lower() != "nada":
-                    return StatusInfo.ok(StructuredExpediente(response.text))
-
+            completion: ChatCompletionOutput = self._client.chat.completions.create \
+            (
+                model       = self._model_name, 
+                messages    = messages, 
+                temperature = 0
+            )
+            return StatusInfo.ok(completion.choices[0].message.content)
         except Exception as ex:
             self._log.exception(ex)
             return StatusInfo.error("Error al estructurar el expediente")
     #----------------------------------------------------------------------------------------------
 
-    def get_expediente_basic_info(self, expediente) -> StatusInfo[ExpedienteBasicInfo]:
+    def get_predefined_info(self, request_id:str, documents: list[str]) -> StatusInfo[ExpedienteBasicInfo]:
         riesgo          = [ None ]
         antecedentes    = [ None ]
         medicacion      = [ None ]
@@ -351,28 +343,28 @@ class ChatClient:
                 ingresos)
         ]
         
+        expediente = ""
+        for index, doc in enumerate(documents):
+            expediente += f"documento {index}>>>{doc}<<<"
+
         for query, info in queries:
             question    = query
-            message     = \
+            messages    = \
             [
-                {"role": "system", "content": f"{self.BASIC_INFO_EXPLANATION}: {expediente}"},
+                {"role": "system", "content": f"{self.CHAT_EXPLANATION}: {expediente}"},
                 {"role": "user", "content": question}
             ]
 
-            payload = \
-            {
-                "model":        self._model_name,
-                "messages":     message,
-                "temperature":  0.3,
-                "top_p":        0.9,
-                "stream":       False
-            }
-
             try:
-                response = self._client.post(self._end_point, headers={"Content-Type": "application/json"}, json=payload, timeout=300)
-                if response.status_code == 200:
-                    if response.text.lower() != "nada":
-                        info[0] = response.text                        
+                completion: ChatCompletionOutput = self._client.chat.completions.create \
+                (
+                    model       = self._model_name, 
+                    messages    = messages, 
+                    temperature = 0
+                )
+
+                if completion.choices[0].message.content.lower() != "nada":
+                    info[0] = completion.choices[0].message.content                        
 
             except Exception as ex:
                 self._log.exception(ex)
@@ -384,6 +376,29 @@ class ChatClient:
                                                  alergias[0],
                                                  ingresos[0],
                                                  visitas[0]))
+    #----------------------------------------------------------------------------------------------
+
+    def chat(self, request_id: int, documents:list[str], question: str):
+        payload = \
+        {
+            "request_id":   request_id,
+            "op":           "predefined",
+            "documents":    documents,   
+            "question":     question
+        }
+
+        try:
+            response = self._client.post(self._end_point, headers={"Content-Type": "application/json"}, json=payload, timeout=300)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if "response" in data:
+                    return StatusInfo.ok(data["response"])
+                return StatusInfo.error(data.get("error", "Respuesta sin contenido"))
+            return StatusInfo.error(f"Error HTTP {response.status_code}")
+        except Exception as ex:
+            self._log.exception(ex)
+            return StatusInfo.error("Error al generar desde embeddings")
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
@@ -417,7 +432,7 @@ class HttpChatClient:
             return StatusInfo.error("Error al generar desde embeddings")
     #----------------------------------------------------------------------------------------------
 
-    def get_predefined_info(self, request_id:str, documents: list[str]):
+    def get_predefined_info(self, request_id:str, documents: list[str]) -> StatusInfo[ExpedienteBasicInfo]:
         payload = \
         {
             "request_id":   request_id,

@@ -19,6 +19,8 @@ class Environment:
     log:                        Logger
     runtime:                    pathlib.Path
     model:                      str
+    chat_endpoint:              str
+    db_endpoint:                str
     #----------------------------------------------------------------------------------------------
 
     def __post_init__(self):

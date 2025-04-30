@@ -19,6 +19,8 @@ class Environment:
     log:                        Logger
     runtime:                    pathlib.Path
     model_name:                 str
+    chat_endpoint:              str
+    db_endpoint:                str
     db_dir:                     pathlib.Path = None
     db_docker_file:             pathlib.Path = None
     #----------------------------------------------------------------------------------------------
@@ -30,9 +32,9 @@ class Environment:
         self.db_dir.mkdir(parents=True, exist_ok=True)
 
         if "llama" in self.model_name.lower():
-            if "8B" in self.model_name.lower():
-                self.model_name ="meta-llama/Meta-Llama-3.1-8B-Instruct"
-            elif "3B" in self.model_name.lower():
+            if "8b" in self.model_name.lower():
+                self.model_name ="meta-llama/Llama-3.1-8B-Instruct"
+            elif "3b" in self.model_name.lower():
                 self.model_name ="meta-llama/Meta-Llama-3.2-3B-Instruct"
         elif "mistral" in self.model_name.lower():
             self.model_name = "mistralai/Mistral-7B-Instruct-v0.3"

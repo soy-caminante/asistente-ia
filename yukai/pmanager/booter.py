@@ -20,33 +20,42 @@ class Args:
     log:            Logger
     web_port:       int
     model:          str
+    chat_endpoint:  str
+    db_endpoint:    str
 #--------------------------------------------------------------------------------------------------
 
 def load_args() -> Args:
     parser = argparse.ArgumentParser(description="YUKAI: Herramienta de gestión de clientes")
-    parser.add_argument('--system',     help        = 'Sistema',    
-                                        required    = True)
-    parser.add_argument('--runtime',    help        = 'Directorio de ejecución')
-    parser.add_argument('--assets',     help        = 'Directorio de recursos para la web')
-    parser.add_argument('--log',        action      = 'store_true', 
-                                        help        = 'Activa el log')
-    parser.add_argument('--mode',       help        = 'GUI', 
-                                        choices     = [ 'web', 'console' ],    
-                                        required    = True)
-    parser.add_argument('--web-port',   help        = 'Pueto web', 
-                                        type        = int,
-                                        default     = 8081,
-                                        required    = False)
-    parser.add_argument('--model',      help        = 'Model de IA', 
-                                        type        = str,
-                                        required    = True)
+    parser.add_argument('--system',         help        = 'Sistema',    
+                                            required    = True)
+    parser.add_argument('--runtime',        help        = 'Directorio de ejecución')
+    parser.add_argument('--assets',         help        = 'Directorio de recursos para la web')
+    parser.add_argument('--mode',           help        = 'GUI', 
+                                            choices     = [ 'web', 'console' ],    
+                                            required    = True)
+    parser.add_argument('--web-port',       help        = 'Pueto web', 
+                                            type        = int,
+                                            default     = 8081,
+                                            required    = False)
+    parser.add_argument('--model',          help        = 'Model de IA', 
+                                            type        = str,
+                                            required    = True)
+    parser.add_argument('--chat-endpoint',  help        = 'Localización del chat', 
+                                            type        = str,
+                                            default     = "http://localhost:8081",
+                                            required    = True)
+    parser.add_argument('--db-endpoint',    help        = 'Localización de la base de datos', 
+                                            type        = str,
+                                            default     = "mongodb://localhost:27017",
+                                            required    = False)
 
-    args    = parser.parse_known_args()
-    pargs   = vars(args[0])
-    mode    = pargs["mode"]
-    log     = pargs["log"]
-    port    = pargs["web_port"]
-    model   = pargs["model"]
+    args            = parser.parse_known_args()
+    pargs           = vars(args[0])
+    mode            = pargs["mode"]
+    port            = pargs["web_port"]
+    model           = pargs["model"]
+    chat_endpoint   = pargs["chat_endpoint"]
+    db_endpoint     = pargs["db_endpoint"]
 
     if "assets" in pargs.keys() and "runtime" in pargs.keys():
         runtime = pathlib.Path(pargs["runtime"])
@@ -85,9 +94,11 @@ def load_args() -> Args:
     return Args(mode, 
                 runtime, 
                 assets, 
-                Logger(log).setup("pmanager", runtime / "logs", True), 
+                Logger().setup("pmanager", runtime / "logs", True), 
                 port,
-                model)
+                model,
+                chat_endpoint,
+                db_endpoint)
 #--------------------------------------------------------------------------------------------------
 
 class Booter:
@@ -117,6 +128,10 @@ class Booter:
                         LogoFactory(),
                         ColorPalette("#54BAAD"))
 
-        App(page, AppEnvironment(self._args.log, self._args.runtime, self._args.model))
+        App(page, AppEnvironment(   self._args.log, 
+                                    self._args.runtime, 
+                                    self._args.model,
+                                    self._args.chat_endpoint,
+                                    self._args.db_endpoint))
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------

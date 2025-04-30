@@ -6,7 +6,7 @@ from    database.database                   import  ClientesDocumentStore
 from    database.incomming                  import  IncommingStorage, IncommingFileInfo, IncommingCliente
 from    difflib                             import  SequenceMatcher
 from    models.models                       import  *
-from    ia.client                           import  ModelLoader, SystemPromts
+from    ia.client                           import  ModelLoader, SystemPromts, HttpChatClient, OpenAiChatClient
 from    pmanager.backend.environment        import  Environment
 from    tools.tools                         import  StatusInfo, try_catch
 from    tools.viewtools                     import  OverlayCtrlWrapper
@@ -75,35 +75,25 @@ class PretrainedManger:
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
-class BIaDocGenerator:
-    def __init__(self, personal_info: ClienteInfo):
-        self._personal_info     = personal_info
-        self._docs: list[str]   = []
-    #----------------------------------------------------------------------------------------------
-
-    def add(self, doc): self._docs.append(doc)
-    #----------------------------------------------------------------------------------------------
-
-    def generate(self):
-        ret = f"{self._personal_info.edad}**{self._personal_info.sexo}"
-        for doc in self._docs:
-            if ret != "":
-                ret += "**"
-            ret += doc
-    #----------------------------------------------------------------------------------------------
-#--------------------------------------------------------------------------------------------------
-
 class BackendService:
     def __init__(self, env: Environment, overlay_ctrl: OverlayCtrlWrapper):
         self._env           = env
         self._model         = ModelLoader(env.model_name)
         self._clientes_db   = ClientesDocumentStore(env.log, 
                                                     env.db_docker_file,
-                                                    db_name=env.model_name)
+                                                    env.db_endpoint,
+                                                    env.model_name)
         self._db_operator   = DBOperator(self._clientes_db)
         self._pretrained    = PretrainedManger(self._db_operator, self._model)
         self._incomming_db  = IncommingStorage(env.log, env.db_dir)
+        self._chat          = OpenAiChatClient(os.getenv("oai_api_key"), "gpt-4o-mini",env.log) #HttpChatClient(env.chat_endpoint, env.log)
         self._overlay_ctrl  = overlay_ctrl
+        self._req_id        = 0
+    #----------------------------------------------------------------------------------------------
+
+    def get_next_req_id(self):
+        self._req_id += 1
+        return f"pmanager-{self._req_id}"
     #----------------------------------------------------------------------------------------------
 
     def check_db(self) -> bool: 
@@ -156,18 +146,64 @@ class BackendService:
         pass
     #----------------------------------------------------------------------------------------------
 
-    def consolidate_clientes(self, clientes_db_id: list[str]) -> StatusInfo[list[Paciente]]:
+    def consolidate_clientes(self, clientes_db_id: list[str]) -> StatusInfo[bool]:
         for db_id in clientes_db_id:
             cliente: IncommingCliente   = self._incomming_db.get_cliente_info(db_id)
-            biadoc_gen                  = BIaDocGenerator(cliente.personal_info)
+            src_docs                    = [ ]
+            iadocs                      = [ ]
+            biadocs                     = [ ]
             for doc in cliente.docs:
-                if doc.is_plain_text: 
-                    iadoc = "" # Obtener el iadoc del modelo de ia
-                    biadoc_gen.add(iadoc)
+                if doc.is_plain_text:
+                    status = self._chat.get_structured_document(self.get_next_req_id(), doc.content)
+                    if status:
+                        iadoc   = status.get()
+                        biadoc  = self._pretrained.generate_embeddings(iadoc)
+                        src_docs.append({   "filename":             doc.name,
+                                            "content":              doc.content.encode("utf-8"),
+                                            "mime":                 doc.mime })
 
-            biadoc = self._pretrained.generate_embeddings(biadoc_gen.generate())
-            self._clientes_db.add_cliente()
+                        iadocs.append({ "filename":                 doc.name,
+                                        "content":                  iadoc.encode("utf-8"),
+                                        "source_mime":              doc.mime,
+                                        "tokens":                   doc.tokens })
 
+                        biadocs.append({"filename":             doc.name,
+                                        "content":              biadoc,
+                                        "source_mime":          doc.mime,
+                                        "tokens":               doc.tokens})
+                    else:
+                        return StatusInfo.error("Error al estructurar el documento")
+
+            for doc in cliente.docs:
+                if not doc.is_plain_text:
+                    src_docs.append({   "filename":             doc.name,
+                                        "content":              doc.content.encode("utf-8"),
+                                        "mime":                 doc.mime })
+            
+            status = self._chat.get_predefined_info(self.get_next_req_id(), iadocs)
+            
+            if status:
+                expediente: ExpedienteBasicInfo = status.get()
+                if self._clientes_db.add_cliente(   cliente.personal_info.nombre,
+                                                    cliente.personal_info.apellidos,
+                                                    cliente.personal_info.sexo,
+                                                    cliente.personal_info.fecha_nacimiento,
+                                                    cliente.personal_info.dni,
+                                                    cliente.personal_info.id_interno,
+                                                    expediente.antecedentes_familiares,        
+                                                    expediente.factores_riesgo_cardiovascular,
+                                                    expediente.medicacion,                     
+                                                    expediente.alergias,                     
+                                                    expediente.ingresos,                       
+                                                    expediente.ultimas_visitas,
+                                                    src_docs,
+                                                    iadocs,
+                                                    biadocs):
+                    return StatusInfo.ok(True)
+                else:
+                    return StatusInfo.error("Error al consolidar el cliente")
+            else:
+                return StatusInfo.error("Error al resumir el expediente")
     #----------------------------------------------------------------------------------------------
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al eliminar el cliente"))
@@ -184,7 +220,6 @@ class BackendService:
             self._clientes_db.delete_cliente(c)
         return self.load_all_consolidated_clientes() 
     #----------------------------------------------------------------------------------------------
-
 
     def remove_src_duplicates(self):
         return self.remove_duplicates(self.check_src_duplicates(), self.load_all_src_clientes)
