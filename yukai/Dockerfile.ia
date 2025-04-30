@@ -1,0 +1,23 @@
+FROM python:3.10-slim
+
+ENV PYTHONUNBUFFERED=1
+
+RUN apt-get update && apt-get install -y \
+    git \
+    build-essential \
+    libaio-dev \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copia solo requirements primero para cachear instalaciones
+COPY requirements.txt /app/requirements.txt
+RUN pip install --upgrade pip && pip install --no-cache-dir -r /app/requirements.txt
+
+# Luego el resto del código
+# No copies el código, lo montarás desde el host en el compose
+# COPY . /app
+
+EXPOSE 8081
+
+CMD ["python", "main.py", "--runtime", "/app/runtime", "--log", "--mode", "iaserver", "--web-port", "8081",  "--model", "Meta-Llama-3.1-8B-Instruct", "--quantization", "4bit"]

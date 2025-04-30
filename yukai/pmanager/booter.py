@@ -1,7 +1,6 @@
 import  argparse
 import  flet                            as ft 
 import  pathlib
-import  os
 
 from    dataclasses                     import  dataclass
 from    logger                          import  Logger
@@ -20,6 +19,7 @@ class Args:
     assets_dir:     str
     log:            Logger
     web_port:       int
+    model:          str
 #--------------------------------------------------------------------------------------------------
 
 def load_args() -> Args:
@@ -37,12 +37,16 @@ def load_args() -> Args:
                                         type        = int,
                                         default     = 8081,
                                         required    = False)
+    parser.add_argument('--model',      help        = 'Model de IA', 
+                                        type        = str,
+                                        required    = True)
 
     args    = parser.parse_known_args()
     pargs   = vars(args[0])
     mode    = pargs["mode"]
     log     = pargs["log"]
     port    = pargs["web_port"]
+    model   = pargs["model"]
 
     if "assets" in pargs.keys() and "runtime" in pargs.keys():
         runtime = pathlib.Path(pargs["runtime"])
@@ -78,7 +82,12 @@ def load_args() -> Args:
 
     (runtime / "logs").mkdir(parents=True, exist_ok=True)
 
-    return Args(mode, runtime, assets, Logger(log).setup("pmanager", runtime / "logs", True), port)
+    return Args(mode, 
+                runtime, 
+                assets, 
+                Logger(log).setup("pmanager", runtime / "logs", True), 
+                port,
+                model)
 #--------------------------------------------------------------------------------------------------
 
 class Booter:
@@ -108,6 +117,6 @@ class Booter:
                         LogoFactory(),
                         ColorPalette("#54BAAD"))
 
-        App(page, AppEnvironment(self._args.log, self._args.runtime))
+        App(page, AppEnvironment(self._args.log, self._args.runtime, self._args.model))
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------

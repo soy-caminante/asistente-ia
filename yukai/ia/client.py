@@ -386,3 +386,101 @@ class ChatClient:
                                                  visitas[0]))
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
+
+class HttpChatClient:
+    def __init__(self, end_point: str, log: Logger):
+        self._end_point = f"{end_point}/generate"
+        self._client    = httpx.Client()
+        self._log       = log
+    #----------------------------------------------------------------------------------------------
+
+    def get_structured_document(self, request_id:str, document: str):
+        payload = \
+        {
+            "request_id":   request_id,
+            "op":           "summary",
+            "documents":    [ document ],
+            "question":     None
+        }
+
+        try:
+            response = self._client.post(self._end_point, headers={"Content-Type": "application/json"}, json=payload, timeout=300)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if "response" in data:
+                    return StatusInfo.ok(data["response"])
+                return StatusInfo.error(data.get("error", "Respuesta sin contenido"))
+            return StatusInfo.error(f"Error HTTP {response.status_code}")
+        except Exception as ex:
+            self._log.exception(ex)
+            return StatusInfo.error("Error al generar desde embeddings")
+    #----------------------------------------------------------------------------------------------
+
+    def get_predefined_info(self, request_id:str, documents: list[str]):
+        payload = \
+        {
+            "request_id":   request_id,
+            "op":           "predefined",
+            "documents":    documents,
+            "question":     None   
+        }
+
+        try:
+            response = self._client.post(self._end_point, headers={"Content-Type": "application/json"}, json=payload, timeout=300)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if "response" in data:
+                    return StatusInfo.ok(data["response"])
+                return StatusInfo.error(data.get("error", "Respuesta sin contenido"))
+            return StatusInfo.error(f"Error HTTP {response.status_code}")
+        except Exception as ex:
+            self._log.exception(ex)
+            return StatusInfo.error("Error al generar desde embeddings")
+    #----------------------------------------------------------------------------------------------
+
+    def chat(self, request_id: int, documents:list[str], question: str):
+        payload = \
+        {
+            "request_id":   request_id,
+            "op":           "predefined",
+            "documents":    documents,   
+            "question":     question
+        }
+
+        try:
+            response = self._client.post(self._end_point, headers={"Content-Type": "application/json"}, json=payload, timeout=300)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if "response" in data:
+                    return StatusInfo.ok(data["response"])
+                return StatusInfo.error(data.get("error", "Respuesta sin contenido"))
+            return StatusInfo.error(f"Error HTTP {response.status_code}")
+        except Exception as ex:
+            self._log.exception(ex)
+            return StatusInfo.error("Error al generar desde embeddings")
+    #----------------------------------------------------------------------------------------------
+
+    def generate_from_embeddings(self, request_id: str, embeddings: list, max_tokens=128, temperature=0.7) -> StatusInfo[str]:
+        payload = {
+            "request_id": request_id,
+            "prompt_embeddings": embeddings,
+            "max_tokens": max_tokens,
+            "temperature": temperature
+        }
+
+        try:
+            response = self._client.post(self._end_point, headers={"Content-Type": "application/json"}, json=payload, timeout=300)
+            if response.status_code == 200:
+                data = response.json()
+                if "response" in data:
+                    return StatusInfo.ok(data["response"])
+                return StatusInfo.error(data.get("error", "Respuesta sin contenido"))
+            return StatusInfo.error(f"Error HTTP {response.status_code}")
+        except Exception as ex:
+            self._log.exception(ex)
+            return StatusInfo.error("Error al generar desde embeddings")
+    #----------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------

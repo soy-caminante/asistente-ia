@@ -97,7 +97,9 @@ class BackendService:
     def __init__(self, env: Environment, overlay_ctrl: OverlayCtrlWrapper):
         self._env           = env
         self._model         = ModelLoader(env.model_name)
-        self._clientes_db   = ClientesDocumentStore(env.log, env.db_docker_file)
+        self._clientes_db   = ClientesDocumentStore(env.log, 
+                                                    env.db_docker_file,
+                                                    db_name=env.model_name)
         self._db_operator   = DBOperator(self._clientes_db)
         self._pretrained    = PretrainedManger(self._db_operator, self._model)
         self._incomming_db  = IncommingStorage(env.log, env.db_dir)
@@ -161,7 +163,7 @@ class BackendService:
             for doc in cliente.docs:
                 if doc.is_plain_text: 
                     iadoc = "" # Obtener el iadoc del modelo de ia
-                    biadoc_gen.add(doc)
+                    biadoc_gen.add(iadoc)
 
             biadoc = self._pretrained.generate_embeddings(biadoc_gen.generate())
             self._clientes_db.add_cliente()

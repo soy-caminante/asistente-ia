@@ -1,0 +1,101 @@
+version: '3.8'
+
+services:
+  ia-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.ia
+    image: yukai/ia-server
+    container_name: ia-server
+    ports:
+      - "8081:8081"
+    volumes:
+      - .:/app  # 👈 Monta todo tu proyecto dentro del contenedor
+    environment:
+      - hf_api_key=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
+      - HUGGINGFACE_HUB_TOKEN=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
+      - MONGO_URI=mongodb://mongo:27017
+    command: >
+      python main.py
+      --runtime /app/runtime
+      --log
+      --system iaserver
+      --web-port 8081
+      --model Meta-Llama-3.1-8B-Instruct
+      --quantization 4bit
+
+  ia-server-local:
+    build:
+      context: .
+      dockerfile: Dockerfile.local.ia
+    image: yukai/ia-server-local
+    container_name: ia-server-local
+    ports:
+      - "8181:8081"
+    volumes:
+      - .:/app
+    environment:
+      - hf_api_key=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
+      - HUGGINGFACE_HUB_TOKEN=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
+      - MONGO_URI=mongodb://mongo:27017
+    command: >
+      python main.py
+      --runtime /app/runtime
+      --log
+      --system iaserver
+      --web-port 8081
+      --model Meta-Llama-3.1-8B-Instruct
+      --quantization 4bit
+      --test
+      
+  pmanager:
+    build:
+      context: .
+      dockerfile: Dockerfile.pmanager
+    image: yukai/pmanager
+    container_name: pmanager
+    ports:
+      - "8082:8082"
+    volumes:
+      - .:/app
+    environment:
+      - MONGO_URI=mongodb://mongo:27017
+    command: >
+      python main.py
+      --runtime /app/runtime
+      --log
+      --mode pmanager
+
+  webapp:
+    build:
+      context: .
+      dockerfile: Dockerfile.webapp
+    image: yukai/webapp
+    container_name: webapp
+    ports:
+      - "8083:8083"
+    volumes:
+      - .:/app
+    environment:
+      - MONGO_URI=mongodb://mongo:27017
+    command: >
+      python main.py
+      --runtime /app/runtime
+      --log
+      --mode webapp
+
+  mongo:
+    image: mongo:7
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    restart: unless-stopped
+
+volumes:
+  mongo-data:
+
+networks:
+  default:
+    name: yukai-net

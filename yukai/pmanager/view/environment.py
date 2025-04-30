@@ -18,6 +18,7 @@ class Environment:
     log_fcn:                    ClassVar[Callable[..., None]] = dummy_fcn
     log:                        Logger
     runtime:                    pathlib.Path
+    model:                      str
     #----------------------------------------------------------------------------------------------
 
     def __post_init__(self):
