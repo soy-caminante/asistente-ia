@@ -17,6 +17,16 @@ class SnackBarManager:
         self.text.value         = message
         self.snackbar.duration  = tout
         self.snackbar.open      = True
+        self.snackbar.bgcolor   = "blue"
+        self.page.update()
+    #----------------------------------------------------------------------------------------------
+
+    def show_snackbar_error(self, message, tout):
+        """Muestra un SnackBar y añade un mensaje extra si se proporciona."""
+        self.text.value         = message
+        self.snackbar.duration  = tout
+        self.snackbar.open      = True
+        self.snackbar.bgcolor   = "red"
         self.page.update()
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
@@ -28,4 +38,8 @@ def set_snackbar_mngr(page: ft.Page):
 
 def show_snackbar(message, tout=2000):
     snackbar_mngr_obj.show_snackbar(message, tout)
+#--------------------------------------------------------------------------------------------------
+
+def show_snackbar_error(message, tout=5000):
+    snackbar_mngr_obj.show_snackbar_error(message, tout)
 #--------------------------------------------------------------------------------------------------

@@ -43,50 +43,53 @@ class DBOperator:
 #--------------------------------------------------------------------------------------------------
 
 class PretrainedManger:
-    def __init__(self,  db_operator: DBOperator, model: ModelLoader):
+    def __init__(self,  db_operator: DBOperator, model_name: str, gpu_enabled: bool):
         self._db_op                 = db_operator
-        self._model                 = model
+        self._model                 = ModelLoader(model_name) if gpu_enabled else None
         self._summary_explanation   = None
         self._summary_question      = None
         self._chat_explanation      = None
+        self._gpu_enabled           = gpu_enabled
     #----------------------------------------------------------------------------------------------
 
     def load_pretrained(self):
-        self._summary_explanation = self._db_op.get_summary_explanation()
-        self._summary_question    = self._db_op.get_summary_question()
-        self._chat_explanation    = self._db_op.get_chat_explanation()
+        if self._gpu_enabled:
+            self._summary_explanation = self._db_op.get_summary_explanation()
+            self._summary_question    = self._db_op.get_summary_question()
+            self._chat_explanation    = self._db_op.get_chat_explanation()
 
-        if not self._summary_explanation:
-            self._summary_explanation, binary = self._model.embed_prompt_binary(SystemPromts.SUMMARY_EXPLANATION)
-            self._db_op.set_summary_explanation(binary)
-        
-        if not self._summary_question:
-            self._summary_question, binary = self._model.embed_prompt_binary(SystemPromts.SUMMARY_QUESTION)
-            self._db_op.set_summary_question(binary)
+            if not self._summary_explanation:
+                self._summary_explanation, binary = self._model.embed_prompt_binary(SystemPromts.SUMMARY_EXPLANATION)
+                self._db_op.set_summary_explanation(binary)
             
-        if not self._chat_explanation:
-            self._chat_explanation, binary = self._model.embed_prompt_binary(SystemPromts.CHAT_INFO_EXPLANATION)
-            self._db_op.set_chat_explanation(binary)
+            if not self._summary_question:
+                self._summary_question, binary = self._model.embed_prompt_binary(SystemPromts.SUMMARY_QUESTION)
+                self._db_op.set_summary_question(binary)
+                
+            if not self._chat_explanation:
+                self._chat_explanation, binary = self._model.embed_prompt_binary(SystemPromts.CHAT_INFO_EXPLANATION)
+                self._db_op.set_chat_explanation(binary)
     #----------------------------------------------------------------------------------------------
 
     def generate_embeddings(self, text):
-        _, binary = self._model.embed_prompt_binary(text)
-        return binary
+        if self._gpu_enabled:
+            _, binary = self._model.embed_prompt_binary(text)
+            return binary
+        return "Hola, mundo".encode("utf-8")
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
 class BackendService:
     def __init__(self, env: Environment, overlay_ctrl: OverlayCtrlWrapper):
         self._env           = env
-        self._model         = ModelLoader(env.model_name)
         self._clientes_db   = ClientesDocumentStore(env.log, 
                                                     env.db_docker_file,
                                                     env.db_endpoint,
-                                                    env.model_name)
+                                                    env.model_name if env.gpu else "no-gpu-db")
         self._db_operator   = DBOperator(self._clientes_db)
-        self._pretrained    = PretrainedManger(self._db_operator, self._model)
+        self._pretrained    = PretrainedManger(self._db_operator, env.model_name, env.gpu)
         self._incomming_db  = IncommingStorage(env.log, env.db_dir)
-        self._chat          = OpenAiChatClient(os.getenv("oai_api_key"), "gpt-4o-mini",env.log) #HttpChatClient(env.chat_endpoint, env.log)
+        self._chat          = HttpChatClient(env.chat_endpoint, env.log) if env.gpu else OpenAiChatClient(os.getenv("oai_api_key"), "gpt-4o-mini",env.log)
         self._overlay_ctrl  = overlay_ctrl
         self._req_id        = 0
     #----------------------------------------------------------------------------------------------
@@ -112,6 +115,16 @@ class BackendService:
     def log_exception(self, ex): self._env.log.exception(ex)
     #----------------------------------------------------------------------------------------------
 
+    def log_info_and_return(self, info, ret_obj=True): 
+        self._env.log.info(info)
+        return StatusInfo.ok(info)
+    #----------------------------------------------------------------------------------------------
+
+    def log_error_and_return(self, info): 
+        self._env.log.error(info)
+        return StatusInfo.error(info)
+    #----------------------------------------------------------------------------------------------
+
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al cargar los contextos preentrenados"))
     def load_pretrained(self) -> StatusInfo[bool]:
         with self._overlay_ctrl.wait("Cargando contextos preentrenados"):
@@ -119,13 +132,13 @@ class BackendService:
             return StatusInfo.ok(True)
     #----------------------------------------------------------------------------------------------
 
-    @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener los pacientes"))
+    @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener los clientes"))
     def load_all_consolidated_clientes(self) -> StatusInfo[list[ClienteInfo]]:
         with self._overlay_ctrl.wait("Cargando pacientes consolidados"):
             return StatusInfo.ok(self._clientes_db.get_all_clientes())
     #----------------------------------------------------------------------------------------------
 
-    @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener el paciente"))
+    @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener el cliente"))
     def get_consolidated_cliente(self, paciente_id: str) -> StatusInfo[Paciente]:
         with self._overlay_ctrl.wait("Leyendo el paciente"):
             paciente = None
@@ -135,75 +148,88 @@ class BackendService:
                 return StatusInfo.ok(paciente)
     #----------------------------------------------------------------------------------------------
 
-    @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener los pacientes"))
+    @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener los clientes"))
     def load_all_src_clientes(self) -> StatusInfo[list[IncommingCliente]]:
         with self._overlay_ctrl.wait("Cargando nuevos pacientes"):
             return StatusInfo.ok(self._incomming_db.get_all())
     #----------------------------------------------------------------------------------------------
 
-    @try_catch(Environment.log_fcn, StatusInfo.error("Error al preprocesar el paciente"))
+    @try_catch(Environment.log_fcn, StatusInfo.error("Error al preprocesar el cliente"))
     def preprocess_cliente(self, cliente_id: str) -> StatusInfo:
         pass
     #----------------------------------------------------------------------------------------------
 
+    @try_catch(Environment.log_fcn, StatusInfo.error("Error al consolidar el cliente"))
     def consolidate_clientes(self, clientes_db_id: list[str]) -> StatusInfo[bool]:
-        for db_id in clientes_db_id:
-            cliente: IncommingCliente   = self._incomming_db.get_cliente_info(db_id)
-            src_docs                    = [ ]
-            iadocs                      = [ ]
-            biadocs                     = [ ]
-            for doc in cliente.docs:
-                if doc.is_plain_text:
-                    status = self._chat.get_structured_document(self.get_next_req_id(), doc.content)
-                    if status:
-                        iadoc   = status.get()
-                        biadoc  = self._pretrained.generate_embeddings(iadoc)
+        with self._overlay_ctrl.wait("Consolidando clientes"):
+            for db_id in clientes_db_id:
+                self.log_info(f"Consolidando el cliente {db_id}")
+
+                cliente: IncommingCliente   = self._incomming_db.get_cliente_info(db_id)
+                src_docs                    = [ ]
+                iadocs                      = [ ]
+                biadocs                     = [ ]
+                for doc in cliente.docs:
+                    if doc.is_plain_text:
+                        self._overlay_ctrl.update(f"Cliente: {cliente.personal_info.id_interno}\nEstructurando el documento {doc.name}")
+
+                        status = self._chat.get_structured_document(self.get_next_req_id(), doc.content)
+                        if status:
+                            self._overlay_ctrl.update(f"Cliente: {cliente.personal_info.id_interno}\nObteniendo embeddings de {doc.name}")
+
+                            iadoc   = status.get()
+                            biadoc  = self._pretrained.generate_embeddings(iadoc)
+                            src_docs.append({   "filename":             doc.name,
+                                                "content":              doc.content.encode("utf-8"),
+                                                "mime":                 doc.mime })
+
+                            iadocs.append({ "filename":                 doc.name,
+                                            "content":                  iadoc.encode("utf-8"),
+                                            "source_mime":              doc.mime,
+                                            "tokens":                   doc.tokens })
+
+                            biadocs.append({"filename":             doc.name,
+                                            "content":              biadoc,
+                                            "source_mime":          doc.mime,
+                                            "tokens":               doc.tokens})
+                        else:
+                            return self.log_error_and_return("Error al estructurar el documento")
+
+                for doc in cliente.docs:
+                    if not doc.is_plain_text:
                         src_docs.append({   "filename":             doc.name,
                                             "content":              doc.content.encode("utf-8"),
                                             "mime":                 doc.mime })
-
-                        iadocs.append({ "filename":                 doc.name,
-                                        "content":                  iadoc.encode("utf-8"),
-                                        "source_mime":              doc.mime,
-                                        "tokens":                   doc.tokens })
-
-                        biadocs.append({"filename":             doc.name,
-                                        "content":              biadoc,
-                                        "source_mime":          doc.mime,
-                                        "tokens":               doc.tokens})
+                
+                self._overlay_ctrl.update(f"Cliente: {cliente.personal_info.id_interno}\nGenerando información predefinida")
+                status = self._chat.get_predefined_info(self.get_next_req_id(), iadocs)
+                
+                if status:
+                    expediente: ExpedienteBasicInfo = status.get()
+                    if self._clientes_db.add_cliente(   cliente.personal_info.nombre,
+                                                        cliente.personal_info.apellidos,
+                                                        cliente.personal_info.sexo,
+                                                        cliente.personal_info.fecha_nacimiento,
+                                                        cliente.personal_info.dni,
+                                                        cliente.personal_info.id_interno,
+                                                        expediente.antecedentes_familiares,        
+                                                        expediente.factores_riesgo_cardiovascular,
+                                                        expediente.medicacion,                     
+                                                        expediente.alergias,                     
+                                                        expediente.ingresos,                       
+                                                        expediente.ultimas_visitas,
+                                                        src_docs,
+                                                        iadocs,
+                                                        biadocs):
+                        self._incomming_db.set_as_consolidated(db_id)
+                        self.log_info(f"Cliente {db_id} consolidado")
                     else:
-                        return StatusInfo.error("Error al estructurar el documento")
-
-            for doc in cliente.docs:
-                if not doc.is_plain_text:
-                    src_docs.append({   "filename":             doc.name,
-                                        "content":              doc.content.encode("utf-8"),
-                                        "mime":                 doc.mime })
-            
-            status = self._chat.get_predefined_info(self.get_next_req_id(), iadocs)
-            
-            if status:
-                expediente: ExpedienteBasicInfo = status.get()
-                if self._clientes_db.add_cliente(   cliente.personal_info.nombre,
-                                                    cliente.personal_info.apellidos,
-                                                    cliente.personal_info.sexo,
-                                                    cliente.personal_info.fecha_nacimiento,
-                                                    cliente.personal_info.dni,
-                                                    cliente.personal_info.id_interno,
-                                                    expediente.antecedentes_familiares,        
-                                                    expediente.factores_riesgo_cardiovascular,
-                                                    expediente.medicacion,                     
-                                                    expediente.alergias,                     
-                                                    expediente.ingresos,                       
-                                                    expediente.ultimas_visitas,
-                                                    src_docs,
-                                                    iadocs,
-                                                    biadocs):
-                    return StatusInfo.ok(True)
+                        return self.log_error_and_return("Error al consolidar el cliente")
                 else:
-                    return StatusInfo.error("Error al consolidar el cliente")
-            else:
-                return StatusInfo.error("Error al resumir el expediente")
+                    return self.log_error_and_return("Error al resumir el expediente")
+            self.log_info("Consolidación finalizada")
+
+            return self.load_all_src_clientes()
     #----------------------------------------------------------------------------------------------
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al eliminar el cliente"))

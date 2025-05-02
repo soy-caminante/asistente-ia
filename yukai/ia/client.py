@@ -239,14 +239,17 @@ class ModelLoader:
         model.eval()
         return model
     #----------------------------------------------------------------------------------------------
-
+    
     def embed_prompt(self, text):
-        inputs = self._tokenizer(text, return_tensors="pt", add_special_tokens=False).to(self._model.device)
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self._model.to(device)
+        inputs = self._tokenizer(text, return_tensors="pt", add_special_tokens=False)
+        input_ids = inputs["input_ids"].to(device)
         with torch.no_grad():
-            embeddings = self._model.model.embed_tokens(inputs.input_ids)
+            embeddings = self._model.model.embed_tokens(input_ids)
         return embeddings.squeeze(0).cpu().tolist()
     #----------------------------------------------------------------------------------------------
-    
+
     def embed_prompt_binary(self, text):
         embedding_tensor    = self.embed_prompt(text)
         buffer              = torch.io.BytesIO()
@@ -295,7 +298,7 @@ class OpenAiChatClient:
     def __init__(self,  api_key:    str,
                         model_name: str,
                         log:        Logger):
-        self._client        = OpenAI(api_key)
+        self._client        = OpenAI(api_key=api_key)
         self._model_name    = model_name
         self._log           = log
     #----------------------------------------------------------------------------------------------
@@ -399,6 +402,10 @@ class OpenAiChatClient:
         except Exception as ex:
             self._log.exception(ex)
             return StatusInfo.error("Error al generar desde embeddings")
+    #----------------------------------------------------------------------------------------------
+
+    def generate_from_embeddings(self, request_id: str, embeddings: list, max_tokens=128, temperature=0.7) -> StatusInfo[str]:
+        return StatusInfo.error("No disponible en este modelo")
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 

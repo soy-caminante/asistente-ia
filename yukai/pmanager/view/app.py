@@ -19,7 +19,8 @@ class App:
                                                             env.runtime, 
                                                             env.model,
                                                             env.chat_endpoint,
-                                                            env.db_endpoint), 
+                                                            env.db_endpoint, 
+                                                            env.gpu), 
                                             self._ov_wrap)
         self._view      = LandingView(page, "/", env, self._overlay, self._backend)
 

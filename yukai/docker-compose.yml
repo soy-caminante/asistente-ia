@@ -89,8 +89,9 @@ services:
     container_name: mongodb
     ports:
       - "27017:27017"
+    command: ["--replSet", "rs0"]
     volumes:
-      - mongo-data:/data/db
+      - mongodb_data:/data/db
     restart: unless-stopped
 
 volumes:

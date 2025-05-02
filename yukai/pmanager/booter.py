@@ -22,6 +22,7 @@ class Args:
     model:          str
     chat_endpoint:  str
     db_endpoint:    str
+    gpu:            bool
 #--------------------------------------------------------------------------------------------------
 
 def load_args() -> Args:
@@ -48,6 +49,11 @@ def load_args() -> Args:
                                             type        = str,
                                             default     = "mongodb://localhost:27017",
                                             required    = False)
+    parser.add_argument('--gpu',            help        = 'Modo de desarrollo', 
+                                            type        = str,
+                                            default     = "on",
+                                            choices     = [ "on", "off" ],
+                                            required    = False)
 
     args            = parser.parse_known_args()
     pargs           = vars(args[0])
@@ -56,6 +62,7 @@ def load_args() -> Args:
     model           = pargs["model"]
     chat_endpoint   = pargs["chat_endpoint"]
     db_endpoint     = pargs["db_endpoint"]
+    gpu             = pargs["gpu"]
 
     if "assets" in pargs.keys() and "runtime" in pargs.keys():
         runtime = pathlib.Path(pargs["runtime"])
@@ -98,7 +105,8 @@ def load_args() -> Args:
                 port,
                 model,
                 chat_endpoint,
-                db_endpoint)
+                db_endpoint,
+                gpu=="on")
 #--------------------------------------------------------------------------------------------------
 
 class Booter:
@@ -132,6 +140,7 @@ class Booter:
                                     self._args.runtime, 
                                     self._args.model,
                                     self._args.chat_endpoint,
-                                    self._args.db_endpoint))
+                                    self._args.db_endpoint,
+                                    self._args.gpu))
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------

@@ -21,6 +21,7 @@ class Environment:
     model:                      str
     chat_endpoint:              str
     db_endpoint:                str
+    gpu:                        bool
     #----------------------------------------------------------------------------------------------
 
     def __post_init__(self):

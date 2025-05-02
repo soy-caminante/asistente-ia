@@ -9,7 +9,7 @@ from    enum                        import  IntEnum
 from    models.models               import  *
 from    pmanager.backend.service    import  BackendService
 from    pmanager.view.environment   import  Environment
-from    pmanager.view.snackbar      import  show_snackbar
+from    pmanager.view.snackbar      import  show_snackbar, show_snackbar_error
 from    tools.tools                 import  *
 from    tools.viewtools             import  *
 #--------------------------------------------------------------------------------------------------
@@ -105,7 +105,7 @@ class ExpedienteViwer(ft.Container, Factories):
             self._paciente.value    = f"{personal_info.apellidos}, {personal_info.nombre}"
             self._dni.value         = f"{personal_info.dni} / {personal_info.id_interno}"
             self._edad.value        = f"{personal_info.sexo} - {get_elapsed_years(personal_info.fecha_nacimiento)} años"
-                #----------------------------------------------------------------------------------------------
+    #----------------------------------------------------------------------------------------------
 
     def consolidate(self, data):
         self._backend
@@ -460,7 +460,7 @@ class MainPanel(ft.Container, Factories):
         if status:
             self._src_list.set_values(status.get())
         else:
-            show_snackbar("Error en la recarga de los pacientes")
+            show_snackbar_error("Error en la recarga de los pacientes")
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
@@ -469,7 +469,7 @@ class MainPanel(ft.Container, Factories):
         if status:
             self._con_list.set_values(status.get())
         else:
-            show_snackbar("Error en la recarga de los pacientes")
+            show_snackbar_error("Error en la recarga de los pacientes")
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
@@ -478,8 +478,9 @@ class MainPanel(ft.Container, Factories):
 
         if status:
             self._con_list.set_values(status.get())
+            show_snackbar("Consolidación finalizada")
         else:
-            show_snackbar("Error en la consolidación de los pacientes")
+            show_snackbar_error("Error en la consolidación de los pacientes")
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
