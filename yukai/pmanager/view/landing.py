@@ -16,14 +16,6 @@ from    tools.tools                 import  *
 from    tools.viewtools             import  *
 #--------------------------------------------------------------------------------------------------
 
-class Callbacks(IntEnum):
-    INSPECT_SRC     = 0
-    INSPECT_CON     = 1
-    INSPECT_DOC     = 2
-    CONSOLIDAT_DOC  = 3
-    DELETE_DOC      = 4
-#--------------------------------------------------------------------------------------------------
-
 class DocumentViewer(ft.Container, Factories):
     def __init__(self, go_back, **kwargs):
         super().__init__(**kwargs)
@@ -79,8 +71,7 @@ class DocumentViewer(ft.Container, Factories):
                             doc_len: str, 
                             doc_tokens: int, 
                             src_doc_content: bytes, 
-                            iadoc_content: bytes,
-                            doc_mime_type: str):
+                            iadoc_content: bytes):
         self._cliente.value     = cliente
         self._dni.value         = dni_ref
         self._edad.value        = edad
@@ -89,13 +80,39 @@ class DocumentViewer(ft.Container, Factories):
         self._tokens.value      = doc_tokens
         self._content           = src_doc_content
 
-        src_text    = src_doc_content.decode("utf-8", errors="ignore")
-        control_src = ft.Text(src_text, selectable=True, overflow="auto")
+        src_text            = src_doc_content.decode("utf-8", errors="ignore")
+        iadoc_text          = iadoc_content.decode("utf-8", errors="ignore")
+        title_src           = self.tf.container_title("Documento fuente")
+        title_iadoc         = self.tf.container_title("IADoc")
+        title_src.expand    = True
+        title_iadoc.expand  = True
 
-        iadoc_text  = iadoc_content.decode("utf-8", errors="ignore")
-        control_src = ft.Text(control_src, selectable=True, overflow="auto")
+        control_src     = ft.Column \
+        (
+            [ 
+                ft.Card(ft.Container(ft.Row([title_src], alignment=ft.MainAxisAlignment.CENTER), padding=10)),
+                ft.Container(ft.Text(src_text, selectable=True, overflow="auto", expand=True), padding=ft.padding.only(left=15, right=15))
+            ],
+            alignment   = ft.MainAxisAlignment.START,
+            expand      = True
+        )
+        control_iadoc     = ft.Column \
+        (
+            [ 
+                ft.Card(ft.Container(ft.Row([title_iadoc], alignment=ft.MainAxisAlignment.CENTER), padding=10)),
+                ft.Container(ft.Text(iadoc_text, selectable=True, overflow="auto", expand=True), padding=ft.padding.only(left=15, right=15))
+            ],
+            alignment   = ft.MainAxisAlignment.START,
+            expand      = True
+        )
 
-        self._doc_display.content = ft.Row([ft.Container(src_text, expand=True), ft.VerticalDivider(), ft.Container(control_src, expand=True)])
+        self._doc_display.content = ft.Row \
+        (
+            [ft.Container(control_src, expand=True), ft.VerticalDivider(), ft.Container(control_iadoc, expand=True)],
+            alignment           = ft.MainAxisAlignment.CENTER,
+            vertical_alignment  = ft.CrossAxisAlignment.START,
+            expand              = True
+        )
         self.update()
     #----------------------------------------------------------------------------------------------
 
@@ -157,7 +174,7 @@ class DocumentViewer(ft.Container, Factories):
         first_row  = ft.Row \
         (
             [
-                self._documento,
+                self.tf.container_title("Documento"),
                 ft.Container(expand=True),
                 self.bf.back_button(lambda _: self._on_go_back()),
                 self.bf.save_button(lambda _: self.open_save_dialog())
@@ -168,26 +185,27 @@ class DocumentViewer(ft.Container, Factories):
         left_column             = ft.Column \
         (
             [
-                ft.Container(first_row),
-                ft.Container(self._doc_len),
-                ft.Container(self._tokens),
+                ft.Card(ft.Container(first_row, padding=10)),
+                ft.Container(self._documento, padding=ft.padding.only(left=15, right=15)),
+                ft.Container(self._doc_len, padding=ft.padding.only(left=15, right=15)),
+                ft.Container(self._tokens, padding=ft.padding.only(left=15, right=15)),
                 ft.Divider(),
-                ft.Container(self._cliente),
-                ft.Container(self._dni),
-                ft.Container(self._edad)
+                ft.Container(self._cliente, padding=ft.padding.only(left=15, right=15)),
+                ft.Container(self._dni, padding=ft.padding.only(left=15, right=15)),
+                ft.Container(self._edad, padding=ft.padding.only(left=15, right=15))
             ],
-            expand      = 1,
+            expand      = True,
             alignment   = ft.MainAxisAlignment.START,
         )
 
-        self._doc_display   = ft.Container(expand=3)
-        layout                  = ft.Row \
+        self._doc_display   = ft.Container(expand=4)
+        layout              = ft.Row \
         (
             [   
                 ft.Container(expand=1), 
-                left_column, 
+                ft.Container(left_column, expand=1),
+                ft.VerticalDivider(), 
                 self._doc_display, 
-                ft.Container(expand=1) 
             ],
             expand=True,
             vertical_alignment=ft.CrossAxisAlignment.START
@@ -218,14 +236,12 @@ class ExpedienteViewer(ft.Container, Factories):
     class HeaderCtrl(ft.Row, Factories):
         def __init__(self,  data: IncommingFileInfo | ExpedienteViewer.ConsolidatedDoc,
                             on_consolidate      = None,
-                            on_inspect_src      = None,
-                            on_inspect_iadoc    = None,
+                            on_inspect          = None,
                             on_delete           = None):
             super().__init__()
             self._data              = data
             self._on_consolidate    = on_consolidate
-            self._on_inspect_src    = on_inspect_src
-            self._on_inspect_iadoc  = on_inspect_iadoc
+            self._on_inspect        = on_inspect
             self._on_delete         = on_delete
             self.expand             = True
             self.alignment          = ft.MainAxisAlignment.START
@@ -233,30 +249,20 @@ class ExpedienteViewer(ft.Container, Factories):
             if on_consolidate:
                 self.controls = [ ft.Text(f"{data.name}"), 
                                   ft.Container(expand=True),           
-                                  self.bf.custom_button(ft.Icons.PLAY_ARROW,  self.on_consolidate, "Consolidar"),
-                                  self.bf.custom_button(ft.Icons.PAGEVIEW,    self.on_inspect_src, "Inspeccionar"),
+                                  self.bf.custom_button(ft.Icons.PLAY_ARROW,  self.on_consolidate,  "Consolidar"),
+                                  self.bf.custom_button(ft.Icons.PAGEVIEW,    self.on_inspect,      "Inspeccionar"),
                                   self.bf.delete_button(self.on_delete) ]
             else:
-                if data.iadoc_ref:
-                    self.controls = [ ft.Text(f"{data.name}"), 
-                                    ft.Container(expand=True), 
-                                    self.bf.custom_button(ft.Icons.PAGEVIEW,            self.on_inspect_src,    "Inspeccionar fuente"),
-                                    self.bf.custom_button(ft.Icons.PAGEVIEW_OUTLINED,   self.on_inspect_iadoc,  "Inspeccionar iadoc"),
-                                    self.bf.delete_button(self.on_delete) ]
-                else:
-                    self.controls = [ ft.Text(f"{data.name}"), 
-                                    ft.Container(expand=True), 
-                                    self.bf.custom_button(ft.Icons.PAGEVIEW, self.on_inspect_src, "Inspeccionar"),
-                                    self.bf.delete_button(self.on_delete) ]
+                self.controls = [ ft.Text(f"{data.name}"), 
+                                ft.Container(expand=True), 
+                                self.bf.custom_button(ft.Icons.PAGEVIEW, self.on_inspect, "Inspeccionar"),
+                                self.bf.delete_button(self.on_delete) ]
         #------------------------------------------------------------------------------------------
             
         def on_consolidate(self, _): self._on_consolidate(self._data)
         #------------------------------------------------------------------------------------------
 
-        def on_inspect_src(self, _): self._on_inspect_src(self._data)
-        #------------------------------------------------------------------------------------------
-
-        def on_inspect_iadoc(self, _): self._on_inspect_iadoc(self._data)
+        def on_inspect(self, _): self._on_inspect(self._data)
         #------------------------------------------------------------------------------------------
 
         def on_delete(self, _): self._on_delete(self._data)
@@ -278,6 +284,7 @@ class ExpedienteViewer(ft.Container, Factories):
         self._document_viewer.visible   = False
 
         self._documents_ctrl.controls.clear()
+        self._documents_ctrl.spacing = 0
         
         if cliente:
             if isinstance(cliente, IncommingCliente):
@@ -287,7 +294,7 @@ class ExpedienteViewer(ft.Container, Factories):
                 for d in  docs:
                     self._documents_ctrl.controls.append(ft.ListTile(   title   = self.HeaderCtrl(  data                = d,
                                                                                                     on_consolidate      = self.consolidate,
-                                                                                                    on_inspect_src      = self.inspect_src,
+                                                                                                    on_inspect          = self.inspect,
                                                                                                     on_delete           = self.delete),
                                                                         subtitle= ft.Text(f"{d.mime}, {d.size_str}\n{d.ts_str}")))
             else:
@@ -367,13 +374,12 @@ class ExpedienteViewer(ft.Container, Factories):
                     tokens += d.tokens
                     self._documents_ctrl.controls.append(ft.ListTile(   title   = self.HeaderCtrl(  data                = d,
                                                                                                     on_consolidate      = None,
-                                                                                                    on_inspect_src      = self.inspect_src,
-                                                                                                    on_inspect_iadoc    = self.inspect_iadoc,
+                                                                                                    on_inspect          = self.inspect,
                                                                                                     on_delete           = self.delete),
                                                                         subtitle= ft.Text(f"{d.mime}, {d.size_str}, {d.tokens if d.tokens else "-"} tokens\n{d.ts_str}")))
                 self._tokens.value = str(tokens)
 
-            self._paciente.value    = f"{self._personal_info.apellidos}, {self._personal_info.nombre}"
+            self._cliente.value     = f"{self._personal_info.apellidos}, {self._personal_info.nombre}"
             self._dni.value         = f"{self._personal_info.dni} / {self._personal_info.id_interno}"
             self._edad.value        = f"{self._personal_info.sexo} - {get_elapsed_years(self._personal_info.fecha_nacimiento)} años"
     #----------------------------------------------------------------------------------------------
@@ -388,7 +394,7 @@ class ExpedienteViewer(ft.Container, Factories):
         pass
     #----------------------------------------------------------------------------------------------
 
-    def inspect_src(self, data: IncommingFileInfo|ExpedienteViewer.ConsolidatedDoc):
+    def inspect(self, data: IncommingFileInfo|ExpedienteViewer.ConsolidatedDoc):
         self._info_layout.visible       = False
         self._document_viewer.visible   = True
 
@@ -396,7 +402,7 @@ class ExpedienteViewer(ft.Container, Factories):
             content = self._backend.load_incomming_document(data.db_id)
 
             if content:
-                self._document_viewer.setup_single( self._paciente.value,
+                self._document_viewer.setup_single( self._cliente.value,
                                                     self._dni.value,
                                                     self._edad.value,
                                                     data.name,
@@ -407,53 +413,49 @@ class ExpedienteViewer(ft.Container, Factories):
             else:
                 show_snackbar_error("No se ha podido cargar el documento")
         else:
-            content_src     = self._backend.load_conslidated_src_document(data.src_ref)
-            content_iadoc   = self._backend.load_conslidated_iadoc(data.iadoc_ref)
+            if data.src_ref and data.iadoc_ref:
+                content_src     = self._backend.load_conslidated_src_document(data.src_ref)
+                content_iadoc   = self._backend.load_conslidated_iadoc(data.iadoc_ref)
 
-            if content_src and content_iadoc:
-                self._document_viewer.setup_split(  self._paciente.value,
-                                                    self._dni.value,
-                                                    self._edad.value,
-                                                    data.name,
-                                                    data.size_str,
-                                                    data.tokens,
-                                                    content_src.get(),
-                                                    content_iadoc.get(),
-                                                    data.mime)
+                if content_src and content_iadoc:
+                    self._document_viewer.setup_split(  self._cliente.value,
+                                                        self._dni.value,
+                                                        self._edad.value,
+                                                        data.name,
+                                                        data.size_str,
+                                                        data.tokens,
+                                                        content_src.get(),
+                                                        content_iadoc.get())
+            
+                else:
+                    show_snackbar_error("No se ha podido cargar el documento")
             else:
-                show_snackbar_error("No se ha podido cargar el documento")
+                content_src     = self._backend.load_conslidated_src_document(data.src_ref)
 
+                if content_src:
+                    self._document_viewer.setup_single( self._cliente.value,
+                                                        self._dni.value,
+                                                        self._edad.value,
+                                                        data.name,
+                                                        data.size_str,
+                                                        data.tokens,
+                                                        content_src.get(),
+                                                        data.mime)
+            
+                else:
+                    show_snackbar_error("No se ha podido cargar el documento")
         self.update()
     #----------------------------------------------------------------------------------------------
 
-    def inspect_iadoc(self, data:ExpedienteViewer.ConsolidatedDoc):
-        self._info_layout.visible       = False
-        self._document_viewer.visible   = True
-        content                         = self._backend.load_conslidated_iadoc(data.iadoc_ref)
-
-        if content:
-            self._document_viewer.setup(self._paciente.value,
-                                        self._dni.value,
-                                        self._edad.value,
-                                        data.name,
-                                        data.size_str,
-                                        data.tokens,
-                                        content.get(),
-                                        data.mime)
-        else:
-            show_snackbar_error("No se ha podido cargar el documento")
-
-        self.update()
-    #----------------------------------------------------------------------------------------------
 
     def delete(self, data):
         pass
     #----------------------------------------------------------------------------------------------
 
     def build_ui(self):
-        self._paciente = ft.TextField \
+        self._cliente = ft.TextField \
         (
-            label       = "Paciente", 
+            label       = "Cliente", 
             value       = None, 
             expand      = True,
             read_only   = True,
@@ -492,9 +494,9 @@ class ExpedienteViewer(ft.Container, Factories):
         first_row  = ft.Row \
         (
             [
-                self._paciente,
+                self.tf.container_title("Cliente"),
                 ft.Container(expand=True),
-                self.bf.back_button(lambda _: self._on_go_back())
+                self.bf.back_button(lambda _: self._on_go_back()),
             ],
             expand=True
         )
@@ -502,10 +504,11 @@ class ExpedienteViewer(ft.Container, Factories):
         left_column             = ft.Column \
         (
             [
-                ft.Container(first_row),
-                ft.Container(self._dni),
-                ft.Container(self._edad),
-                ft.Container(self._tokens)
+                ft.Card(ft.Container(first_row, padding=10)),
+                ft.Container(self._cliente, padding=ft.padding.only(left=15, right=15)),
+                ft.Container(self._dni, padding=ft.padding.only(left=15, right=15)),
+                ft.Container(self._edad, padding=ft.padding.only(left=15, right=15)),
+                ft.Container(self._tokens, padding=ft.padding.only(left=15, right=15))
             ],
             expand      = 1,
             alignment   = ft.MainAxisAlignment.START,
@@ -543,7 +546,7 @@ class ExpedienteViewer(ft.Container, Factories):
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
-class PacienteList(ft.Container, Factories):
+class ClienteList(ft.Container, Factories):
     @dataclass
     class Content:
         db_id:      str
@@ -557,7 +560,7 @@ class PacienteList(ft.Container, Factories):
     #----------------------------------------------------------------------------------------------
 
     class HeaderCtrl(ft.Row, Factories):
-        def __init__(self,  data: 'PacienteList.Content',
+        def __init__(self,  data: 'ClienteList.Content',
                             on_consolidate,
                             on_inspect,
                             on_delete):
@@ -599,7 +602,7 @@ class PacienteList(ft.Container, Factories):
         self._duplicate_fcn                             = duplicate_fcn
         self._delete_fcn                                = delete_fcn
         self._inspect_fcn                               = inspect_fcn
-        self._list_content: list[PacienteList.Content]  = [ ]
+        self._list_content: list[ClienteList.Content]  = [ ]
         self.build_ui()
     #----------------------------------------------------------------------------------------------
 
@@ -639,7 +642,7 @@ class PacienteList(ft.Container, Factories):
         def normalize(text):
             return unicodedata.normalize("NFKD", text).encode("ASCII", "ignore").decode("utf-8").lower()
         
-        def search_pattern(pattern: str, content: PacienteList.Content):
+        def search_pattern(pattern: str, content: ClienteList.Content):
             pattern             = normalize(pattern)
             nombre_apellidos    = normalize(f"{content.nombre} {content.apellidos}")
             apellidos_nombre    = normalize(f"{content.apellidos} {content.nombre}")
@@ -671,16 +674,16 @@ class PacienteList(ft.Container, Factories):
         self.update()
     #----------------------------------------------------------------------------------------------
     
-    def consolidate_one(self, ref: 'PacienteList.Content'):
+    def consolidate_one(self, ref: 'ClienteList.Content'):
         self._consolidate_fcn([ref.db_id])
     #----------------------------------------------------------------------------------------------
 
-    def delete_one(self, ref: 'PacienteList.Content'):
+    def delete_one(self, ref: 'ClienteList.Content'):
         self._list_content.clear()
         self._delete_fcn([ref.db_id])
     #----------------------------------------------------------------------------------------------
 
-    def inspect_one(self, ref: 'PacienteList.Content'):
+    def inspect_one(self, ref: 'ClienteList.Content'):
         self._inspect_fcn(ref.db_id)
     #----------------------------------------------------------------------------------------------
 
@@ -717,9 +720,9 @@ class PacienteList(ft.Container, Factories):
 
     def build_ui(self):
         self._list_ctrl     = ft.Column([], scroll=ft.ScrollMode.ALWAYS, alignment=ft.MainAxisAlignment.START, expand=True)
-        self._search_text   = ft.TextField( hint_text   = "Buscar paciente...",
+        self._search_text   = ft.TextField( hint_text   = "Buscar cliente...",
                                             on_change   = self.search,
-                                            tooltip     = "Filtra la lista de pacientes",
+                                            tooltip     = "Filtra la lista de clientes",
                                             text_size   = 20,
                                             border      = ft.InputBorder.NONE)
 
@@ -733,7 +736,7 @@ class PacienteList(ft.Container, Factories):
                 ft.Container(expand=True),
                 ft.IconButton(  ft.icons.REPLAY, 
                                 icon_color  = ft.colors.BLUE_900, 
-                                tooltip     = "Recargar lista de pacientes", 
+                                tooltip     = "Recargar lista de clientes", 
                                 on_click    = self.reload,
                                 visible     = self._reload_fcn is not None),
 
@@ -757,7 +760,7 @@ class PacienteList(ft.Container, Factories):
 
                 ft.IconButton(  ft.icons.DELETE, 
                                 icon_color  = ft.colors.BLUE_900, 
-                                tooltip     = "Eliminar paciente", 
+                                tooltip     = "Eliminar cliente", 
                                 on_click    = self.remove_selected,
                                 visible     = self._delete_fcn is not None)                
             ],
@@ -768,9 +771,11 @@ class PacienteList(ft.Container, Factories):
         column = ft.Column \
         (
             [
-                header_row,
-                self._search_text,
-                self._list_ctrl,
+                ft.Card \
+                (
+                    ft.Container(ft.Column([header_row, self._search_text]), padding=10)
+                ),
+                ft.Container(self._list_ctrl),
                 ft.Container(expand=True)
             ],
             expand         = True,
@@ -787,19 +792,19 @@ class MainPanel(ft.Container, Factories):
         super().__init__(**kwargs)
         self._overlay_ctrl  = overlay_ctrl
         self._backend       = backend
-        self._src_list      = PacienteList( "Nuevos",
+        self._src_list      = ClienteList( "Nuevos",
                                             self.reload_src_clientes,
-                                            self.consolidate_src_pacientes,
+                                            self.consolidate_src_clientes,
                                             self.check_src_duplicates,
-                                            self.delete_src_pacientes,
-                                            self.inspect_src_pacientes)
+                                            self.delete_src_clientes,
+                                            self.inspect_src_clientes)
         
-        self._con_list      = PacienteList( "Consolidados",
+        self._con_list      = ClienteList( "Consolidados",
                                             self.reload_consolidated_clientes,
                                             None,
                                             self.check_consolidated_duplicates,
-                                            self.delete_consolidated_pacientes,
-                                            self.inspect_consolidated_pacientes)
+                                            self.delete_consolidated_clientes,
+                                            self.inspect_consolidated_clientes)
         self.build_ui()
     #----------------------------------------------------------------------------------------------
 
@@ -820,7 +825,7 @@ class MainPanel(ft.Container, Factories):
         if status:
             self._src_list.set_values(status.get())
         else:
-            show_snackbar_error("Error en la recarga de los pacientes")
+            show_snackbar_error("Error en la recarga de los clientes")
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
@@ -829,19 +834,19 @@ class MainPanel(ft.Container, Factories):
         if status:
             self._con_list.set_values(status.get())
         else:
-            show_snackbar_error("Error en la recarga de los pacientes")
+            show_snackbar_error("Error en la recarga de los clientes")
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
-    def consolidate_src_pacientes(self, pacientes: list[str]):
-        status = self._backend.consolidate_clientes(pacientes)
+    def consolidate_src_clientes(self, clientes: list[str]):
+        status = self._backend.consolidate_clientes(clientes)
 
         if status:
             self.reload_consolidated_clientes()
             self.reload_src_clientes()
             show_snackbar("Consolidación finalizada")
         else:
-            show_snackbar_error("Error en la consolidación de los pacientes")
+            show_snackbar_error("Error en la consolidación de los clientes")
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
@@ -855,30 +860,30 @@ class MainPanel(ft.Container, Factories):
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
-    def delete_src_pacientes(self, pacientes: list[str]):
+    def delete_src_clientes(self, clientes: list[str]):
         if self.show_cannot_undo_warning():
-            status = self._backend.delete_src_clientes(pacientes)
+            status = self._backend.delete_src_clientes(clientes)
 
             if status:
                 self._src_list.set_values(status.get())
             else:
-                show_snackbar_error("Error en el borrado de los pacientes")
+                show_snackbar_error("Error en el borrado de los clientes")
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
-    def delete_consolidated_pacientes(self, pacientes: list[str]):
+    def delete_consolidated_clientes(self, clientes: list[str]):
         if self.show_cannot_undo_warning():
-            status = self._backend.delete_consolidated_clientes(pacientes)
+            status = self._backend.delete_consolidated_clientes(clientes)
 
             if status:
                 self._con_list.set_values(status.get())
             else:
-                show_snackbar_error("Error en el borrado de los pacientes")
+                show_snackbar_error("Error en el borrado de los clientes")
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
-    def inspect_src_pacientes(self, paciente: str):
-        status = self._backend.inspect_src_cliente(paciente)
+    def inspect_src_clientes(self, clientes: str):
+        status = self._backend.inspect_src_cliente(clientes)
 
         if status:
             self._main_layout.visible       = False
@@ -886,12 +891,12 @@ class MainPanel(ft.Container, Factories):
             self._expediente_viewer.populate(status.get())
             self.update()
         else:
-            show_snackbar_error("Error al leer el expediente del paciente")
+            show_snackbar_error("Error al leer el expediente del clientes")
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
-    def inspect_consolidated_pacientes(self, paciente: str):
-        status = self._backend.inspect_consolidated_cliente(paciente)
+    def inspect_consolidated_clientes(self, cliente: str):
+        status = self._backend.inspect_consolidated_cliente(cliente)
 
         if status:
             self._main_layout.visible       = False
@@ -899,7 +904,7 @@ class MainPanel(ft.Container, Factories):
             self._expediente_viewer.populate(status.get())
             self.update()
         else:
-            show_snackbar_error("Error al leer el expediente del paciente")
+            show_snackbar_error("Error al leer el expediente del cliente")
     #----------------------------------------------------------------------------------------------
 
     def come_back(self):
@@ -917,7 +922,7 @@ class MainPanel(ft.Container, Factories):
         self.update()
 
         if not status:
-            show_snackbar_error("Error al cargar los pacientes")        
+            show_snackbar_error("Error al cargar los clientes")        
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
@@ -939,7 +944,7 @@ class MainPanel(ft.Container, Factories):
             ],
             expand=True
         )
-        self.expand     = True
+        self.expand                     = True
         self._main_layout.visible       = True
         self._expediente_viewer.visible = False
     #----------------------------------------------------------------------------------------------
@@ -977,7 +982,7 @@ class LandingView(ft.View, Factories):
             ft.Row \
             (
                 [
-                    self.tf.page_title("Gestor de Pacientes"),
+                    self.tf.page_title("Gestor de Clientes"),
                     ft.Container(expand=True),
                     logo_container,
 
@@ -994,7 +999,7 @@ class LandingView(ft.View, Factories):
         (
             controls= \
             [
-                header_row,  # Fila con Datos del Paciente + Logo
+                header_row,  # Fila con Datos del Cliente + Logo
                 self._main_panel
             ],
             expand=True,

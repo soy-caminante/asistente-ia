@@ -201,32 +201,48 @@ class BackendService:
                                             "content":              doc.content.encode("utf-8"),
                                             "mime":                 doc.mime })
                 
-                self._overlay_ctrl.update(f"Cliente: {cliente.personal_info.id_interno}\nGenerando información predefinida")
-                status = self._chat.get_predefined_info(self.get_next_req_id(), iadocs)
-                
-                if status:
-                    expediente: ExpedienteBasicInfo = status.get()
-                    if self._clientes_db.add_cliente(   cliente.personal_info.nombre,
-                                                        cliente.personal_info.apellidos,
-                                                        cliente.personal_info.sexo,
-                                                        cliente.personal_info.fecha_nacimiento,
-                                                        cliente.personal_info.dni,
-                                                        cliente.personal_info.id_interno,
-                                                        expediente.antecedentes_familiares,        
-                                                        expediente.factores_riesgo_cardiovascular,
-                                                        expediente.medicacion,                     
-                                                        expediente.alergias,                     
-                                                        expediente.ingresos,                       
-                                                        expediente.ultimas_visitas,
-                                                        src_docs,
-                                                        iadocs,
-                                                        biadocs):
-                        self._incomming_db.set_as_consolidated(db_id)
-                        self.log_info(f"Cliente {db_id} consolidado")
+
+                already_exists = self._clientes_db.get_cliente_by_id_interno(cliente.personal_info.id_interno) is not None
+                if not already_exists:
+                    self._overlay_ctrl.update(f"Cliente: {cliente.personal_info.id_interno}\nGenerando información predefinida")
+                    status = self._chat.get_predefined_info(self.get_next_req_id(), iadocs)
+                    
+                    if status:
+                        expediente: ExpedienteBasicInfo = status.get()
+                        if self._clientes_db.add_cliente(   cliente.personal_info.nombre,
+                                                            cliente.personal_info.apellidos,
+                                                            cliente.personal_info.sexo,
+                                                            cliente.personal_info.fecha_nacimiento,
+                                                            cliente.personal_info.dni,
+                                                            cliente.personal_info.id_interno,
+                                                            expediente.antecedentes_familiares,        
+                                                            expediente.factores_riesgo_cardiovascular,
+                                                            expediente.medicacion,                     
+                                                            expediente.alergias,                     
+                                                            expediente.ingresos,                       
+                                                            expediente.ultimas_visitas,
+                                                            src_docs,
+                                                            iadocs,
+                                                            biadocs):
+                            self._incomming_db.set_as_consolidated(db_id)
+                            self.log_info(f"Cliente {db_id} consolidado")
+                        else:
+                            return self.log_error_and_return("Error al consolidar el cliente")
                     else:
-                        return self.log_error_and_return("Error al consolidar el cliente")
+                        return self.log_error_and_return("Error al resumir el expediente")
                 else:
-                    return self.log_error_and_return("Error al resumir el expediente")
+                    existing_iadocs = self._clientes_db.get_all_iadocs(cliente.personal_info.id_interno)
+                    for doc in existing_iadocs:
+                        iadocs.append({ "filename":     doc.name,
+                                        "content":      doc.content.decode("utf-8"),
+                                        "source_mime":  doc.source_mime,
+                                        "tokens":       doc.tokens })
+                    self._overlay_ctrl.update(f"Cliente: {cliente.personal_info.id_interno}\nGenerando información predefinida")
+                    status = self._chat.get_predefined_info(self.get_next_req_id(), iadocs)
+
+                    if status:
+                        # TODO: Actualizar el cliente, hay que agregar la función a la base de datos
+                        pass
             self.log_info("Consolidación finalizada")
 
             return StatusInfo.ok(True)
