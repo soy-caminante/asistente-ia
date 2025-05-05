@@ -29,7 +29,7 @@ class SearchView(AppView):
         self._nav_ctlr.show_view("/patient", e.control.data)
     #----------------------------------------------------------------------------------------------
 
-    def _get_result_item(self, paciente:Paciente):
+    def _get_result_item(self, paciente):
         if self._is_mobile:
             return ft.Card \
             (

@@ -84,7 +84,7 @@ class BackendService:
         self._env           = env
         self._clientes_db   = ClientesDocumentStore(env.log, 
                                                     env.db_docker_file,
-                                                    env.db_endpoint,
+                                                    env.db_port,
                                                     env.model_name if env.gpu else "no-gpu-db")
         self._db_operator   = DBOperator(self._clientes_db)
         self._pretrained    = PretrainedManger(self._db_operator, env.model_name, env.gpu)
@@ -134,18 +134,18 @@ class BackendService:
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener los clientes"))
     def load_all_consolidated_clientes(self) -> StatusInfo[list[ClienteInfo]]:
-        with self._overlay_ctrl.wait("Cargando pacientes consolidados"):
+        with self._overlay_ctrl.wait("Cargando clientes consolidados"):
             return StatusInfo.ok(self._clientes_db.get_all_clientes())
     #----------------------------------------------------------------------------------------------
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener el cliente"))
-    def get_consolidated_cliente(self, paciente_id: str) -> StatusInfo[Paciente]:
-        with self._overlay_ctrl.wait("Leyendo el paciente"):
-            paciente = None
-            if paciente is None:
-                return StatusInfo.error("Paciente no encontrado")
+    def get_consolidated_cliente(self, paciente_id: str) -> StatusInfo[ClienteInfo]:
+        with self._overlay_ctrl.wait("Leyendo el cliente"):
+            cliente = None
+            if cliente is None:
+                return StatusInfo.error("Cliente no encontrado")
             else:
-                return StatusInfo.ok(paciente)
+                return StatusInfo.ok(cliente)
     #----------------------------------------------------------------------------------------------
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener los clientes"))
@@ -229,7 +229,7 @@ class BackendService:
                     return self.log_error_and_return("Error al resumir el expediente")
             self.log_info("Consolidación finalizada")
 
-            return self.load_all_src_clientes()
+            return StatusInfo.ok(True)
     #----------------------------------------------------------------------------------------------
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al eliminar el cliente"))
@@ -256,13 +256,13 @@ class BackendService:
     #----------------------------------------------------------------------------------------------
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al eliminar los duplicados del paciente"))
-    def remove_duplicates(self, status: StatusInfo[list[(Paciente, Paciente)]], load_fcn: callable):
+    def remove_duplicates(self, status: StatusInfo[list[IncommingCliente | ClienteInfo]], load_fcn: callable):
         with self._overlay_ctrl.wait("Eliminando duplicados"):
             if status:
                 duplicates = status.get()
 
                 for p, _ in duplicates:
-                    p: Paciente
+                    p: IncommingCliente | ClienteInfo
                     try:
                         pathlib.Path(p.db_id).unlink(missing_ok=True)
                     except Exception as ex:
@@ -279,29 +279,29 @@ class BackendService:
     #----------------------------------------------------------------------------------------------
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener los duplicados del paciente"))
-    def check_duplicates(self, status) -> StatusInfo[list[(Paciente, Paciente)]]:
+    def check_duplicates(self, status) -> StatusInfo[list[(IncommingCliente, IncommingCliente)]]:
         with self._overlay_ctrl.wait("Buscando duplicados"):
             status = self.load_all_src_clientes()
 
             if status:
-                pacientes: list[PacienteShort]= status.get()
+                pacientes: list[IncommingCliente]= status.get()
                 
                 if len(pacientes) == 0:
                     return StatusInfo.ok([])
                 duplicates = []
                 
                 for i, paciente1 in enumerate(pacientes):
-                    paciente1: PacienteShort
+                    paciente1: IncommingCliente
                     for j, paciente2 in enumerate(pacientes):
-                        paciente2: PacienteShort
+                        paciente2: IncommingCliente
                         if i >= j: continue
 
-                        if paciente1.dni == paciente2.dni or paciente1.ref_id == paciente2.ref_id:
+                        if paciente1.personal_info.dni == paciente2.personal_info.dni or paciente1.personal_info.id_interno == paciente2.personal_info.id_interno:
                             duplicates.append((paciente1, paciente2))
                         else:
-                            full_name_1 = f"{paciente1.nombre} {paciente1.apellidos}"
-                            full_name_2 = f"{paciente2.nombre} {paciente2.apellidos}"
-                            reversed_name_2 = f"{paciente2.apellidos} {paciente2.nombre}"
+                            full_name_1 = f"{paciente1.personal_info.nombre} {paciente1.personal_info.apellidos}"
+                            full_name_2 = f"{paciente2.personal_info.nombre} {paciente2.personal_info.apellidos}"
+                            reversed_name_2 = f"{paciente2.personal_info.apellidos} {paciente2.personal_info.nombre}"
                             similarity_1 = SequenceMatcher(None, full_name_1, full_name_2).ratio()
                             similarity_2 = SequenceMatcher(None, full_name_1, reversed_name_2).ratio()
                             if similarity_1 > 0.9 or similarity_2 > 0.9:
@@ -321,33 +321,14 @@ class BackendService:
     #----------------------------------------------------------------------------------------------
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener la información del paciente"))
-    def inspect_consolidated_cliente(self, owner: str) -> StatusInfo[ClienteMetaInformation]:
-        cliente = self._clientes_db.get_cliente_by_id_interno(owner)
+    def inspect_consolidated_cliente(self, db_id: str) -> StatusInfo[ClienteMetaInformation]:
+        cliente = self._clientes_db.get_cliente_by_db_id(db_id)
         if cliente:
-            biadocs = self._clientes_db.get_all_biadoc_meta(owner)
-            iadocs  = self._clientes_db.get_all_iadoc_meta(owner)
-            srcdocs = self._clientes_db.get_all_source_meta(owner)
+            biadocs = self._clientes_db.get_all_biadoc_meta(cliente.id_interno)
+            iadocs  = self._clientes_db.get_all_iadoc_meta(cliente.id_interno)
+            srcdocs = self._clientes_db.get_all_source_meta(cliente.id_interno)
 
-            src_list:   list[SrcDocInfo]    = [ ]
-            ia_list:    list[IaDcoInfo]     = [ ]
-            bia_list:   list[BIaDcoInfo]    = [ ]
-            for src in srcdocs:
-                found = False
-                for bia in biadocs:
-                    if src.db_id == bia.source_ref:
-                        found = True
-                        bia_list.append(bia)
-                        break
-                if not found:
-                    for ia in iadocs:
-                        if src.db_id == ia.source_ref:
-                            found = True
-                            ia_list.append(bia)
-                            break
-                if not found:
-                    src_list.append(src)
-
-            return StatusInfo.ok(ClienteMetaInformation(cliente, src_list, ia_list, bia_list))
+            return StatusInfo.ok(ClienteMetaInformation(cliente, srcdocs, iadocs, biadocs))
         else:
             return StatusInfo.error("El cliente no existe")
     #----------------------------------------------------------------------------------------------

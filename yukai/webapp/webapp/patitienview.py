@@ -88,7 +88,7 @@ class PatitentView(AppView):
             self._id        = text_factory.row_text("")
         #------------------------------------------------------------------------------------------
 
-        def update(self, paciente: Paciente):
+        def update(self, paciente):
             self.set_nombre(f"{paciente.apellidos}, {paciente.nombre}")
             self.set_edad(f"Edad: {get_elapsed_years(paciente.fecha_nacimiento)}")
             self.set_sexo(f"Sexo: {paciente.sexo}")

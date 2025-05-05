@@ -133,7 +133,10 @@ class WaitCtrl(ft.Container, Factories):
     #----------------------------------------------------------------------------------------------
 
     def build_ui(self):
-        self._msg   = self.tf.container_title("Cargado nuevos pacientes")
+        self._msg               = self.tf.mosaic_title("Cargado nuevos pacientes")
+        self._msg.width         = 300
+        self._msg.text_align    = ft.TextAlign.CENTER
+        
         row         = ft.Row \
         (
             [ 
@@ -144,11 +147,11 @@ class WaitCtrl(ft.Container, Factories):
                         (
                             ft.Container \
                             (
-                                ft.Column \
+                                ft.Row \
                                 (
-                                    [ ft.ProgressRing(width=80, height=80), self._msg ],
+                                    [ ft.ProgressRing(width=20, height=20), self._msg ],
                                     alignment           = ft.MainAxisAlignment.CENTER,
-                                    horizontal_alignment= ft.CrossAxisAlignment.CENTER
+                                    vertical_alignment  = ft.CrossAxisAlignment.CENTER
                                 ),
                                 padding= 10
                             ),

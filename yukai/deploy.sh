@@ -44,6 +44,28 @@ if ! docker network inspect yukai-net | grep -q '"Name": "mongodb"'; then
   docker network connect yukai-net mongodb || true
 fi
 
+# Esperar a que Mongo esté disponible
+echo "⏳ Esperando a que MongoDB esté accesible..."
+until docker exec mongodb mongosh --eval "db.runCommand({ ping: 1 })" >/dev/null 2>&1; do
+  sleep 1
+done
+
+# Verificar si el replica set está inicializado
+echo "🔍 Verificando estado del replicaset..."
+RS_STATUS=$(docker exec mongodb mongosh --quiet --eval "rs.status()" 2>&1 || true)
+
+if echo "$RS_STATUS" | grep -q "no replset config has been received"; then
+  echo "⚙️ Replica set no inicializado. Ejecutando rs.initiate()..."
+  docker exec mongodb mongosh --eval "rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongo:27017' }] })"
+  echo "✅ Replica set inicializado correctamente."
+elif echo "$RS_STATUS" | grep -q '"ok" : 1'; then
+  echo "✅ Replica set ya está activo."
+else
+  echo "❌ Error al verificar el estado del replicaset:"
+  echo "$RS_STATUS"
+  exit 1
+fi
+
 # Asignación de Dockerfile y tag correcto para cada servicio
 for SERVICE in "${SERVICES[@]}"; do
   echo "🔨 Preparando build para $SERVICE..."
@@ -82,4 +104,4 @@ for SERVICE in "${SERVICES[@]}"; do
   docker compose up -d $SERVICE
 done
 
-echo "✅ Todos los servicios solicitados están en marcha."
+echo "✅ Todos los servicios solicitados están en marcha con Mongo en modo replicaset."

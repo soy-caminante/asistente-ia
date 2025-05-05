@@ -20,7 +20,7 @@ class Environment:
     runtime:                    pathlib.Path
     model_name:                 str
     chat_endpoint:              str
-    db_endpoint:                str
+    db_port:                    str
     gpu:                        bool
     db_dir:                     pathlib.Path = None
     db_docker_file:             pathlib.Path = None

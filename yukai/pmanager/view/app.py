@@ -19,7 +19,7 @@ class App:
                                                             env.runtime, 
                                                             env.model,
                                                             env.chat_endpoint,
-                                                            env.db_endpoint, 
+                                                            env.db_port, 
                                                             env.gpu), 
                                             self._ov_wrap)
         self._view      = LandingView(page, "/", env, self._overlay, self._backend)
@@ -31,15 +31,16 @@ class App:
         with self._ov_wrap.wait("Compronando la conexión con el servidor de datos"):
             if not self._backend.check_db():
                 self._ov_wrap.update("Servidor de datos no disponible")
-                option = self._overlay.show_warning \
+                self._overlay.show_warning \
                 ([
                     "La base de datos no está correctamente configurada",
                     "¿Desea continuar?"
-                ]).wait_answer()
+                ])
 
-                time.sleep(3)
-                self._page.window.destroy()
-                sys.exit(-1)
+                if self._overlay.wait_answer():
+                    time.sleep(3)
+                    self._page.window.destroy()
+                    sys.exit(-1)
     #----------------------------------------------------------------------------------------------
 
     def load_initial_data(self):

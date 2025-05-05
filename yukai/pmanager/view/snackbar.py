@@ -8,7 +8,7 @@ class SnackBarManager:
     def __init__(self, page: ft.Page):
         self.page       = page
         self.text       = ft.Text("")
-        self.snackbar   = ft.SnackBar(content=self.text, bgcolor="blue", duration=2000)
+        self.snackbar   = ft.SnackBar(content=self.text, bgcolor="blue", duration=2000, show_close_icon=True)
         self.page.overlay.append(self.snackbar)
     #----------------------------------------------------------------------------------------------
 
@@ -36,10 +36,10 @@ def set_snackbar_mngr(page: ft.Page):
     snackbar_mngr_obj = SnackBarManager(page)
 #--------------------------------------------------------------------------------------------------
 
-def show_snackbar(message, tout=2000):
+def show_snackbar(message, tout=4000):
     snackbar_mngr_obj.show_snackbar(message, tout)
 #--------------------------------------------------------------------------------------------------
 
-def show_snackbar_error(message, tout=5000):
+def show_snackbar_error(message, tout=10000):
     snackbar_mngr_obj.show_snackbar_error(message, tout)
 #--------------------------------------------------------------------------------------------------

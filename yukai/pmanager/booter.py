@@ -6,6 +6,7 @@ from    dataclasses                     import  dataclass
 from    logger                          import  Logger
 from    pmanager.view.app               import  App
 from    pmanager.view.environment       import  Environment         as AppEnvironment
+from    pmanager.view.filedialog        import  set_filesaver_mngr
 from    pmanager.view.snackbar          import  set_snackbar_mngr
 from    tools.factories                 import  *
 from    tools.tools                     import  get_assets_dir_path
@@ -21,7 +22,7 @@ class Args:
     web_port:       int
     model:          str
     chat_endpoint:  str
-    db_endpoint:    str
+    db_port:        str
     gpu:            bool
 #--------------------------------------------------------------------------------------------------
 
@@ -45,9 +46,9 @@ def load_args() -> Args:
                                             type        = str,
                                             default     = "http://localhost:8081",
                                             required    = True)
-    parser.add_argument('--db-endpoint',    help        = 'Localización de la base de datos', 
+    parser.add_argument('--db-port',        help        = 'Localización de la base de datos', 
                                             type        = str,
-                                            default     = "mongodb://localhost:27017",
+                                            default     = "27017",
                                             required    = False)
     parser.add_argument('--gpu',            help        = 'Modo de desarrollo', 
                                             type        = str,
@@ -61,7 +62,7 @@ def load_args() -> Args:
     port            = pargs["web_port"]
     model           = pargs["model"]
     chat_endpoint   = pargs["chat_endpoint"]
-    db_endpoint     = pargs["db_endpoint"]
+    db_port         = pargs["db_port"]
     gpu             = pargs["gpu"]
 
     if "assets" in pargs.keys() and "runtime" in pargs.keys():
@@ -105,7 +106,7 @@ def load_args() -> Args:
                 port,
                 model,
                 chat_endpoint,
-                db_endpoint,
+                db_port,
                 gpu=="on")
 #--------------------------------------------------------------------------------------------------
 
@@ -130,6 +131,7 @@ class Booter:
 
     def run_app(self, page: ft.Page):
         set_snackbar_mngr(page)
+        set_filesaver_mngr(page)
 
         Factories.setup(TextFactory("#54BAAD"), 
                         IconButtonFactory("#54BAAD"),
@@ -140,7 +142,7 @@ class Booter:
                                     self._args.runtime, 
                                     self._args.model,
                                     self._args.chat_endpoint,
-                                    self._args.db_endpoint,
+                                    self._args.db_port,
                                     self._args.gpu))
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------

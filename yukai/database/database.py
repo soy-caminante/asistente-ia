@@ -1,5 +1,6 @@
 import  datetime
 import  gridfs
+import  os
 import  pathlib
 import  subprocess
 import  time
@@ -17,19 +18,27 @@ from    tools.tools                 import  is_plaint_text_file
 class ClientesDocumentStore:
     def __init__(self, log: Logger,
                        docker_file  = None,
-                       mongo_uri    = "mongodb://localhost:27017",
+                       mongo_port   = "27017",
                        db_name      = "docstore"):
         self._log           = log
         self._docker_file   = docker_file
-        self._mongo_uri     = mongo_uri
-        self._client        = MongoClient(mongo_uri)
+        self._mongo_uri     = self.get_mongo_uri(mongo_port)
+        self._client        = MongoClient(self._mongo_uri)
         self._db: Database  = self._client[db_name]
         self._fs            = gridfs.GridFS(self._db)
     #----------------------------------------------------------------------------------------------
 
+    def get_mongo_uri(self, port: str):
+        # Detecta si estás dentro de Docker por entorno o rutas típicas
+        if os.path.exists("/.dockerenv") or os.environ.get("IN_DOCKER") == "1":
+
+            return f"mongodb://mongo:{port}"
+        return f"mongodb://localhost:{port}"
+    #----------------------------------------------------------------------------------------------
+
     # ------------------ Mongo Ready ---------------------
 
-    def is_mongo_ready(self, uri=None, timeout=1):
+    def is_mongo_ready(self, uri=None, timeout=3):
         try:
             if uri is None: uri = self._mongo_uri
             client = MongoClient(uri, serverSelectionTimeoutMS=timeout * 1000)
@@ -40,10 +49,14 @@ class ClientesDocumentStore:
     #----------------------------------------------------------------------------------------------
 
     def ensure_mongo_ready(self, uri=None):
-        if uri is None: uri = self._mongo_uri
-        else: self._mongo_uri = uri
+        if uri is None: 
+            uri = self._mongo_uri
+        else: 
+            self._mongo_uri = uri
 
-        self._log.info("Comprobando el estado de MongoDB")
+        self._log.info(f"Comprobando el estado de MongoDB")
+        self._log.info(f"Mongo URI: {uri}")
+
         if self.is_mongo_ready(uri):
             self._log.info("✅ MongoDB ya está disponible.")
             return True
@@ -185,7 +198,7 @@ class ClientesDocumentStore:
                     self._log.error(f"❌ No se pudo insertar source_doc '{src['filename']}'")
                     return False
                 souce_ref = res.inserted_id
-
+                
                 if index < len(iadocs):
                     iadoc   = iadocs[index]
                     content = iadoc["content"]
@@ -236,8 +249,8 @@ class ClientesDocumentStore:
         for record in self._db.clientes.find({}):
             ret.append(ClienteInfo(record["nombre"],
                                    record["apellidos"],
-                                   record["sexo"],
                                    record["fecha_nacimiento"],
+                                   record["sexo"],
                                    record["dni"],
                                    record["owner"],
                                    record["_id"]))
@@ -249,8 +262,8 @@ class ClientesDocumentStore:
         if record:
             return ClienteInfo(record["nombre"],
                                record["apellidos"],
-                               record["sexo"],
                                record["fecha_nacimiento"],
+                               record["sexo"],
                                record["dni"],
                                record["owner"],
                                record["_id"])
@@ -262,8 +275,8 @@ class ClientesDocumentStore:
         if record:
             return ClienteInfo(record["nombre"],
                                record["apellidos"],
-                               record["sexo"],
                                record["fecha_nacimiento"],
+                               record["sexo"],
                                record["dni"],
                                record["owner"],
                                record["_id"])

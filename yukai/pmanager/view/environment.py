@@ -20,7 +20,7 @@ class Environment:
     runtime:                    pathlib.Path
     model:                      str
     chat_endpoint:              str
-    db_endpoint:                str
+    db_port:                    str
     gpu:                        bool
     #----------------------------------------------------------------------------------------------
 

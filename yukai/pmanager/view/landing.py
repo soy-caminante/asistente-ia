@@ -1,6 +1,7 @@
+from    __future__                  import  annotations
+
+import  base64
 import  flet                        as      ft
-import  mimetypes
-import  time
 import  unicodedata
 
 from    dataclasses                 import  dataclass
@@ -9,6 +10,7 @@ from    enum                        import  IntEnum
 from    models.models               import  *
 from    pmanager.backend.service    import  BackendService
 from    pmanager.view.environment   import  Environment
+from    pmanager.view.filedialog    import  show_filesaver
 from    pmanager.view.snackbar      import  show_snackbar, show_snackbar_error
 from    tools.tools                 import  *
 from    tools.viewtools             import  *
@@ -22,16 +24,88 @@ class Callbacks(IntEnum):
     DELETE_DOC      = 4
 #--------------------------------------------------------------------------------------------------
 
-class ExpedienteViwer(ft.Container, Factories):
+class DocumentViewer(ft.Container):
+    def __init__(self):
+        super().__init__()
+        self._name:str          = ""
+        self._content:str       = ""
+        self._mime_type:str     = ""
+
+        self.build_ui()
+    #----------------------------------------------------------------------------------------------
+
+    def open_save_dialog(self, e):
+        show_filesaver(self.save_file, self._name or "document", self._mime_type)
+    #----------------------------------------------------------------------------------------------
+
+    def save_file(self, e: ft.FilePickerResultEvent):
+        if e.path:
+            try:
+                with open(e.path, "wb") as f:
+                    f.write(self._content)
+            except Exception as ex:
+                show_snackbar_error(f"Error al guardar el documento {ex}")
+    #----------------------------------------------------------------------------------------------
+
+    def setup(self, name, content, mime_type):
+        self._name          = name
+        self._content       = content
+        self._mime_type     = mime_type
+
+        if self._mime_type.startswith("text/"):
+            text_str = self._content.decode("utf-8", errors="ignore")
+            control = ft.Text(text_str, selectable=True, overflow="auto")
+
+        elif self._mime_type.startswith("image/"):
+            b64_data = base64.b64encode(self._content).decode("utf-8")
+            control = ft.Image(src_base64=b64_data, fit=ft.ImageFit.CONTAIN)
+
+        elif self._mime_type == "application/pdf":
+            b64_data = base64.b64encode(self._content).decode("utf-8")
+            data_url = f"data:application/pdf;base64,{b64_data}"
+            control = ft.Iframe(src=data_url, width=600, height=800)
+        else:
+            control = ft.Text(f"Tipo MIME no soportado: {self._mime_type}")
+        self._doc_display.content = control
+    #----------------------------------------------------------------------------------------------
+
+    def build_ui(self):
+        self._save_button   = ft.ElevatedButton(text="Guardar documento", on_click=self.open_save_dialog)
+        self._doc_display   = ft.Container()
+
+        self.content    = ft.Column([   self._doc_display,
+                                        self._save_button])
+        self.expand     = True
+    #----------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
+
+class ExpedienteViewer(ft.Container, Factories):
+    @dataclass
+    class ConsolidatedDoc:
+        name:           str
+        tokens:         int
+        size_str:       str
+        mime:           str
+        ts:             datetime.datetime
+        src_ref:        str
+        iadoc_ref:      str
+        biadoc_ref:     str
+
+        @property
+        def ts_str(self):  return self.ts.strftime("%d-%m-%Y")
+    #----------------------------------------------------------------------------------------------
+
     class HeaderCtrl(ft.Row, Factories):
-        def __init__(self,  data: IncommingFileInfo | SrcDocInfo | IaDcoInfo | BIaDcoInfo,
-                            on_consolidate,
-                            on_inspect,
-                            on_delete):
+        def __init__(self,  data: IncommingFileInfo | ExpedienteViewer.ConsolidatedDoc,
+                            on_consolidate      = None,
+                            on_inspect_src      = None,
+                            on_inspect_iadoc    = None,
+                            on_delete           = None):
             super().__init__()
             self._data              = data
             self._on_consolidate    = on_consolidate
-            self._on_inspect        = on_inspect
+            self._on_inspect_src    = on_inspect_src
+            self._on_inspect_iadoc  = on_inspect_iadoc
             self._on_delete         = on_delete
             self.expand             = True
             self.alignment          = ft.MainAxisAlignment.START
@@ -40,19 +114,29 @@ class ExpedienteViwer(ft.Container, Factories):
                 self.controls = [ ft.Text(f"{data.name}"), 
                                   ft.Container(expand=True),           
                                   self.bf.custom_button(ft.Icons.PLAY_ARROW,  self.on_consolidate, "Consolidar"),
-                                  self.bf.custom_button(ft.Icons.PAGEVIEW,    self.on_inspect, "Inspeccionar"),
+                                  self.bf.custom_button(ft.Icons.PAGEVIEW,    self.on_inspect_src, "Inspeccionar"),
                                   self.bf.delete_button(self.on_delete) ]
             else:
-                self.controls = [ ft.Text(f"{data.name}"), 
-                                  ft.Container(expand=True), 
-                                  self.bf.custom_button(ft.Icons.PAGEVIEW, self.on_inspect, "Inspeccionar"),
-                                  self.bf.delete_button(self.on_delete) ]
+                if data.iadoc_ref:
+                    self.controls = [ ft.Text(f"{data.name}"), 
+                                    ft.Container(expand=True), 
+                                    self.bf.custom_button(ft.Icons.PAGEVIEW,            self.on_inspect_src,    "Inspeccionar fuente"),
+                                    self.bf.custom_button(ft.Icons.PAGEVIEW_OUTLINED,   self.on_inspect_iadoc,  "Inspeccionar iadoc"),
+                                    self.bf.delete_button(self.on_delete) ]
+                else:
+                    self.controls = [ ft.Text(f"{data.name}"), 
+                                    ft.Container(expand=True), 
+                                    self.bf.custom_button(ft.Icons.PAGEVIEW, self.on_inspect_src, "Inspeccionar"),
+                                    self.bf.delete_button(self.on_delete) ]
         #------------------------------------------------------------------------------------------
             
         def on_consolidate(self, _): self._on_consolidate(self._data)
         #------------------------------------------------------------------------------------------
 
-        def on_inspect(self, _): self._on_inspect(self._data)
+        def on_inspect_src(self, _): self._on_inspect_src(self._data)
+        #------------------------------------------------------------------------------------------
+
+        def on_inspect_iadoc(self, _): self._on_inspect_src(self._data)
         #------------------------------------------------------------------------------------------
 
         def on_delete(self, _): self._on_delete(self._data)
@@ -69,37 +153,103 @@ class ExpedienteViwer(ft.Container, Factories):
     #----------------------------------------------------------------------------------------------
 
     def populate(self, cliente: IncommingCliente | ClienteMetaInformation):
+        self._info_layout.visible       = True
+        self._document_viewer.visible   = False
+
         self._documents_ctrl.controls.clear()
+        
         if cliente:
             if isinstance(cliente, IncommingCliente):
                 personal_info           = cliente.personal_info
                 self._tokens.visible    = False
                 docs                    = sorted(cliente.docs, key=lambda x: x.ts, reverse=True)
                 for d in  docs:
-                    self._documents_ctrl.controls.append(ft.ListTile(   title   = self.HeaderCtrl(  data           = d,
-                                                                                                    on_consolidate = self.consolidate,
-                                                                                                    on_inspect     = self.inspect,
-                                                                                                    on_delete      = self.delete),
+                    self._documents_ctrl.controls.append(ft.ListTile(   title   = self.HeaderCtrl(  data                = d,
+                                                                                                    on_consolidate      = self.consolidate,
+                                                                                                    on_inspect_src      = self.inspect_src,
+                                                                                                    on_delete           = self.delete),
                                                                         subtitle= ft.Text(f"{d.mime}, {d.size_str}\n{d.ts_str}")))
             else:
-                personal_info           = cliente.personal_info
-                tokens                  = 0
-                self._tokens.visible    = True
-                docs                    = sorted(cliente.src_docs + cliente.iadocs + cliente.biadocs, key=lambda x: x.ts, reverse=True)
+                personal_info                               = cliente.personal_info
+                tokens                                      = 0
+                self._tokens.visible                        = True
+                docs: list[ExpedienteViewer.ConsolidatedDoc] = [ ]
+                src_in_biadocs                              = [ ]
+                src_in_iadocs                               = [ ]
+                src_in_bia_and_ia_docs                      = [ ]
+
+                for src in cliente.src_docs:
+                    bia_found   = None
+                    ia_found    = None
+                    for bia in cliente.biadocs:
+                        if src.db_id == bia.source_ref:
+                            bia_found = bia
+                            break
+                    for ia in cliente.iadocs:
+                        if src.db_id == ia.source_ref:
+                            ia_found = ia
+                            break
+                    if bia_found and ia_found:
+                        src_in_bia_and_ia_docs.append((src, ia_found, bia_found))
+                    elif bia_found:
+                        src_in_biadocs.append((src, bia_found))
+                    elif ia_found:
+                        src_in_iadocs.append((src, ia_found))
+
+                    if not ia_found and not bia_found:
+                        docs.append(ExpedienteViewer.ConsolidatedDoc(src.name,
+                                                                    0,
+                                                                    src.size_str,
+                                                                    src.mime,
+                                                                    src.ts,
+                                                                    src.db_id,
+                                                                    None,
+                                                                    None))
+                for src, ia, bia in src_in_bia_and_ia_docs:
+                    src:    SrcDocInfo
+                    bia:    BIaDcoInfo
+                    ia:     IaDcoInfo
+                    docs.append(ExpedienteViewer.ConsolidatedDoc(src.name,
+                                                                bia.tokens,
+                                                                src.size_str,
+                                                                src.mime,
+                                                                src.ts,
+                                                                src.db_id,
+                                                                ia.db_id,
+                                                                bia.db_id))
+                for src, ia in src_in_iadocs:
+                    src:    SrcDocInfo
+                    ia:     IaDcoInfo
+                    docs.append(ExpedienteViewer.ConsolidatedDoc(src.name,
+                                                                ia.tokens,
+                                                                src.size_str,
+                                                                src.mime,
+                                                                src.ts,
+                                                                src.db_id,
+                                                                ia.db_id,
+                                                                None))
+
+                for src, bia in src_in_biadocs:
+                    src:    SrcDocInfo
+                    bia:    BIaDcoInfo
+                    docs.append(ExpedienteViewer.ConsolidatedDoc(src.name,
+                                                                bia.tokens,
+                                                                src.size_str,
+                                                                src.mime,
+                                                                src.ts,
+                                                                src.db_id,
+                                                                None,
+                                                                bia.db_id))
+
+                docs = sorted(docs, key=lambda x: x.ts, reverse=True)
                 for d in  docs:
-                    if isinstance(d, IaDcoInfo) or isinstance(d, BIaDcoInfo):
-                        tokens += d.tokens
-                        self._documents_ctrl.controls.append(ft.ListTile(   title   = self.HeaderCtrl(  data           = d,
-                                                                                                        on_consolidate = None,
-                                                                                                        on_inspect     = self.inspect,
-                                                                                                        on_delete      = self.delete),
-                                                                            subtitle= ft.Text(f"{d.source_mime}, {d.size_str}, {d.tokens} tokens\n{d.ts_str}")))
-                    else:
-                        self._documents_ctrl.controls.append(ft.ListTile(   title   = self.HeaderCtrl(  data           = d,
-                                                                                                        on_consolidate = None,
-                                                                                                        on_inspect     = self.inspect,
-                                                                                                        on_delete      = self.delete),
-                                                                            subtitle= ft.Text(f"{d.mime}, {d.size_str}\n{d.ts_str}")))
+                    tokens += d.tokens
+                    self._documents_ctrl.controls.append(ft.ListTile(   title   = self.HeaderCtrl(  data                = d,
+                                                                                                    on_consolidate      = None,
+                                                                                                    on_inspect_src      = self.inspect_src,
+                                                                                                    on_inspect_iadoc    = self.inspect_iadoc,
+                                                                                                    on_delete           = self.delete),
+                                                                        subtitle= ft.Text(f"{d.mime}, {d.size_str}, {d.tokens if d.tokens else "-"} tokens\n{d.ts_str}")))
                 self._tokens.value = str(tokens)
 
             self._paciente.value    = f"{personal_info.apellidos}, {personal_info.nombre}"
@@ -108,13 +258,25 @@ class ExpedienteViwer(ft.Container, Factories):
     #----------------------------------------------------------------------------------------------
 
     def consolidate(self, data):
-        self._backend
+        pass
     #----------------------------------------------------------------------------------------------
 
-    def inspect(self, data): self._callback_fcn(Callbacks. data)
+    def inspect_src(self, data):
+        self._info_layout.visible       = False
+        self._document_viewer.visible   = True
+
+        self._document_viewer.setup("prueba.txt", "Contenido de prueba para ver cómo funciona".encode("utf-8"), "text/plain")
+        self.update()
     #----------------------------------------------------------------------------------------------
 
-    def delete(self, data): self._callback_fcn(data)
+    def inspect_iadoc(self, data):
+        self._info_layout.visible       = False
+        self._document_viewer.visible   = True
+        self.update()
+    #----------------------------------------------------------------------------------------------
+
+    def delete(self, data):
+        pass
     #----------------------------------------------------------------------------------------------
 
     def build_ui(self):
@@ -167,8 +329,8 @@ class ExpedienteViwer(ft.Container, Factories):
             alignment   = ft.MainAxisAlignment.START,
         )
 
-        rigth_column = ft.Container(self._documents_ctrl, expand=3)
-        layout = ft.Row \
+        rigth_column        = ft.Container(self._documents_ctrl, expand=3)
+        self._info_layout   = ft.Row \
         (
             [   
                 ft.Container( self.bf.back_button(lambda _: self._on_go_back()), expand=1), 
@@ -179,9 +341,23 @@ class ExpedienteViwer(ft.Container, Factories):
             expand=True,
             vertical_alignment=ft.CrossAxisAlignment.START
         )
+
+        self._document_viewer   = DocumentViewer()
+
+        self.content    = ft.Stack \
+        (
+            [
+                self._info_layout,
+                self._document_viewer
+            ],
+            expand=True
+        )
+
         self.alignment  = ft.alignment.top_center
-        self.content    = layout
         self.expand     = True
+
+        self._info_layout.visible       = True
+        self._document_viewer.visible   = False
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
@@ -256,6 +432,8 @@ class PacienteList(ft.Container, Factories):
             if isinstance(p_obj, IncommingCliente):
                 cliente         = p_obj.personal_info
                 cliente.db_id   = p_obj.db_id
+            else:
+                cliente = p_obj
 
             self._list_content.append(self.Content( cliente.db_id,
                                                     cliente.dni,
@@ -449,7 +627,7 @@ class MainPanel(ft.Container, Factories):
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
-    def populate(self, src_list: list[PacienteShort], con_list: list[PacienteShort]):
+    def populate(self, src_list: list[IncommingCliente], con_list: list[ClienteInfo]):
         self._src_list.set_values(src_list)
         self._con_list.set_values(con_list)
     #----------------------------------------------------------------------------------------------
@@ -477,7 +655,8 @@ class MainPanel(ft.Container, Factories):
         status = self._backend.consolidate_clientes(pacientes)
 
         if status:
-            self._con_list.set_values(status.get())
+            self.reload_consolidated_clientes()
+            self.reload_src_clientes()
             show_snackbar("Consolidación finalizada")
         else:
             show_snackbar_error("Error en la consolidación de los pacientes")
@@ -501,7 +680,7 @@ class MainPanel(ft.Container, Factories):
             if status:
                 self._src_list.set_values(status.get())
             else:
-                show_snackbar("Error en el borrado de los pacientes")
+                show_snackbar_error("Error en el borrado de los pacientes")
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
@@ -512,7 +691,7 @@ class MainPanel(ft.Container, Factories):
             if status:
                 self._con_list.set_values(status.get())
             else:
-                show_snackbar("Error en el borrado de los pacientes")
+                show_snackbar_error("Error en el borrado de los pacientes")
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
@@ -521,11 +700,11 @@ class MainPanel(ft.Container, Factories):
 
         if status:
             self._main_layout.visible       = False
-            self._expediente_viwer.visible  = True
-            self._expediente_viwer.populate(status.get())
+            self._expediente_viewer.visible  = True
+            self._expediente_viewer.populate(status.get())
             self.update()
         else:
-            show_snackbar("Error al leer el expediente del paciente")
+            show_snackbar_error("Error al leer el expediente del paciente")
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
@@ -534,11 +713,11 @@ class MainPanel(ft.Container, Factories):
 
         if status:
             self._main_layout.visible       = False
-            self._expediente_viwer.visible  = True
-            self._expediente_viwer.populate(status.get())
+            self._expediente_viewer.visible  = True
+            self._expediente_viewer.populate(status.get())
             self.update()
         else:
-            show_snackbar("Error al leer el expediente del paciente")
+            show_snackbar_error("Error al leer el expediente del paciente")
     #----------------------------------------------------------------------------------------------
 
     def come_back(self):
@@ -551,12 +730,12 @@ class MainPanel(ft.Container, Factories):
             status = True
 
         self._main_layout.visible       = True
-        self._expediente_viwer.visible  = False
+        self._expediente_viewer.visible  = False
         self.populate(src_list.or_else([]), con_list.or_else([]))
         self.update()
 
         if not status:
-            show_snackbar("Error al cargar los pacientes")        
+            show_snackbar_error("Error al cargar los pacientes")        
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
@@ -568,19 +747,19 @@ class MainPanel(ft.Container, Factories):
             expand      = True
         )
 
-        self._expediente_viwer = ExpedienteViwer(self._backend, self.come_back)
+        self._expediente_viewer = ExpedienteViewer(self._backend, self.come_back)
 
         self.content    = ft.Stack \
         (
             [
                 self._main_layout,
-                self._expediente_viwer
+                self._expediente_viewer
             ],
             expand=True
         )
         self.expand     = True
         self._main_layout.visible       = True
-        self._expediente_viwer.visible  = False
+        self._expediente_viewer.visible = False
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
@@ -598,7 +777,7 @@ class LandingView(ft.View, Factories):
     def overlay_ctrl(self): return self._overlay_ctrl
     #----------------------------------------------------------------------------------------------
 
-    def populate(self, scr_list: list[PacienteShort], con_list: list[PacienteShort]):
+    def populate(self, scr_list: list[IncommingCliente], con_list: list[ClienteInfo]):
         self._main_panel.populate(scr_list, con_list)
         self.update()
     #----------------------------------------------------------------------------------------------
