@@ -117,7 +117,7 @@ class BackendService:
 
     def log_info_and_return(self, info, ret_obj=True): 
         self._env.log.info(info)
-        return StatusInfo.ok(info)
+        return StatusInfo.ok(ret_obj)
     #----------------------------------------------------------------------------------------------
 
     def log_error_and_return(self, info): 
@@ -331,6 +331,30 @@ class BackendService:
             return StatusInfo.ok(ClienteMetaInformation(cliente, srcdocs, iadocs, biadocs))
         else:
             return StatusInfo.error("El cliente no existe")
+    #----------------------------------------------------------------------------------------------
+
+    @try_catch(Environment.log_fcn, StatusInfo.error("Error al cargar el documento"))
+    def load_incomming_document(self, db_id: str) -> StatusInfo[bytes]:
+        self.log_info(f"Cargar el documento fuente {db_id}")
+        return self.log_info_and_return("Documento cargado", self._incomming_db.get_document(db_id))
+    #----------------------------------------------------------------------------------------------
+
+    @try_catch(Environment.log_fcn, StatusInfo.error("Error al cargar el documento"))
+    def load_conslidated_src_document(self, db_id: str) -> StatusInfo[bytes]:
+        self.log_info(f"Cargar el documento fuente consolidado {db_id}")
+        return self.log_info_and_return("Documento cargado", self._clientes_db.get_source_doc_content_by_id(db_id))
+    #----------------------------------------------------------------------------------------------
+
+    @try_catch(Environment.log_fcn, StatusInfo.error("Error al cargar el documento"))
+    def load_conslidated_iadoc(self, db_id: str) -> StatusInfo[bytes]:
+        self.log_info(f"Cargar el documento iadoc consolidado {db_id}")
+        return self.log_info_and_return("Documento cargado", self._clientes_db.get_iadoc_content_by_id(db_id))
+    #----------------------------------------------------------------------------------------------
+
+    @try_catch(Environment.log_fcn, StatusInfo.error("Error al cargar el documento"))
+    def load_conslidated_biadoc(self, db_id: str) -> StatusInfo[bytes]:
+        self.log_info(f"Cargar el documento biadoc consolidado {db_id}")
+        return self.log_info_and_return("Documento cargado", self._clientes_db.get_biadoc_content_by_id(db_id))
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 

@@ -382,6 +382,16 @@ class ClientesDocumentStore:
         return ret
     #----------------------------------------------------------------------------------------------
 
+    def get_source_doc_content_by_id(self, db_id: str) -> bytes | None:
+        """Devuelve el contenido en bytes de un documento en source_docs dado su _id."""
+        obj_id  = self._validate_object_id(db_id)
+        doc     = self._db.source_docs.find_one({"_id": obj_id})
+        if not doc:
+            self._log.warning(f"⚠️ Documento con _id {db_id} no encontrado en source_docs.")
+            return None
+        return self._fs.get(doc["gridfs_file_id"]).read()
+    #----------------------------------------------------------------------------------------------
+
     # ------------------ IADOCs ---------------------
 
     def add_iadoc(self, owner, filename, file_input: pathlib.Path | bytes, source_id, source_mime, source_created_at: datetime.datetime, tokens):
@@ -447,6 +457,16 @@ class ClientesDocumentStore:
                 record["tokens"]
             ))
         return ret
+    #----------------------------------------------------------------------------------------------
+
+    def get_iadoc_content_by_id(self, db_id: str) -> bytes | None:
+        """Devuelve el contenido en bytes de un documento en source_docs dado su _id."""
+        obj_id  = self._validate_object_id(db_id)
+        doc     = self._db.iadocs.find_one({"_id": obj_id})
+        if not doc:
+            self._log.warning(f"⚠️ Documento con _id {db_id} no encontrado en source_docs.")
+            return None
+        return self._fs.get(doc["gridfs_file_id"]).read()
     #----------------------------------------------------------------------------------------------
 
     # ------------------ BIADOCs ---------------------
@@ -518,6 +538,16 @@ class ClientesDocumentStore:
                 record["tokens"]
             ))
         return ret
+    #----------------------------------------------------------------------------------------------
+
+    def get_biadoc_content_by_id(self, db_id: str) -> bytes | None:
+        """Devuelve el contenido en bytes de un documento en source_docs dado su _id."""
+        obj_id  = self._validate_object_id(db_id)
+        doc     = self._db.biadocs.find_one({"_id": obj_id})
+        if not doc:
+            self._log.warning(f"⚠️ Documento con _id {db_id} no encontrado en source_docs.")
+            return None
+        return self._fs.get(doc["gridfs_file_id"]).read()
     #----------------------------------------------------------------------------------------------
 
     # ------------------ Pretrained ---------------------

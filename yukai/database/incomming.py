@@ -63,6 +63,11 @@ class IncommingStorage:
         return ret
     #----------------------------------------------------------------------------------------------
 
+    def get_document(self, db_id: pathlib.Path) -> bytes:
+        with open(db_id, "rb") as f:
+            return f.read()
+    #----------------------------------------------------------------------------------------------
+
     def remove(self, db_id: pathlib.Path):
         db_id.unlink(missing_ok=True)
     #----------------------------------------------------------------------------------------------

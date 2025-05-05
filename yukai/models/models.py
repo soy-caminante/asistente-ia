@@ -88,6 +88,10 @@ class IncommingFileInfo:
     def ts_str(self): return self.ts.strftime("%d-%m-%Y")
     #----------------------------------------------------------------------------------------------
 
+    @property
+    def db_id(self): return self.path
+    #----------------------------------------------------------------------------------------------
+
     @staticmethod
     def build(path: pathlib.Path, ts: datetime.datetime, encoding_model="cl100k_base") -> 'IncommingFileInfo':
         # Tipo MIME

@@ -24,17 +24,15 @@ class Callbacks(IntEnum):
     DELETE_DOC      = 4
 #--------------------------------------------------------------------------------------------------
 
-class DocumentViewer(ft.Container):
-    def __init__(self):
-        super().__init__()
-        self._name:str          = ""
-        self._content:str       = ""
-        self._mime_type:str     = ""
-
+class DocumentViewer(ft.Container, Factories):
+    def __init__(self, go_back, **kwargs):
+        super().__init__(**kwargs)
+        self._on_go_back        = go_back
+        self._content           = None
         self.build_ui()
     #----------------------------------------------------------------------------------------------
 
-    def open_save_dialog(self, e):
+    def open_save_dialog(self):
         show_filesaver(self.save_file, self._name or "document", self._mime_type)
     #----------------------------------------------------------------------------------------------
 
@@ -47,34 +45,156 @@ class DocumentViewer(ft.Container):
                 show_snackbar_error(f"Error al guardar el documento {ex}")
     #----------------------------------------------------------------------------------------------
 
-    def setup(self, name, content, mime_type):
-        self._name          = name
-        self._content       = content
-        self._mime_type     = mime_type
+    def setup_single(self, cliente: str, dni_ref: str, edad: str, doc_name: str, doc_len: str, doc_tokens: int, doc_content: bytes, doc_mime_type: str):
+        self._cliente.value     = cliente
+        self._dni.value         = dni_ref
+        self._edad.value        = edad
+        self._documento.value   = doc_name
+        self._doc_len.value     = doc_len
+        self._tokens.value      = doc_tokens
+        self._content           = doc_content
 
-        if self._mime_type.startswith("text/"):
-            text_str = self._content.decode("utf-8", errors="ignore")
+        if doc_mime_type.startswith("text/"):
+            text_str = doc_content.decode("utf-8", errors="ignore")
             control = ft.Text(text_str, selectable=True, overflow="auto")
 
-        elif self._mime_type.startswith("image/"):
-            b64_data = base64.b64encode(self._content).decode("utf-8")
+        elif doc_mime_type.startswith("image/"):
+            b64_data = base64.b64encode(doc_content).decode("utf-8")
             control = ft.Image(src_base64=b64_data, fit=ft.ImageFit.CONTAIN)
 
-        elif self._mime_type == "application/pdf":
-            b64_data = base64.b64encode(self._content).decode("utf-8")
+        elif doc_mime_type == "application/pdf":
+            b64_data = base64.b64encode(doc_content).decode("utf-8")
             data_url = f"data:application/pdf;base64,{b64_data}"
             control = ft.Iframe(src=data_url, width=600, height=800)
         else:
-            control = ft.Text(f"Tipo MIME no soportado: {self._mime_type}")
+            control = ft.Text(f"Tipo MIME no soportado: {doc_mime_type}")
         self._doc_display.content = control
+        self.update()
+    #----------------------------------------------------------------------------------------------
+
+    def setup_split(self,   cliente: str, 
+                            dni_ref: str, 
+                            edad: str, 
+                            doc_name: str, 
+                            doc_len: str, 
+                            doc_tokens: int, 
+                            src_doc_content: bytes, 
+                            iadoc_content: bytes,
+                            doc_mime_type: str):
+        self._cliente.value     = cliente
+        self._dni.value         = dni_ref
+        self._edad.value        = edad
+        self._documento.value   = doc_name
+        self._doc_len.value     = doc_len
+        self._tokens.value      = doc_tokens
+        self._content           = src_doc_content
+
+        src_text    = src_doc_content.decode("utf-8", errors="ignore")
+        control_src = ft.Text(src_text, selectable=True, overflow="auto")
+
+        iadoc_text  = iadoc_content.decode("utf-8", errors="ignore")
+        control_src = ft.Text(control_src, selectable=True, overflow="auto")
+
+        self._doc_display.content = ft.Row([ft.Container(src_text, expand=True), ft.VerticalDivider(), ft.Container(control_src, expand=True)])
+        self.update()
     #----------------------------------------------------------------------------------------------
 
     def build_ui(self):
-        self._save_button   = ft.ElevatedButton(text="Guardar documento", on_click=self.open_save_dialog)
-        self._doc_display   = ft.Container()
+        self._cliente = ft.TextField \
+        (
+            label       = "Cliente", 
+            value       = None, 
+            expand      = True,
+            read_only   = True,
+            border      = "none"
+        )
 
-        self.content    = ft.Column([   self._doc_display,
-                                        self._save_button])
+        self._dni = ft.TextField \
+        (
+            label       = "DNI / Ref", 
+            value       = None, 
+            expand      = True,
+            read_only   = True,
+            border      = "none"
+        )
+
+        self._edad = ft.TextField \
+        (
+            label       = "Sexo - Edad", 
+            value       = None, 
+            expand      = True,
+            read_only   = True,
+            border      = "none"
+        )
+
+        self._documento = ft.TextField \
+        (
+            label       = "Documento", 
+            value       = None, 
+            expand      = True,
+            read_only   = True,
+            border      = "none"
+        )
+
+        self._doc_len = ft.TextField \
+        (
+            label       = "Tamaño", 
+            value       = None, 
+            expand      = True,
+            read_only   = True,
+            border      = "none"
+        )
+
+        self._tokens = ft.TextField \
+        (
+            label       = "Tokens", 
+            value       = None, 
+            expand      = True,
+            read_only   = True,
+            border      = "none"
+        )
+
+        first_row  = ft.Row \
+        (
+            [
+                self._documento,
+                ft.Container(expand=True),
+                self.bf.back_button(lambda _: self._on_go_back()),
+                self.bf.save_button(lambda _: self.open_save_dialog())
+            ],
+            expand=True
+        )
+
+        left_column             = ft.Column \
+        (
+            [
+                ft.Container(first_row),
+                ft.Container(self._doc_len),
+                ft.Container(self._tokens),
+                ft.Divider(),
+                ft.Container(self._cliente),
+                ft.Container(self._dni),
+                ft.Container(self._edad)
+            ],
+            expand      = 1,
+            alignment   = ft.MainAxisAlignment.START,
+        )
+
+        self._doc_display   = ft.Container(expand=3)
+        layout                  = ft.Row \
+        (
+            [   
+                ft.Container(expand=1), 
+                left_column, 
+                self._doc_display, 
+                ft.Container(expand=1) 
+            ],
+            expand=True,
+            vertical_alignment=ft.CrossAxisAlignment.START
+        )
+
+
+        self.content    = layout
         self.expand     = True
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
@@ -136,7 +256,7 @@ class ExpedienteViewer(ft.Container, Factories):
         def on_inspect_src(self, _): self._on_inspect_src(self._data)
         #------------------------------------------------------------------------------------------
 
-        def on_inspect_iadoc(self, _): self._on_inspect_src(self._data)
+        def on_inspect_iadoc(self, _): self._on_inspect_iadoc(self._data)
         #------------------------------------------------------------------------------------------
 
         def on_delete(self, _): self._on_delete(self._data)
@@ -149,6 +269,7 @@ class ExpedienteViewer(ft.Container, Factories):
         super().__init__(**kwargs)
         self._backend       = backend
         self._on_go_back    = on_go_back
+        self._personal_info = None
         self.build_ui()
     #----------------------------------------------------------------------------------------------
 
@@ -160,7 +281,7 @@ class ExpedienteViewer(ft.Container, Factories):
         
         if cliente:
             if isinstance(cliente, IncommingCliente):
-                personal_info           = cliente.personal_info
+                self._personal_info     = cliente.personal_info
                 self._tokens.visible    = False
                 docs                    = sorted(cliente.docs, key=lambda x: x.ts, reverse=True)
                 for d in  docs:
@@ -170,7 +291,7 @@ class ExpedienteViewer(ft.Container, Factories):
                                                                                                     on_delete           = self.delete),
                                                                         subtitle= ft.Text(f"{d.mime}, {d.size_str}\n{d.ts_str}")))
             else:
-                personal_info                               = cliente.personal_info
+                self._personal_info                         = cliente.personal_info
                 tokens                                      = 0
                 self._tokens.visible                        = True
                 docs: list[ExpedienteViewer.ConsolidatedDoc] = [ ]
@@ -252,26 +373,76 @@ class ExpedienteViewer(ft.Container, Factories):
                                                                         subtitle= ft.Text(f"{d.mime}, {d.size_str}, {d.tokens if d.tokens else "-"} tokens\n{d.ts_str}")))
                 self._tokens.value = str(tokens)
 
-            self._paciente.value    = f"{personal_info.apellidos}, {personal_info.nombre}"
-            self._dni.value         = f"{personal_info.dni} / {personal_info.id_interno}"
-            self._edad.value        = f"{personal_info.sexo} - {get_elapsed_years(personal_info.fecha_nacimiento)} años"
+            self._paciente.value    = f"{self._personal_info.apellidos}, {self._personal_info.nombre}"
+            self._dni.value         = f"{self._personal_info.dni} / {self._personal_info.id_interno}"
+            self._edad.value        = f"{self._personal_info.sexo} - {get_elapsed_years(self._personal_info.fecha_nacimiento)} años"
+    #----------------------------------------------------------------------------------------------
+
+    def hide_document_viewer(self):
+        self._info_layout.visible       = True
+        self._document_viewer.visible   = False
+        self.update()
     #----------------------------------------------------------------------------------------------
 
     def consolidate(self, data):
         pass
     #----------------------------------------------------------------------------------------------
 
-    def inspect_src(self, data):
+    def inspect_src(self, data: IncommingFileInfo|ExpedienteViewer.ConsolidatedDoc):
         self._info_layout.visible       = False
         self._document_viewer.visible   = True
 
-        self._document_viewer.setup("prueba.txt", "Contenido de prueba para ver cómo funciona".encode("utf-8"), "text/plain")
+        if isinstance(data, IncommingFileInfo):
+            content = self._backend.load_incomming_document(data.db_id)
+
+            if content:
+                self._document_viewer.setup_single( self._paciente.value,
+                                                    self._dni.value,
+                                                    self._edad.value,
+                                                    data.name,
+                                                    data.size_str,
+                                                    "-",
+                                                    content.get(),
+                                                    data.mime)
+            else:
+                show_snackbar_error("No se ha podido cargar el documento")
+        else:
+            content_src     = self._backend.load_conslidated_src_document(data.src_ref)
+            content_iadoc   = self._backend.load_conslidated_iadoc(data.iadoc_ref)
+
+            if content_src and content_iadoc:
+                self._document_viewer.setup_split(  self._paciente.value,
+                                                    self._dni.value,
+                                                    self._edad.value,
+                                                    data.name,
+                                                    data.size_str,
+                                                    data.tokens,
+                                                    content_src.get(),
+                                                    content_iadoc.get(),
+                                                    data.mime)
+            else:
+                show_snackbar_error("No se ha podido cargar el documento")
+
         self.update()
     #----------------------------------------------------------------------------------------------
 
-    def inspect_iadoc(self, data):
+    def inspect_iadoc(self, data:ExpedienteViewer.ConsolidatedDoc):
         self._info_layout.visible       = False
         self._document_viewer.visible   = True
+        content                         = self._backend.load_conslidated_iadoc(data.iadoc_ref)
+
+        if content:
+            self._document_viewer.setup(self._paciente.value,
+                                        self._dni.value,
+                                        self._edad.value,
+                                        data.name,
+                                        data.size_str,
+                                        data.tokens,
+                                        content.get(),
+                                        data.mime)
+        else:
+            show_snackbar_error("No se ha podido cargar el documento")
+
         self.update()
     #----------------------------------------------------------------------------------------------
 
@@ -317,10 +488,21 @@ class ExpedienteViewer(ft.Container, Factories):
         )
 
         self._documents_ctrl    = ft.Column([], scroll=ft.ScrollMode.ALWAYS, alignment=ft.MainAxisAlignment.START, expand=True)
+
+        first_row  = ft.Row \
+        (
+            [
+                self._paciente,
+                ft.Container(expand=True),
+                self.bf.back_button(lambda _: self._on_go_back())
+            ],
+            expand=True
+        )
+
         left_column             = ft.Column \
         (
             [
-                ft.Container(self._paciente),
+                ft.Container(first_row),
                 ft.Container(self._dni),
                 ft.Container(self._edad),
                 ft.Container(self._tokens)
@@ -333,7 +515,7 @@ class ExpedienteViewer(ft.Container, Factories):
         self._info_layout   = ft.Row \
         (
             [   
-                ft.Container( self.bf.back_button(lambda _: self._on_go_back()), expand=1), 
+                ft.Container(expand=1), 
                 left_column, 
                 rigth_column, 
                 ft.Container(expand=1) 
@@ -342,7 +524,7 @@ class ExpedienteViewer(ft.Container, Factories):
             vertical_alignment=ft.CrossAxisAlignment.START
         )
 
-        self._document_viewer   = DocumentViewer()
+        self._document_viewer   = DocumentViewer(self.hide_document_viewer)
 
         self.content    = ft.Stack \
         (
@@ -742,7 +924,7 @@ class MainPanel(ft.Container, Factories):
     def build_ui(self):
         self._main_layout   = ft.Row \
         (
-            controls    = [ self._con_list, self._src_list ],
+            controls    = [ self._con_list, ft.VerticalDivider(), self._src_list ],
             alignment   = ft.MainAxisAlignment.CENTER,
             expand      = True
         )
