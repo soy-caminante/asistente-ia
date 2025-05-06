@@ -233,6 +233,34 @@ class ExpedienteViewer(ft.Container, Factories):
         def ts_str(self):  return self.ts.strftime("%d-%m-%Y")
     #----------------------------------------------------------------------------------------------
 
+    class MarkdownText(ft.Container):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.build_ui()
+        #------------------------------------------------------------------------------------------
+
+        def set_value(self, info: list[(str, str)]):
+            text = ""
+            for title, content in info:
+                if text != "": text+="\n"
+                text+=f"# {title}\n{content}"
+            self._md.value = format_markdown(text)
+            self.update()
+        #------------------------------------------------------------------------------------------
+
+        def build_ui(self):
+            md_style = ft.MarkdownStyleSheet \
+            (
+                p_text_style        = ft.TextStyle(size=20, color="grey"),
+                strong_text_style   = ft.TextStyle(size=22, color="black")
+            )
+
+            self._md        = ft.Markdown("", md_style_sheet=md_style)
+            self.content    = ft.Column([self._md], scroll=ft.ScrollMode.ALWAYS, expand=True)
+            #self.expand     = True
+        #------------------------------------------------------------------------------------------
+    #----------------------------------------------------------------------------------------------
+
     class HeaderCtrl(ft.Row, Factories):
         def __init__(self,  data: IncommingFileInfo | ExpedienteViewer.ConsolidatedDoc,
                             on_consolidate      = None,
@@ -288,9 +316,10 @@ class ExpedienteViewer(ft.Container, Factories):
         
         if cliente:
             if isinstance(cliente, IncommingCliente):
-                self._personal_info     = cliente.personal_info
-                self._tokens.visible    = False
-                docs                    = sorted(cliente.docs, key=lambda x: x.ts, reverse=True)
+                self._personal_info         = cliente.personal_info
+                self._tokens.visible        = False
+                self._middle_colum.visible  = False
+                docs                        = sorted(cliente.docs, key=lambda x: x.ts, reverse=True)
                 for d in  docs:
                     self._documents_ctrl.controls.append(ft.ListTile(   title   = self.HeaderCtrl(  data                = d,
                                                                                                     on_consolidate      = self.consolidate,
@@ -298,13 +327,14 @@ class ExpedienteViewer(ft.Container, Factories):
                                                                                                     on_delete           = self.delete),
                                                                         subtitle= ft.Text(f"{d.mime}, {d.size_str}\n{d.ts_str}")))
             else:
-                self._personal_info                         = cliente.personal_info
-                tokens                                      = 0
-                self._tokens.visible                        = True
-                docs: list[ExpedienteViewer.ConsolidatedDoc] = [ ]
-                src_in_biadocs                              = [ ]
-                src_in_iadocs                               = [ ]
-                src_in_bia_and_ia_docs                      = [ ]
+                self._personal_info                             = cliente.personal_info
+                tokens                                          = 0
+                self._tokens.visible                            = True
+                self._middle_colum.visible                      = True
+                docs: list[ExpedienteViewer.ConsolidatedDoc]    = [ ]
+                src_in_biadocs                                  = [ ]
+                src_in_iadocs                                   = [ ]
+                src_in_bia_and_ia_docs                          = [ ]
 
                 for src in cliente.src_docs:
                     bia_found   = None
@@ -378,10 +408,23 @@ class ExpedienteViewer(ft.Container, Factories):
                                                                                                     on_delete           = self.delete),
                                                                         subtitle= ft.Text(f"{d.mime}, {d.size_str}, {d.tokens if d.tokens else "-"} tokens\n{d.ts_str}")))
                 self._tokens.value = str(tokens)
+                self._expediente.set_value \
+                (
+                    [
+                        ("Antecedentes familiares", cliente.summary.antecedentes_familiares),
+                        ("Riesgo cardiovascular",   cliente.summary.factores_riesgo_cardiovascular),
+                        ("Medicación",              cliente.summary.medicacion),
+                        ("Alergias",                cliente.summary.alergias),
+                        ("Ingresos",                cliente.summary.ingresos),
+                        ("Últimas visitas",         cliente.summary.ultimas_visitas)
+                    ]
+                )
 
             self._cliente.value     = f"{self._personal_info.apellidos}, {self._personal_info.nombre}"
             self._dni.value         = f"{self._personal_info.dni} / {self._personal_info.id_interno}"
             self._edad.value        = f"{self._personal_info.sexo} - {get_elapsed_years(self._personal_info.fecha_nacimiento)} años"
+
+
     #----------------------------------------------------------------------------------------------
 
     def hide_document_viewer(self):
@@ -489,6 +532,7 @@ class ExpedienteViewer(ft.Container, Factories):
             border      = "none"
         )
 
+        self._expediente        = ExpedienteViewer.MarkdownText(padding=ft.padding.only(left=15, right=15), expand=True)
         self._documents_ctrl    = ft.Column([], scroll=ft.ScrollMode.ALWAYS, alignment=ft.MainAxisAlignment.START, expand=True)
 
         first_row  = ft.Row \
@@ -514,12 +558,23 @@ class ExpedienteViewer(ft.Container, Factories):
             alignment   = ft.MainAxisAlignment.START,
         )
 
+        self._middle_colum = ft.Column \
+        (
+            [
+                ft.Card(ft.Container(ft.Row([self.tf.container_title("Expediente")], alignment=ft.MainAxisAlignment.START), padding=10)),
+                self._expediente
+            ],
+            expand=2,
+            #scroll=ft.ScrollMode.AUTO
+        )
+
         rigth_column        = ft.Container(self._documents_ctrl, expand=3)
         self._info_layout   = ft.Row \
         (
             [   
                 ft.Container(expand=1), 
                 left_column, 
+                self._middle_colum,
                 rigth_column, 
                 ft.Container(expand=1) 
             ],

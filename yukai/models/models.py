@@ -272,24 +272,38 @@ class BIaDcoInfo:
 #--------------------------------------------------------------------------------------------------
 
 @dataclass
-class ClienteMetaInformation:
-    personal_info:  ClienteInfo
-    src_docs:       list[SrcDocInfo]
-    iadocs:         list[IaDcoInfo]
-    biadocs:        list[BIaDcoInfo]
-#--------------------------------------------------------------------------------------------------
-
-@dataclass
-class StructuredExpediente:
-    content: str
-#--------------------------------------------------------------------------------------------------
-
-@dataclass
-class ExpedienteBasicInfo:
+class ExpedienteSummary:
     antecedentes_familiares:        str
     factores_riesgo_cardiovascular: str
     medicacion:                     str
     alergias:                       str
     ingresos:                       str
     ultimas_visitas:                str
+    db_id:                          str
+    #----------------------------------------------------------------------------------------------
+
+    def __post_init__(self):
+        if isinstance(self.db_id, ObjectId):
+            self.db_id = str(self.db_id)
+        if self.antecedentes_familiares.startswith("NADA"):         self.antecedentes_familiares = "No declarado."
+        if self.factores_riesgo_cardiovascular.startswith("NADA"):  self.factores_riesgo_cardiovascular = "No declarado."
+        if self.medicacion.startswith("NADA"):                      self.medicacion = "No declarado."
+        if self.alergias.startswith("NADA"):                        self.alergias = "No declarado."
+        if self.ingresos.startswith("NADA"):                        self.ingresos = "No declarado."
+        if self.ultimas_visitas.startswith("NADA"):                 self.ultimas_visitas = "No declarado."
+    #----------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
+
+@dataclass
+class ClienteMetaInformation:
+    personal_info:  ClienteInfo
+    src_docs:       list[SrcDocInfo]
+    iadocs:         list[IaDcoInfo]
+    biadocs:        list[BIaDcoInfo]
+    summary:        ExpedienteSummary
+#--------------------------------------------------------------------------------------------------
+
+@dataclass
+class StructuredExpediente:
+    content: str
 #--------------------------------------------------------------------------------------------------

@@ -1,11 +1,15 @@
+import  json
 import  pathlib
+import  re
 import  shutil
+import  tiktoken
 
 from    database.context                    import  ClienteInfo, ExpedienteFileInfo
 from    database.database                   import  ClientesDocumentStore
 from    database.incomming                  import  IncommingStorage, IncommingFileInfo, IncommingCliente
 from    difflib                             import  SequenceMatcher
 from    models.models                       import  *
+from    models.iacodec                      import  IACodec
 from    ia.client                           import  ModelLoader, SystemPromts, HttpChatClient, OpenAiChatClient
 from    pmanager.backend.environment        import  Environment
 from    tools.tools                         import  StatusInfo, try_catch
@@ -42,7 +46,7 @@ class DBOperator:
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
-class PretrainedManger:
+class PretrainedManager:
     def __init__(self,  db_operator: DBOperator, model_name: str, gpu_enabled: bool):
         self._db_op                 = db_operator
         self._model                 = ModelLoader(model_name) if gpu_enabled else None
@@ -50,6 +54,7 @@ class PretrainedManger:
         self._summary_question      = None
         self._chat_explanation      = None
         self._gpu_enabled           = gpu_enabled
+        self._iacodec               = IACodec()
     #----------------------------------------------------------------------------------------------
 
     def load_pretrained(self):
@@ -71,15 +76,34 @@ class PretrainedManger:
                 self._db_op.set_chat_explanation(binary)
     #----------------------------------------------------------------------------------------------
 
-    def generate_embeddings(self, text):
+    def generate_embeddings_from_iadoc(self, doc_name, iadoc_dict):
+        text = self._iacodec.encode(iadoc_dict, doc_name)
         if self._gpu_enabled:
-            _, binary = self._model.embed_prompt_binary(text)
-            return binary
-        return "Hola, mundo".encode("utf-8")
+            tokens_list, binary = self._model.embed_prompt_binary(text)
+            return binary, len(tokens_list)
+        
+        tokenizer   = tiktoken.get_encoding("cl100k_base")
+        num_tokens  = len(tokenizer.encode(text))
+
+        return text.encode("utf-8"), num_tokens
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
 class BackendService:
+    @staticmethod
+    def extract_dictionary(texto):
+        # Busca líneas tipo "clave: valor"
+        pattern = re.compile(r"(?P<clave>[^:\n]+):\s*(?P<valor>[^\n]+)")
+        res     = { }
+        
+        for matches in pattern.finditer(texto):
+            key         = matches.group("clave").strip().lower()
+            value       = matches.group("valor").strip()
+            res[key]    = value
+
+        return res
+    #----------------------------------------------------------------------------------------------
+
     def __init__(self, env: Environment, overlay_ctrl: OverlayCtrlWrapper):
         self._env           = env
         self._clientes_db   = ClientesDocumentStore(env.log, 
@@ -87,7 +111,7 @@ class BackendService:
                                                     env.db_port,
                                                     env.model_name if env.gpu else "no-gpu-db")
         self._db_operator   = DBOperator(self._clientes_db)
-        self._pretrained    = PretrainedManger(self._db_operator, env.model_name, env.gpu)
+        self._pretrained    = PretrainedManager(self._db_operator, env.model_name, env.gpu)
         self._incomming_db  = IncommingStorage(env.log, env.db_dir)
         self._chat          = HttpChatClient(env.chat_endpoint, env.log) if env.gpu else OpenAiChatClient(os.getenv("oai_api_key"), "gpt-4o-mini",env.log)
         self._overlay_ctrl  = overlay_ctrl
@@ -107,6 +131,9 @@ class BackendService:
     #----------------------------------------------------------------------------------------------
 
     def log_info(self, info): self._env.log.info(info)
+    #----------------------------------------------------------------------------------------------
+
+    def log_warning(self, info): self._env.log.warning(info)
     #----------------------------------------------------------------------------------------------
 
     def log_error(self, info): self._env.log.error(info)
@@ -174,24 +201,31 @@ class BackendService:
                         self._overlay_ctrl.update(f"Cliente: {cliente.personal_info.id_interno}\nEstructurando el documento {doc.name}")
 
                         status = self._chat.get_structured_document(self.get_next_req_id(), doc.content)
+
                         if status:
                             self._overlay_ctrl.update(f"Cliente: {cliente.personal_info.id_interno}\nObteniendo embeddings de {doc.name}")
 
-                            iadoc   = status.get()
-                            biadoc  = self._pretrained.generate_embeddings(iadoc)
+                            iadoc           = status.get()
+                            iadoc_dict      = BackendService.extract_dictionary(iadoc, doc.name)
+                            iadoc           = json.dumps(iadoc_dict, ensure_ascii=False)
+                            biadoc, btokens = self._pretrained.generate_embeddings_from_iadoc(iadoc_dict)
+
                             src_docs.append({   "filename":             doc.name,
                                                 "content":              doc.content.encode("utf-8"),
-                                                "mime":                 doc.mime })
+                                                "mime":                 doc.mime,
+                                                 "ts":                  doc.ts })
 
                             iadocs.append({ "filename":                 doc.name,
                                             "content":                  iadoc.encode("utf-8"),
                                             "source_mime":              doc.mime,
+                                            "ts":                       doc.ts,
                                             "tokens":                   doc.tokens })
 
                             biadocs.append({"filename":             doc.name,
                                             "content":              biadoc,
                                             "source_mime":          doc.mime,
-                                            "tokens":               doc.tokens})
+                                            "ts":                   doc.ts,
+                                            "tokens":               btokens})
                         else:
                             return self.log_error_and_return("Error al estructurar el documento")
 
@@ -199,16 +233,17 @@ class BackendService:
                     if not doc.is_plain_text:
                         src_docs.append({   "filename":             doc.name,
                                             "content":              doc.content.encode("utf-8"),
-                                            "mime":                 doc.mime })
+                                            "mime":                 doc.mime,
+                                            "ts":                   doc.ts })
                 
-
-                already_exists = self._clientes_db.get_cliente_by_id_interno(cliente.personal_info.id_interno) is not None
-                if not already_exists:
+                cliente_info: ClienteInfo = self._clientes_db.get_cliente_by_id_interno(cliente.personal_info.id_interno)
+                
+                if cliente_info is None:
                     self._overlay_ctrl.update(f"Cliente: {cliente.personal_info.id_interno}\nGenerando información predefinida")
                     status = self._chat.get_predefined_info(self.get_next_req_id(), iadocs)
                     
                     if status:
-                        expediente: ExpedienteBasicInfo = status.get()
+                        expediente: ExpedienteSummary = status.get()
                         if self._clientes_db.add_cliente(   cliente.personal_info.nombre,
                                                             cliente.personal_info.apellidos,
                                                             cliente.personal_info.sexo,
@@ -232,19 +267,35 @@ class BackendService:
                         return self.log_error_and_return("Error al resumir el expediente")
                 else:
                     existing_iadocs = self._clientes_db.get_all_iadocs(cliente.personal_info.id_interno)
+                    aux_iadocs      = iadocs.copy()
+
                     for doc in existing_iadocs:
-                        iadocs.append({ "filename":     doc.name,
-                                        "content":      doc.content.decode("utf-8"),
-                                        "source_mime":  doc.source_mime,
-                                        "tokens":       doc.tokens })
+                        aux_iadocs.append({ "filename":     doc.name,
+                                            "content":      doc.content.decode("utf-8"),
+                                            "source_mime":  doc.source_mime,
+                                            "ts":           doc.ts,
+                                            "tokens":       doc.tokens })
                     self._overlay_ctrl.update(f"Cliente: {cliente.personal_info.id_interno}\nGenerando información predefinida")
-                    status = self._chat.get_predefined_info(self.get_next_req_id(), iadocs)
+                    status = self._chat.get_predefined_info(self.get_next_req_id(), aux_iadocs)
 
                     if status:
-                        # TODO: Actualizar el cliente, hay que agregar la función a la base de datos
-                        pass
+                        expediente: ExpedienteSummary = status.get()
+                        if self._clientes_db.update_cliente(db_id                           = cliente_info.db_id,
+                                                            antecedentes_familiares         = expediente.antecedentes_familiares,
+                                                            factores_riesgo_cardiovascular  = expediente.factores_riesgo_cardiovascular,
+                                                            medicacion                      = expediente.medicacion,                     
+                                                            alergias                        = expediente.alergias,                     
+                                                            ingresos                        = expediente.ingresos,                       
+                                                            ultimas_visitas                 = expediente.ultimas_visitas,
+                                                            src_docs                        = src_docs,
+                                                            iadocs                          = iadocs,
+                                                            biadocs                         = biadocs):
+                            self._incomming_db.set_as_consolidated(db_id)
+                            self.log_info(f"Cliente {db_id} consolidado")
+                        else:
+                            return self.log_error_and_return("Error al consolidar el cliente")
+                        
             self.log_info("Consolidación finalizada")
-
             return StatusInfo.ok(True)
     #----------------------------------------------------------------------------------------------
 
@@ -259,7 +310,13 @@ class BackendService:
 
     def delete_consolidated_clientes(self, clientes: list[str]) -> StatusInfo[list[ClienteInfo]]:
         for c in clientes:
-            self._clientes_db.delete_cliente(c)
+            cliente = self._clientes_db.get_cliente_by_db_id(c)
+            if cliente:
+                self.log_info(f"Eliminar el cliente {cliente.id_interno}")
+                self._clientes_db.delete_cliente(c)
+                self.log_info(f"Cliente {cliente.id_interno} eliminado")
+            else:
+                self.log_warning(f"El cliente con db_id {c} no existe y no se puede eliminar")
         return self.load_all_consolidated_clientes() 
     #----------------------------------------------------------------------------------------------
 
@@ -340,11 +397,12 @@ class BackendService:
     def inspect_consolidated_cliente(self, db_id: str) -> StatusInfo[ClienteMetaInformation]:
         cliente = self._clientes_db.get_cliente_by_db_id(db_id)
         if cliente:
-            biadocs = self._clientes_db.get_all_biadoc_meta(cliente.id_interno)
-            iadocs  = self._clientes_db.get_all_iadoc_meta(cliente.id_interno)
-            srcdocs = self._clientes_db.get_all_source_meta(cliente.id_interno)
+            biadocs     = self._clientes_db.get_all_biadoc_meta(cliente.id_interno)
+            iadocs      = self._clientes_db.get_all_iadoc_meta(cliente.id_interno)
+            srcdocs     = self._clientes_db.get_all_source_meta(cliente.id_interno)
+            summary     = self._clientes_db.get_expediente_by_cliente_db_id(cliente.id_interno)
 
-            return StatusInfo.ok(ClienteMetaInformation(cliente, srcdocs, iadocs, biadocs))
+            return StatusInfo.ok(ClienteMetaInformation(cliente, srcdocs, iadocs, biadocs, summary))
         else:
             return StatusInfo.error("El cliente no existe")
     #----------------------------------------------------------------------------------------------

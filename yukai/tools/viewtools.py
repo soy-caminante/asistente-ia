@@ -1,4 +1,5 @@
-import  flet                    as ft 
+import  flet                        as ft 
+import  re
 import  time
 
 from    dataclasses                 import  dataclass
@@ -200,7 +201,11 @@ class OverlayCtrl(ft.Container, Factories):
         self.update()
     #----------------------------------------------------------------------------------------------
 
-    def wait_answer(self): return self._warning_ctrl.wait_answer()
+    def wait_answer(self): 
+        ret             = self._warning_ctrl.wait_answer()
+        self.visible    = False
+        self.update()
+        return ret
     #----------------------------------------------------------------------------------------------
 
     def update_wait_info(self, msg): self._wait_ctrl.set_msg(msg)
@@ -266,4 +271,68 @@ class OverlayCtrlWrapper:
     def update(self, msg): self._ctrl.update_wait_info(msg)
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
+
+def format_markdown(markdown_text):
+    """
+    Función que procesa un texto markdown.
+    Si encuentra una línea de lista, envuelve en negrita la parte del elemento
+    hasta el primer punto (.) o dos puntos (:), dejándolo sin cambios el resto.
+    """
+    # Patrón para detectar líneas de lista:
+    # - Puede iniciar con espacios en blanco.
+    # - Luego puede tener un marcador de lista: "-", "*", "+" o un número seguido de un punto.
+    # - Después de un espacio, el resto de la línea es el contenido del elemento.
+    list_item_pattern = re.compile(r'^(\s*([-*+]|\d+\.)\s+)(.*)$')
+    
+    new_lines = []
+    for line in markdown_text.splitlines():
+        match = list_item_pattern.match(line)
+        if match:
+            # Separamos el marcador y el contenido de la lista
+            marker = match.group(1)      # Por ejemplo, "  - " o "1. "
+            item_text = match.group(3)     # El contenido del elemento
+            
+            # Buscamos el índice del primer "." o ":"
+            dot_index = item_text.find('.')
+            colon_index = item_text.find(':')
+            
+            # Si ninguno de los dos se encontró, consideramos que se debe formatear todo el texto
+            if dot_index == -1 and colon_index == -1:
+                index = len(item_text)
+                punct = ''
+            else:
+                # Si uno de los dos no se encontró, tomamos el índice del que exista.
+                if dot_index == -1:
+                    index = colon_index
+                    punct = item_text[colon_index]
+                elif colon_index == -1:
+                    index = dot_index
+                    punct = item_text[dot_index]
+                else:
+                    # Ambos existen: se elige el que aparezca primero.
+                    if dot_index < colon_index:
+                        index = dot_index
+                        punct = item_text[dot_index]
+                    else:
+                        index = colon_index
+                        punct = item_text[colon_index]
+            
+            # Separamos el texto a poner en negrita y el resto
+            # Es recomendable quitar espacios laterales en la parte que se bolda para que
+            # el efecto se vea correcto en Markdown.
+            bold_part = item_text[:index].strip()
+            remainder = item_text[index:]
+            
+            # Reconstruimos la línea, dejando el marcador de lista intacto
+            new_line = f"{marker}**{bold_part}**{remainder}"
+            new_lines.append(new_line)
+        else:
+            # Si la línea no es un elemento de lista, se deja sin modificar
+            new_lines.append(line)
+    
+    # Se retorna el texto modificado
+    return "\n".join(new_lines)
+#--------------------------------------------------------------------------------------------------
+
+
 

@@ -1,19 +1,20 @@
 import  datetime
 import  gridfs
 import  os
-import  pathlib
 import  subprocess
 import  time
 
 from    bson                        import  ObjectId
 from    contextlib                  import  contextmanager
 from    logger                      import  Logger
-from    models.models               import  ClienteInfo, SrcDocInfo, IaDcoInfo, BIaDcoInfo
+from    models.models               import  ClienteInfo, SrcDocInfo, IaDcoInfo, BIaDcoInfo, ExpedienteSummary
 from    pymongo                     import  MongoClient, ReturnDocument
 from    pymongo.database            import  Database
 from    pymongo.errors              import  ServerSelectionTimeoutError
-from    tools.tools                 import  is_plaint_text_file
 #--------------------------------------------------------------------------------------------------
+
+# Abrir el shell de mongo en el docker:
+#    docker exec -it mongodb mongosh
 
 class ClientesDocumentStore:
     def __init__(self, log: Logger,
@@ -164,8 +165,10 @@ class ClientesDocumentStore:
                 self._log.error("❌ No se pudo insertar el cliente")
                 return False
             
+            owner_id = res.inserted_id
+
             expediente_doc = {
-                "owner":                            id_interno,    
+                "owner":                            owner_id,    
                 "antecedentes_familiares":          antecedentes_familiares,
                 "factores_riesgo_cardiovascular":   factores_riesgo_cardiovascular,
                 "medicacion":                       medicacion,
@@ -185,12 +188,12 @@ class ClientesDocumentStore:
                 content     = src["content"]
                 file_id     = self._fs.put(content, filename=src["filename"], type="source")
                 doc = {
-                        "owner":                id_interno,
+                        "owner":                owner_id,
                         "filename":             src["filename"],
                         "mime":                 src.get("mime", "application/octet-stream"),
                         "gridfs_file_id":       file_id,
+                        "source_created_at":    src["ts"],
                         "created_at":           creation_ts,
-                        "source_created_at":    creation_ts,
                         "size_bytes":           len(content)
                 }
                 res = self._db.source_docs.insert_one(doc, session=session)
@@ -204,12 +207,12 @@ class ClientesDocumentStore:
                     content = iadoc["content"]
                     file_id = self._fs.put(content, filename=iadoc["filename"], type="iadoc")
                     doc = {
-                        "owner":                id_interno,
+                        "owner":                owner_id,
                         "filename":             iadoc["filename"],
                         "gridfs_file_id":       file_id,
                         "source_ref":           self._validate_object_id(souce_ref),
                         "source_mime":          iadoc["source_mime"],
-                        "source_created_at":    creation_ts,
+                        "source_created_at":    iadoc["ts"],
                         "created_at":           creation_ts,
                         "size_bytes":           len(content),
                         "tokens":               iadoc["tokens"]
@@ -224,13 +227,13 @@ class ClientesDocumentStore:
                     content     = biadoc["content"]
                     file_id     = self._fs.put(content, filename=biadoc["filename"], type="biadoc")
                     doc = {
-                        "owner":                id_interno,
+                        "owner":                owner_id,
                         "filename":             biadoc["filename"],
                         "gridfs_file_id":       file_id,
                         "source_ref":           self._validate_object_id(souce_ref),
                         "iadoc_ref":            self._validate_object_id(iadoc_ref),
                         "source_mime":          biadoc["source_mime"],
-                        "source_created_at":    creation_ts,
+                        "source_created_at":    biadoc["ts"],
                         "created_at":           creation_ts,
                         "size_bytes":           len(content),
                         "tokens":               biadoc["tokens"]
@@ -241,6 +244,139 @@ class ClientesDocumentStore:
                         return False
 
             self._log.info(f"✅ Cliente '{id_interno}' creado con todos sus documentos")
+            return True
+    #----------------------------------------------------------------------------------------------
+
+    def update_cliente( self,
+                        db_id:                          str,
+                        nombre:                         str                 = None,
+                        apellidos:                      str                 = None,
+                        sexo:                           str                 = None,
+                        fecha_nacimiento:               datetime.datetime   = None,
+                        dni:                            str                 = None,
+                        antecedentes_familiares:        str                 = None,
+                        factores_riesgo_cardiovascular: str                 = None,
+                        medicacion:                     str                 = None,
+                        alergias:                       str                 = None,
+                        ingresos:                       str                 = None,
+                        ultimas_visitas:                str                 = None,
+                        src_docs:                       list[dict]          = [],
+                        iadocs:                         list[dict]          = [],
+                        biadocs:                        list[dict]          = []) -> bool:
+        """Actualiza los campos no None de un cliente y su expediente, usando el _id del cliente."""
+
+        cliente_obj_id = self._validate_object_id(db_id)
+
+        update_fields_cliente = {}
+
+        if nombre is not None:              update_fields_cliente["nombre"]             = nombre
+        if apellidos is not None:           update_fields_cliente["apellidos"]          = apellidos
+        if sexo is not None:                update_fields_cliente["sexo"]               = sexo
+        if fecha_nacimiento is not None:    update_fields_cliente["fecha_nacimiento"]   = fecha_nacimiento
+        if dni is not None:                 update_fields_cliente["dni"]                = dni
+
+        update_fields_expediente = {}
+
+        if antecedentes_familiares is not None:         update_fields_expediente["antecedentes_familiares"]         = antecedentes_familiares
+        if factores_riesgo_cardiovascular is not None:  update_fields_expediente["factores_riesgo_cardiovascular"]  = factores_riesgo_cardiovascular
+        if medicacion is not None:                      update_fields_expediente["medicacion"]                      = medicacion
+        if alergias is not None:                        update_fields_expediente["alergias"]                        = alergias
+        if ingresos is not None:                        update_fields_expediente["ingresos"]                        = ingresos
+        if ultimas_visitas is not None:                 update_fields_expediente["ultimas_visitas"]                 = ultimas_visitas
+
+        with self.transaction() as session:
+            result = None
+            if update_fields_cliente:
+                result = self._db.clientes.update_one(
+                    {"_id": cliente_obj_id},
+                    {"$set": update_fields_cliente},
+                    session=session
+                )
+                if result.matched_count == 0:
+                    self._log.warning(f"⚠️ Cliente con _id {db_id} no encontrado.")
+                    return False
+
+            if update_fields_expediente:
+                result = self._db.expedientes.update_one(
+                    {"owner": db_id},
+                    {"$set": update_fields_expediente},
+                    session=session
+                )
+
+            # SRC Docs
+            for src in src_docs:
+                creation_ts = datetime.datetime.now(datetime.timezone.utc)
+                file_id = self._fs.put(src["content"], filename=src["filename"], type="source")
+
+                doc_data = {
+                    "owner":                db_id,
+                    "filename":             src["filename"],
+                    "mime":                 src.get("mime", "application/octet-stream"),
+                    "gridfs_file_id":       file_id,
+                    "created_at":           creation_ts,
+                    "source_created_at":    src.get("source_created_at", creation_ts),
+                    "size_bytes":           len(src["content"])
+                }
+
+                if "_id" in src:
+                    src_id = self._validate_object_id(src["_id"])
+                    if self._db.source_docs.find_one({"_id": src_id}):
+                        self._db.source_docs.update_one({"_id": src_id}, {"$set": doc_data}, session=session)
+                        continue
+
+                self._db.source_docs.insert_one(doc_data, session=session)
+
+            # IADOCs
+            for iadoc in iadocs:
+                creation_ts = datetime.datetime.now(datetime.timezone.utc)
+                file_id = self._fs.put(iadoc["content"], filename=iadoc["filename"], type="iadoc")
+
+                doc_data = {
+                    "owner":                db_id,
+                    "filename":             iadoc["filename"],
+                    "gridfs_file_id":       file_id,
+                    "source_ref":           self._validate_object_id(iadoc["source_ref"]),
+                    "source_mime":          iadoc["source_mime"],
+                    "source_created_at":    iadoc["source_created_at"],
+                    "created_at":           creation_ts,
+                    "size_bytes":           len(iadoc["content"]),
+                    "tokens":               iadoc["tokens"]
+                }
+
+                if "_id" in iadoc:
+                    iadoc_id = self._validate_object_id(iadoc["_id"])
+                    if self._db.iadocs.find_one({"_id": iadoc_id}):
+                        self._db.iadocs.update_one({"_id": iadoc_id}, {"$set": doc_data}, session=session)
+                        continue
+
+                self._db.iadocs.insert_one(doc_data, session=session)
+
+            # BIADOCs
+            for biadoc in biadocs:
+                creation_ts = datetime.datetime.now(datetime.timezone.utc)
+                file_id = self._fs.put(biadoc["content"], filename=biadoc["filename"], type="biadoc")
+
+                doc_data = {
+                    "owner":                db_id,
+                    "filename":             biadoc["filename"],
+                    "gridfs_file_id":       file_id,
+                    "source_ref":           self._validate_object_id(biadoc["source_ref"]),
+                    "iadoc_ref":            self._validate_object_id(biadoc["iadoc_ref"]),
+                    "source_mime":          biadoc["source_mime"],
+                    "source_created_at":    biadoc["source_created_at"],
+                    "created_at":           creation_ts,
+                    "size_bytes":           len(biadoc["content"]),
+                    "tokens":               biadoc["tokens"]
+                }
+
+                if "_id" in biadoc:
+                    biadoc_id = self._validate_object_id(biadoc["_id"])
+                    if self._db.biadocs.find_one({"_id": biadoc_id}):
+                        self._db.biadocs.update_one({"_id": biadoc_id}, {"$set": doc_data}, session=session)
+                        continue
+
+                self._db.biadocs.insert_one(doc_data, session=session)
+
             return True
     #----------------------------------------------------------------------------------------------
 
@@ -308,6 +444,7 @@ class ClientesDocumentStore:
                 self._db.source_docs.delete_many({"owner": owner}, session=session)
                 self._db.iadocs.delete_many({"owner": owner}, session=session)
                 self._db.biadocs.delete_many({"owner": owner}, session=session)
+                self._db.expedientes.delete_many({"owner": owner}, session=session)
 
                 # 5. Borrar cliente
                 self._db.clientes.delete_many({"owner": owner}, session=session)
@@ -319,34 +456,22 @@ class ClientesDocumentStore:
         return True
     #----------------------------------------------------------------------------------------------
 
-    # ------------------ Source Docs ---------------------
-
-    def add_source_doc(self, owner, filename, file_input: pathlib.Path | bytes, source_created_at: datetime.datetime):
-        mime = None
-
-        if isinstance(file_input, pathlib.Path):
-            _, mime = is_plaint_text_file(file_input)
-            with open(file_input, "rb") as f:
-                content_data = f.read()
-        elif isinstance(file_input, bytes):
-            content_data = file_input
-            mime = "application/octet-stream"
-        else:
-            raise TypeError("file_input debe ser pathlib.Path o bytes")
-
-        file_id = self._fs.put(content_data, filename=filename, owner=owner, mime=mime, type="source")
-
-        doc = {
-            "owner":                owner,
-            "filename":             filename,
-            "mime":                 mime,
-            "gridfs_file_id":       file_id,
-            "created_at":           datetime.datetime.now(datetime.timezone.utc),
-            "source_created_at":    source_created_at,
-            "size_bytes":           len(content_data)
-        }
-        return self._db.source_docs.insert_one(doc).inserted_id
+    # ------------------ Expedientes ---------------------
+    
+    def get_expediente_by_cliente_db_id(self, db_id: str) -> ExpedienteSummary | None:
+        record = self._db.expedientes.find_one({"owner": db_id})
+        if record:
+            return ExpedienteSummary(   record["antecedentes_familiares"],
+                                        record["factores_riesgo_cardiovascular"],
+                                        record["medicacion"],
+                                        record["alergias"],
+                                        record["ingresos"],
+                                        record["ultimas_visitas"],
+                                        record["_id"])
+        return None
     #----------------------------------------------------------------------------------------------
+
+    # ------------------ Source Docs ---------------------
 
     def get_all_source_docs(self, owner) -> list[SrcDocInfo]:
         ret = []
@@ -393,33 +518,6 @@ class ClientesDocumentStore:
     #----------------------------------------------------------------------------------------------
 
     # ------------------ IADOCs ---------------------
-
-    def add_iadoc(self, owner, filename, file_input: pathlib.Path | bytes, source_id, source_mime, source_created_at: datetime.datetime, tokens):
-        source_id = self._check_source_exists(source_id)
-
-        if isinstance(file_input, pathlib.Path):
-            with open(file_input, "rb") as f:
-                content_data = f.read()
-        elif isinstance(file_input, bytes):
-            content_data = file_input
-        else:
-            raise TypeError("file_input debe ser pathlib.Path o bytes")
-
-        file_id = self._fs.put(content_data, filename=filename, owner=owner, type="iadoc")
-
-        doc = {
-            "owner":                owner,
-            "filename":             filename,
-            "gridfs_file_id":       file_id,
-            "source_ref":           source_id,
-            "source_mime":          source_mime,
-            "source_created_at":    source_created_at,
-            "created_at":           datetime.datetime.now(datetime.timezone.utc),
-            "size_bytes":           len(content_data),
-            "tokens":               tokens
-        }
-        return self._db.iadocs.insert_one(doc).inserted_id
-    #----------------------------------------------------------------------------------------------
 
     def get_all_iadocs(self, owner) -> list[IaDcoInfo]:
         ret = []
@@ -470,35 +568,6 @@ class ClientesDocumentStore:
     #----------------------------------------------------------------------------------------------
 
     # ------------------ BIADOCs ---------------------
-
-    def add_biadoc(self, owner, filename, file_input: pathlib.Path | bytes, source_id, iadoc_id, source_mime, source_created_at: datetime.datetime, tokens):
-        source_id = self._check_source_exists(source_id)
-        iadoc_id = self._check_iadoc_exists(iadoc_id)
-
-        if isinstance(file_input, pathlib.Path):
-            with open(file_input, "rb") as f:
-                content_data = f.read()
-        elif isinstance(file_input, bytes):
-            content_data = file_input
-        else:
-            raise TypeError("file_input debe ser pathlib.Path o bytes")
-
-        file_id = self._fs.put(content_data, filename=filename, owner=owner, type="biadoc")
-
-        doc = {
-            "owner": owner,
-            "filename": filename,
-            "gridfs_file_id": file_id,
-            "source_ref": source_id,
-            "iadoc_ref": iadoc_id,
-            "source_mime": source_mime,
-            "source_created_at": source_created_at,
-            "created_at": datetime.datetime.now(datetime.timezone.utc),
-            "size_bytes": len(content_data),
-            "tokens": tokens
-        }
-        return self._db.biadocs.insert_one(doc).inserted_id
-    #----------------------------------------------------------------------------------------------
 
     def get_all_biadocs(self, owner) -> list[BIaDcoInfo]:
         ret = []

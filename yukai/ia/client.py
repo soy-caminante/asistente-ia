@@ -7,7 +7,7 @@ from    enum                                                    import  IntEnum
 from    huggingface_hub                                         import  InferenceClient
 from    huggingface_hub.inference._generated.types              import  ChatCompletionOutput
 from    ia.prompt                                               import  IndexerPrompt, DoctorPrompt
-from    models.models                                           import  ExpedienteBasicInfo, StructuredExpediente
+from    models.models                                           import  ExpedienteSummary, StructuredExpediente
 from    openai                                                  import  OpenAI
 from    transformers                                            import  AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from    tools.tools                                             import  StatusInfo
@@ -323,7 +323,7 @@ class OpenAiChatClient:
             return StatusInfo.error("Error al estructurar el expediente")
     #----------------------------------------------------------------------------------------------
 
-    def get_predefined_info(self, request_id:str, documents: list[str]) -> StatusInfo[ExpedienteBasicInfo]:
+    def get_predefined_info(self, request_id:str, documents: list[str]) -> StatusInfo[ExpedienteSummary]:
         riesgo          = [ None ]
         antecedentes    = [ None ]
         medicacion      = [ None ]
@@ -373,7 +373,7 @@ class OpenAiChatClient:
                 self._log.exception(ex)
                 return StatusInfo.error("Error al analizar el expediente")
             
-        return StatusInfo.ok(ExpedienteBasicInfo(antecedentes[0],
+        return StatusInfo.ok(ExpedienteSummary(antecedentes[0],
                                                  riesgo[0],
                                                  medicacion[0],
                                                  alergias[0],
@@ -439,7 +439,7 @@ class HttpChatClient:
             return StatusInfo.error("Error al generar desde embeddings")
     #----------------------------------------------------------------------------------------------
 
-    def get_predefined_info(self, request_id:str, documents: list[str]) -> StatusInfo[ExpedienteBasicInfo]:
+    def get_predefined_info(self, request_id:str, documents: list[str]) -> StatusInfo[ExpedienteSummary]:
         payload = \
         {
             "request_id":   request_id,

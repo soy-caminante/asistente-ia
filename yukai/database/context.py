@@ -118,10 +118,20 @@ class CompactEncoder:
     # Campos que deben tratarse como listas
     LIST_FIELDS = \
     {
-        "síntomas", "estado físico", "medicación", "tratamiento",
-        "recomendaciones", "ingresos", "comentarios", "diagnósticos",
-        "antecedentes familiares", "factores riesgo cardivascular", "alergias", 
-        "operaciones", "implantes", "otros"
+        "síntomas", 
+        "estado físico", 
+        "medicación", 
+        "tratamiento",
+        "recomendaciones", 
+        "ingresos", 
+        "comentarios", 
+        "diagnósticos",
+        "antecedentes familiares", 
+        "factores riesgo cardivascular", 
+        "alergias", 
+        "operaciones", 
+        "implantes", 
+        "otros"
     }
     #----------------------------------------------------------------------------------------------
 
