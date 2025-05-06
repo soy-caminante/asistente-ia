@@ -130,17 +130,71 @@ def try_catch(log_fcn: Callable, default: Any = None, catch: tuple = (Exception,
     return decorator
 #--------------------------------------------------------------------------------------------------
 
-def void_try_catch(log_fcn: Callable, catch: tuple = (Exception,)):
-    def decorator(func: Callable[..., T]) -> Callable[..., None]:
+def try_catch_show_error(log_fcn: Callable,  error_fcn: callable, error_msg: str, default: Any = None, catch: tuple = (Exception,)):
+    def decorator(func: Callable[..., T]) -> Callable[..., T | Any]:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             try:
                 return func(*args, **kwargs)
             except catch as e:
                 log_fcn(e)
+                error_fcn(error_msg)
+                return default
         return wrapper
     return decorator
 #--------------------------------------------------------------------------------------------------
+
+def show_error_msg(error_fcn: callable, error_msg: str):
+    def decorator(func: Callable[..., T]) -> Callable[..., T | Any]:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                error_fcn(error_msg)
+                raise e
+        return wrapper
+    return decorator
+#--------------------------------------------------------------------------------------------------
+
+def void_try_catch(log_fcn: Callable, catch: tuple = (Exception,)):
+    def decorator(func: Callable[..., T]) -> Callable[..., None]:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                func(*args, **kwargs)
+            except catch as e:
+                log_fcn(e)
+        return wrapper
+    return decorator
+#--------------------------------------------------------------------------------------------------
+
+def void_try_catch_show_error(log_fcn: Callable, error_fcn: callable, error_msg: str, catch: tuple = (Exception,)):
+    def decorator(func: Callable[..., T]) -> Callable[..., None]:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                func(*args, **kwargs)
+            except catch as e:
+                log_fcn(e)
+                error_fcn(error_msg)
+        return wrapper
+    return decorator
+#--------------------------------------------------------------------------------------------------
+
+def void_show_error_msg(error_fcn: callable, error_msg: str):
+    def decorator(func: Callable[..., T]) -> Callable[..., None]:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                func(*args, **kwargs)
+            except Exception as e:
+                error_fcn(error_msg)
+                raise e
+        return wrapper
+    return decorator
+#--------------------------------------------------------------------------------------------------
+
 
 def file_size_to_str(bytes_int):
     if bytes_int < 1024:

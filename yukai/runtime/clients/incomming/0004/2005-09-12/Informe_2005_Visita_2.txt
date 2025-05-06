@@ -1,5 +1,5 @@
 Informe Médico - Visita 2
-Fecha de la visita: 04-09-2005
+Fecha de la visita: 12-09-2005
 Año: 2005
 Dolencia: Gastritis crónica
 Tratamiento: Omeprazol 20 mg/día

@@ -91,17 +91,27 @@ class PretrainedManager:
 
 class BackendService:
     @staticmethod
-    def extract_dictionary(texto):
-        # Busca líneas tipo "clave: valor"
-        pattern = re.compile(r"(?P<clave>[^:\n]+):\s*(?P<valor>[^\n]+)")
-        res     = { }
-        
-        for matches in pattern.finditer(texto):
-            key         = matches.group("clave").strip().lower()
-            value       = matches.group("valor").strip()
-            res[key]    = value
+    def extract_dictionary(text):
+        """
+        Intenta extraer un JSON válido desde una cadena, aunque esté escapada o tenga formato Markdown.
+        """
+        # 1. Eliminar delimitadores Markdown y etiquetas como ```json
+        clean_text = re.sub(r'```(?:json)?', '', text, flags=re.IGNORECASE)
+        clean_text = clean_text.strip('` \n')
 
-        return res
+        # 2. Si parece estar escapado (muchos \\n, \\") lo desescapamos
+        if '\\n' in clean_text or '\\"' in clean_text:
+            # Reemplazos básicos seguros
+            clean_text = clean_text.replace('\\\\', '\\')  # primero dobles backslashes
+            clean_text = clean_text.replace('\\n', '\n')
+            clean_text = clean_text.replace('\\"', '"')
+
+        clean_text = clean_text.strip()
+        # 3. Intentar decodificar como JSON
+        try:
+            return json.loads(clean_text), clean_text
+        except json.JSONDecodeError as e:
+            raise ValueError(f"No se pudo interpretar el texto como JSON: {e}")
     #----------------------------------------------------------------------------------------------
 
     def __init__(self, env: Environment, overlay_ctrl: OverlayCtrlWrapper):
@@ -162,7 +172,8 @@ class BackendService:
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener los clientes"))
     def load_all_consolidated_clientes(self) -> StatusInfo[list[ClienteInfo]]:
         with self._overlay_ctrl.wait("Cargando clientes consolidados"):
-            return StatusInfo.ok(self._clientes_db.get_all_clientes())
+            self.log_info("Cargar los clientes consolidados")
+            return self.log_info_and_return("Lista de clientes consolidados generad", self._clientes_db.get_all_clientes())
     #----------------------------------------------------------------------------------------------
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener el cliente"))
@@ -177,8 +188,9 @@ class BackendService:
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener los clientes"))
     def load_all_src_clientes(self) -> StatusInfo[list[IncommingCliente]]:
-        with self._overlay_ctrl.wait("Cargando nuevos pacientes"):
-            return StatusInfo.ok(self._incomming_db.get_all())
+        with self._overlay_ctrl.wait("Cargando clientes nuevos"):
+            self.log_info("Cargar los nuevos clientes")
+            return self.log_info_and_return("Lista de nuevos clientes generada", self._incomming_db.get_all())
     #----------------------------------------------------------------------------------------------
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al preprocesar el cliente"))
@@ -205,10 +217,11 @@ class BackendService:
                         if status:
                             self._overlay_ctrl.update(f"Cliente: {cliente.personal_info.id_interno}\nObteniendo embeddings de {doc.name}")
 
-                            iadoc           = status.get()
-                            iadoc_dict      = BackendService.extract_dictionary(iadoc, doc.name)
-                            iadoc           = json.dumps(iadoc_dict, ensure_ascii=False)
-                            biadoc, btokens = self._pretrained.generate_embeddings_from_iadoc(iadoc_dict)
+                            #iadoc           = '```json\\n{\\n  "fecha": "3 de febrero de 2024",\\n  "motivo": "Revisión del tratamiento y evaluación de síntomas",\\n  "síntomas": "Mejoría en disnea, palpitaciones ocasionales, fatiga leve",\\n  "estado físico": {\\n    "presión arterial": "140/85 mmHg",\\n    "frecuencia cardíaca": "88 lpm",\\n    "peso": "83 kg",\\n    "IMC": "27.7"\\n  },\\n  "medicación": {\\n    "enalapril": "10 mg",\\n    "metoprolol": "50 mg"\\n  },\\n  "tratamiento": "Holter de 24 horas para evaluar palpitaciones",\\n  "recomendaciones": "Reforzar dieta y actividad física",\\n  "diagnósticos": "Mejora parcial en presión arterial y síntomas de disnea"\\n}\\n```'
+
+                            iadoc               = status.get()
+                            iadoc_dict, iadoc   = BackendService.extract_dictionary(iadoc)
+                            biadoc, btokens     = self._pretrained.generate_embeddings_from_iadoc(doc.name, iadoc_dict)
 
                             src_docs.append({   "filename":             doc.name,
                                                 "content":              doc.content.encode("utf-8"),
@@ -386,25 +399,27 @@ class BackendService:
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener la información del paciente"))
     def inspect_src_cliente(self, db_id: pathlib.Path) -> StatusInfo[ExpedienteSrc]:
+        self.log_info(f"Cargar cliente nuevo: {db_id}")
         cliente = self._incomming_db.get_cliente_info(db_id)
         if cliente:
-            return StatusInfo.ok(cliente)
+            return self.log_info_and_return("Cliente cargado", cliente)
         else:
-            return StatusInfo.error("Paciente no encontrado")
+            return self.log_error_and_return("Cliente no encontrado")
     #----------------------------------------------------------------------------------------------
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener la información del paciente"))
     def inspect_consolidated_cliente(self, db_id: str) -> StatusInfo[ClienteMetaInformation]:
+        self.log_info(f"Cargar cliente consolidado: {db_id}")
         cliente = self._clientes_db.get_cliente_by_db_id(db_id)
         if cliente:
-            biadocs     = self._clientes_db.get_all_biadoc_meta(cliente.id_interno)
-            iadocs      = self._clientes_db.get_all_iadoc_meta(cliente.id_interno)
-            srcdocs     = self._clientes_db.get_all_source_meta(cliente.id_interno)
-            summary     = self._clientes_db.get_expediente_by_cliente_db_id(cliente.id_interno)
+            biadocs     = self._clientes_db.get_all_biadoc_meta(db_id)
+            iadocs      = self._clientes_db.get_all_iadoc_meta(db_id)
+            srcdocs     = self._clientes_db.get_all_source_meta(db_id)
+            summary     = self._clientes_db.get_expediente_by_cliente_db_id(db_id)
 
-            return StatusInfo.ok(ClienteMetaInformation(cliente, srcdocs, iadocs, biadocs, summary))
+            return self.log_info_and_return("Cliente cargado", ClienteMetaInformation(cliente, srcdocs, iadocs, biadocs, summary))
         else:
-            return StatusInfo.error("El cliente no existe")
+            return self.log_error_and_return("Cliente no encontrado")
     #----------------------------------------------------------------------------------------------
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al cargar el documento"))

@@ -1,5 +1,5 @@
 Informe Médico - Visita 1
-Fecha de la visita: 19-11-2025
+Fecha de la visita: 17-02-2025
 Año: 2025
 Dolencia: Insuficiencia renal crónica
 Tratamiento: Control de presión arterial y dieta baja en sodio

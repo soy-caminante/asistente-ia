@@ -279,18 +279,30 @@ class ExpedienteSummary:
     alergias:                       str
     ingresos:                       str
     ultimas_visitas:                str
-    db_id:                          str
+    db_id:                          str = None
     #----------------------------------------------------------------------------------------------
 
     def __post_init__(self):
         if isinstance(self.db_id, ObjectId):
             self.db_id = str(self.db_id)
-        if self.antecedentes_familiares.startswith("NADA"):         self.antecedentes_familiares = "No declarado."
-        if self.factores_riesgo_cardiovascular.startswith("NADA"):  self.factores_riesgo_cardiovascular = "No declarado."
-        if self.medicacion.startswith("NADA"):                      self.medicacion = "No declarado."
-        if self.alergias.startswith("NADA"):                        self.alergias = "No declarado."
-        if self.ingresos.startswith("NADA"):                        self.ingresos = "No declarado."
-        if self.ultimas_visitas.startswith("NADA"):                 self.ultimas_visitas = "No declarado."
+        if self.antecedentes_familiares is not None:
+            if self.antecedentes_familiares.startswith("NADA"):
+                self.antecedentes_familiares = "No declarado."
+        if self.factores_riesgo_cardiovascular is not None:
+            if self.factores_riesgo_cardiovascular.startswith("NADA"):  
+                self.factores_riesgo_cardiovascular = "No declarado."
+        if self.medicacion is not None:
+            if self.medicacion.startswith("NADA"):                      
+                self.medicacion = "No declarado."
+        if self.alergias is not None:
+            if self.alergias.startswith("NADA"):                        
+                self.alergias = "No declarado."
+        if self.ingresos is not None:
+            if self.ingresos.startswith("NADA"):                        
+                self.ingresos = "No declarado."
+        if self.ultimas_visitas is not None:
+            if self.ultimas_visitas.startswith("NADA"):                 
+                self.ultimas_visitas = "No declarado."
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 

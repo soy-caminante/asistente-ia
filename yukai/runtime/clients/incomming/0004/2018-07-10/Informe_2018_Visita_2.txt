@@ -1,5 +1,5 @@
 Informe Médico - Visita 2
-Fecha de la visita: 17-05-2018
+Fecha de la visita: 10-07-2018
 Año: 2018
 Dolencia: Diabetes tipo 2
 Tratamiento: Metformina 850 mg/día

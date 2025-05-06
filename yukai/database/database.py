@@ -459,7 +459,7 @@ class ClientesDocumentStore:
     # ------------------ Expedientes ---------------------
     
     def get_expediente_by_cliente_db_id(self, db_id: str) -> ExpedienteSummary | None:
-        record = self._db.expedientes.find_one({"owner": db_id})
+        record = self._db.expedientes.find_one({"owner": self._validate_object_id(db_id)})
         if record:
             return ExpedienteSummary(   record["antecedentes_familiares"],
                                         record["factores_riesgo_cardiovascular"],
@@ -475,7 +475,7 @@ class ClientesDocumentStore:
 
     def get_all_source_docs(self, owner) -> list[SrcDocInfo]:
         ret = []
-        for record in self._db.source_docs.find({"owner": owner}):
+        for record in self._db.source_docs.find({"owner": self._validate_object_id(db_id)}):
             binary_content = self._fs.get(record["gridfs_file_id"]).read()
             ret.append(SrcDocInfo(
                 record["_id"],
@@ -493,7 +493,7 @@ class ClientesDocumentStore:
 
     def get_all_source_meta(self, owner) -> list[SrcDocInfo]:
         ret = []
-        for record in self._db.source_docs.find({"owner": owner}, {"gridfs_file_id": 0}):
+        for record in self._db.source_docs.find({"owner": self._validate_object_id(owner)}, {"gridfs_file_id": 0}):
             ret.append(SrcDocInfo(
                 record["_id"],
                 record["owner"],
@@ -521,7 +521,7 @@ class ClientesDocumentStore:
 
     def get_all_iadocs(self, owner) -> list[IaDcoInfo]:
         ret = []
-        for record in self._db.iadocs.find({"owner": owner}):
+        for record in self._db.iadocs.find({"owner": self._validate_object_id(owner)}):
             binary_content = self._fs.get(record["gridfs_file_id"]).read()
             ret.append(IaDcoInfo(
                 record["_id"],
@@ -541,7 +541,7 @@ class ClientesDocumentStore:
 
     def get_all_iadoc_meta(self, owner) -> list[IaDcoInfo]:
         ret = []
-        for record in self._db.iadocs.find({"owner": owner}, {"gridfs_file_id": 0}):
+        for record in self._db.iadocs.find({"owner": self._validate_object_id(owner)}, {"gridfs_file_id": 0}):
             ret.append(IaDcoInfo(
                 record["_id"],
                 record["owner"],
@@ -571,7 +571,7 @@ class ClientesDocumentStore:
 
     def get_all_biadocs(self, owner) -> list[BIaDcoInfo]:
         ret = []
-        for record in self._db.biadocs.find({"owner": owner}):
+        for record in self._db.biadocs.find({"owner": self._validate_object_id(owner)}):
             binary_content = self._fs.get(record["gridfs_file_id"]).read()
             ret.append(BIaDcoInfo(
                 record["_id"],
@@ -592,7 +592,7 @@ class ClientesDocumentStore:
 
     def get_all_biadoc_meta(self, owner) -> list[BIaDcoInfo]:
         ret = []
-        for record in self._db.biadocs.find({"owner": owner}, {"gridfs_file_id": 0}):
+        for record in self._db.biadocs.find({"owner": self._validate_object_id(owner)}, {"gridfs_file_id": 0}):
             ret.append(BIaDcoInfo(
                 record["_id"],
                 record["owner"],

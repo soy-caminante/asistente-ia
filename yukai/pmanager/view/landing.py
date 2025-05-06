@@ -307,6 +307,7 @@ class ExpedienteViewer(ft.Container, Factories):
         self.build_ui()
     #----------------------------------------------------------------------------------------------
 
+    @void_show_error_msg(show_snackbar_error, "Error al configurar el cliente")
     def populate(self, cliente: IncommingCliente | ClienteMetaInformation):
         self._info_layout.visible       = True
         self._document_viewer.visible   = False
@@ -437,6 +438,7 @@ class ExpedienteViewer(ft.Container, Factories):
         pass
     #----------------------------------------------------------------------------------------------
 
+    @void_show_error_msg(show_snackbar_error, "Error al mostrar el cliente")
     def inspect(self, data: IncommingFileInfo|ExpedienteViewer.ConsolidatedDoc):
         self._info_layout.visible       = False
         self._document_viewer.visible   = True
@@ -661,6 +663,7 @@ class ClienteList(ft.Container, Factories):
         self.build_ui()
     #----------------------------------------------------------------------------------------------
 
+    @void_show_error_msg(show_snackbar_error, "Error al configurar el cliente")
     def set_values(self, clientes: list[IncommingCliente] | list[ClienteInfo]):
         self._list_content.clear()
         self._list_ctrl.controls.clear()
@@ -693,6 +696,7 @@ class ClienteList(ft.Container, Factories):
         self.update()
     #----------------------------------------------------------------------------------------------
 
+    @void_show_error_msg(show_snackbar_error, "Error en la búsqueda del cliente")
     def search(self, _):
         def normalize(text):
             return unicodedata.normalize("NFKD", text).encode("ASCII", "ignore").decode("utf-8").lower()
