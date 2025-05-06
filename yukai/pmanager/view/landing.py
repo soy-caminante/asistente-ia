@@ -37,11 +37,20 @@ class DocumentViewer(ft.Container, Factories):
                 show_snackbar_error(f"Error al guardar el documento {ex}")
     #----------------------------------------------------------------------------------------------
 
-    def setup_single(self, cliente: str, dni_ref: str, edad: str, doc_name: str, doc_len: str, doc_tokens: int, doc_content: bytes, doc_mime_type: str):
+    def setup_single(self,  cliente: str, 
+                            dni_ref: str, 
+                            edad: str, 
+                            doc_name: str, 
+                            doc_ts: str,
+                            doc_len: str, 
+                            doc_tokens: int, 
+                            doc_content: bytes, 
+                            doc_mime_type: str):
         self._cliente.value     = cliente
         self._dni.value         = dni_ref
         self._edad.value        = edad
         self._documento.value   = doc_name
+        self._fecha.value       = doc_ts
         self._doc_len.value     = doc_len
         self._tokens.value      = doc_tokens
         self._content           = doc_content
@@ -68,6 +77,7 @@ class DocumentViewer(ft.Container, Factories):
                             dni_ref: str, 
                             edad: str, 
                             doc_name: str, 
+                            doc_ts: str,
                             doc_len: str, 
                             doc_tokens: int, 
                             src_doc_content: bytes, 
@@ -76,6 +86,7 @@ class DocumentViewer(ft.Container, Factories):
         self._dni.value         = dni_ref
         self._edad.value        = edad
         self._documento.value   = doc_name
+        self._fecha.value       = doc_ts
         self._doc_len.value     = doc_len
         self._tokens.value      = doc_tokens
         self._content           = src_doc_content
@@ -153,6 +164,15 @@ class DocumentViewer(ft.Container, Factories):
             border      = "none"
         )
 
+        self._fecha = ft.TextField \
+        (
+            label       = "Fecha", 
+            value       = None, 
+            expand      = True,
+            read_only   = True,
+            border      = "none"
+        )
+
         self._doc_len = ft.TextField \
         (
             label       = "Tamaño", 
@@ -187,6 +207,7 @@ class DocumentViewer(ft.Container, Factories):
             [
                 ft.Card(ft.Container(first_row, padding=10)),
                 ft.Container(self._documento, padding=ft.padding.only(left=15, right=15)),
+                ft.Container(self._fecha, padding=ft.padding.only(left=15, right=15)),
                 ft.Container(self._doc_len, padding=ft.padding.only(left=15, right=15)),
                 ft.Container(self._tokens, padding=ft.padding.only(left=15, right=15)),
                 ft.Divider(),
@@ -196,6 +217,7 @@ class DocumentViewer(ft.Container, Factories):
             ],
             expand      = True,
             alignment   = ft.MainAxisAlignment.START,
+            tight       = True
         )
 
         self._doc_display   = ft.Container(expand=4)
@@ -424,8 +446,6 @@ class ExpedienteViewer(ft.Container, Factories):
             self._cliente.value     = f"{self._personal_info.apellidos}, {self._personal_info.nombre}"
             self._dni.value         = f"{self._personal_info.dni} / {self._personal_info.id_interno}"
             self._edad.value        = f"{self._personal_info.sexo} - {get_elapsed_years(self._personal_info.fecha_nacimiento)} años"
-
-
     #----------------------------------------------------------------------------------------------
 
     def hide_document_viewer(self):
@@ -451,6 +471,7 @@ class ExpedienteViewer(ft.Container, Factories):
                                                     self._dni.value,
                                                     self._edad.value,
                                                     data.name,
+                                                    data.ts_str,
                                                     data.size_str,
                                                     "-",
                                                     content.get(),
@@ -467,6 +488,7 @@ class ExpedienteViewer(ft.Container, Factories):
                                                         self._dni.value,
                                                         self._edad.value,
                                                         data.name,
+                                                        data.ts_str,
                                                         data.size_str,
                                                         data.tokens,
                                                         content_src.get(),
@@ -482,6 +504,7 @@ class ExpedienteViewer(ft.Container, Factories):
                                                         self._dni.value,
                                                         self._edad.value,
                                                         data.name,
+                                                        data.ts_str,
                                                         data.size_str,
                                                         data.tokens,
                                                         content_src.get(),
@@ -628,11 +651,18 @@ class ClienteList(ft.Container, Factories):
             self._on_delete         = on_delete
             self.expand             = True
             self.alignment          = ft.MainAxisAlignment.START
-            self.controls           = [     ft.Text(f"{data.apellidos}, {data.nombre}"), 
-                                            ft.Container(expand=True), 
-                                            self.bf.custom_button(ft.Icons.PLAY_ARROW,  self.on_consolidate, "Consolidar"),
-                                            self.bf.custom_button(ft.Icons.PAGEVIEW,    self.on_inspect, "Inspeccionar"),
-                                            self.bf.delete_button(self.on_delete) ]
+
+            if on_consolidate:
+                self.controls           = [     ft.Text(f"{data.apellidos}, {data.nombre}"), 
+                                                ft.Container(expand=True), 
+                                                self.bf.custom_button(ft.Icons.PLAY_ARROW,  self.on_consolidate, "Consolidar"),
+                                                self.bf.custom_button(ft.Icons.PAGEVIEW,    self.on_inspect, "Inspeccionar"),
+                                                self.bf.delete_button(self.on_delete) ]
+            else:
+                self.controls           = [     ft.Text(f"{data.apellidos}, {data.nombre}"), 
+                                                ft.Container(expand=True), 
+                                                self.bf.custom_button(ft.Icons.PAGEVIEW,    self.on_inspect, "Inspeccionar"),
+                                                self.bf.delete_button(self.on_delete) ]
         #------------------------------------------------------------------------------------------
             
         def on_consolidate(self, _): self._on_consolidate(self._data)
@@ -675,8 +705,10 @@ class ClienteList(ft.Container, Factories):
             if isinstance(p_obj, IncommingCliente):
                 cliente         = p_obj.personal_info
                 cliente.db_id   = p_obj.db_id
+                consolidate_fcn = self.consolidate_one
             else:
-                cliente = p_obj
+                cliente         = p_obj
+                consolidate_fcn = None
 
             self._list_content.append(self.Content( cliente.db_id,
                                                     cliente.dni,
@@ -689,7 +721,7 @@ class ClienteList(ft.Container, Factories):
             self._list_ctrl.controls.append(ft.ListTile(leading = ft.Checkbox(  value       = p.selected,
                                                                                 on_change   = p.changed),
                                                         title= self.HeaderCtrl( data           = p,
-                                                                                on_consolidate = self.consolidate_one,
+                                                                                on_consolidate = consolidate_fcn,
                                                                                 on_inspect     = self.inspect_one,
                                                                                 on_delete      = self.delete_one),
                                                         subtitle= ft.Text(f"DNI: {p.dni} - ID: {p.id_local}")))
@@ -787,45 +819,74 @@ class ClienteList(ft.Container, Factories):
 
         label_field         = self.tf.container_title(self._title)
         label_field.expand  = True
-        header_row          = ft.Row \
-        (
-            controls= \
-            [
-                label_field,
-                ft.Container(expand=True),
-                ft.IconButton(  ft.icons.REPLAY, 
-                                icon_color  = ft.colors.BLUE_900, 
-                                tooltip     = "Recargar lista de clientes", 
-                                on_click    = self.reload,
-                                visible     = self._reload_fcn is not None),
+        if self._consolidate_fcn:
+            header_row          = ft.Row \
+            (
+                controls= \
+                [
+                    label_field,
+                    ft.Container(expand=True),
+                    ft.IconButton(  ft.icons.REPLAY, 
+                                    icon_color  = ft.colors.BLUE_900, 
+                                    tooltip     = "Recargar lista de clientes", 
+                                    on_click    = self.reload,
+                                    visible     = self._reload_fcn is not None),
 
-                ft.IconButton(  ft.icons.PLAY_ARROW, 
-                                icon_color  = ft.colors.BLUE_900, 
-                                tooltip     = "Consolidar seleccionados", 
-                                on_click    = self.consolidate,
-                                visible     = self._consolidate_fcn is not None),
-                
-                ft.IconButton(  ft.icons.PLAY_CIRCLE, 
-                                icon_color  = ft.colors.BLUE_900, 
-                                tooltip     = "Consolidar todos", 
-                                on_click    = self.consolidate_all,
-                                visible     = self._consolidate_fcn is not None),
+                    ft.IconButton(  ft.icons.PLAY_ARROW, 
+                                    icon_color  = ft.colors.BLUE_900, 
+                                    tooltip     = "Consolidar seleccionados", 
+                                    on_click    = self.consolidate,
+                                    visible     = self._consolidate_fcn is not None),
+                    
+                    ft.IconButton(  ft.icons.PLAY_CIRCLE, 
+                                    icon_color  = ft.colors.BLUE_900, 
+                                    tooltip     = "Consolidar todos", 
+                                    on_click    = self.consolidate_all,
+                                    visible     = self._consolidate_fcn is not None),
 
-                ft.IconButton(  ft.icons.FIND_IN_PAGE, 
-                                icon_color  = ft.colors.BLUE_900, 
-                                tooltip     = "Buscar repetidos", 
-                                on_click    = self.search_duplicated,
-                                visible     = self._duplicate_fcn is not None),
+                    ft.IconButton(  ft.icons.FIND_IN_PAGE, 
+                                    icon_color  = ft.colors.BLUE_900, 
+                                    tooltip     = "Buscar repetidos", 
+                                    on_click    = self.search_duplicated,
+                                    visible     = self._duplicate_fcn is not None),
 
-                ft.IconButton(  ft.icons.DELETE, 
-                                icon_color  = ft.colors.BLUE_900, 
-                                tooltip     = "Eliminar cliente", 
-                                on_click    = self.remove_selected,
-                                visible     = self._delete_fcn is not None)                
-            ],
-            alignment           = ft.MainAxisAlignment.CENTER,
-            vertical_alignment  = ft.CrossAxisAlignment.START
-        )
+                    ft.IconButton(  ft.icons.DELETE, 
+                                    icon_color  = ft.colors.BLUE_900, 
+                                    tooltip     = "Eliminar cliente", 
+                                    on_click    = self.remove_selected,
+                                    visible     = self._delete_fcn is not None)                
+                ],
+                alignment           = ft.MainAxisAlignment.CENTER,
+                vertical_alignment  = ft.CrossAxisAlignment.START
+            )
+        else:
+            header_row          = ft.Row \
+            (
+                controls= \
+                [
+                    label_field,
+                    ft.Container(expand=True),
+                    ft.IconButton(  ft.icons.REPLAY, 
+                                    icon_color  = ft.colors.BLUE_900, 
+                                    tooltip     = "Recargar lista de clientes", 
+                                    on_click    = self.reload,
+                                    visible     = self._reload_fcn is not None),
+
+                    ft.IconButton(  ft.icons.FIND_IN_PAGE, 
+                                    icon_color  = ft.colors.BLUE_900, 
+                                    tooltip     = "Buscar repetidos", 
+                                    on_click    = self.search_duplicated,
+                                    visible     = self._duplicate_fcn is not None),
+
+                    ft.IconButton(  ft.icons.DELETE, 
+                                    icon_color  = ft.colors.BLUE_900, 
+                                    tooltip     = "Eliminar cliente", 
+                                    on_click    = self.remove_selected,
+                                    visible     = self._delete_fcn is not None)                
+                ],
+                alignment           = ft.MainAxisAlignment.CENTER,
+                vertical_alignment  = ft.CrossAxisAlignment.START
+            )
 
         column = ft.Column \
         (

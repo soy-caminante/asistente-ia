@@ -10,7 +10,7 @@ from    database.incomming                  import  IncommingStorage, IncommingF
 from    difflib                             import  SequenceMatcher
 from    models.models                       import  *
 from    models.iacodec                      import  IACodec
-from    ia.client                           import  ModelLoader, SystemPromts, HttpChatClient, OpenAiChatClient
+from    ia.client                           import  ModelLoader, SystemPromts, HttpChatClient, OpenAiChatClient, HuggingFaceChatClient
 from    pmanager.backend.environment        import  Environment
 from    tools.tools                         import  StatusInfo, try_catch
 from    tools.viewtools                     import  OverlayCtrlWrapper
@@ -123,9 +123,14 @@ class BackendService:
         self._db_operator   = DBOperator(self._clientes_db)
         self._pretrained    = PretrainedManager(self._db_operator, env.model_name, env.gpu)
         self._incomming_db  = IncommingStorage(env.log, env.db_dir)
-        self._chat          = HttpChatClient(env.chat_endpoint, env.log) if env.gpu else OpenAiChatClient(os.getenv("oai_api_key"), "gpt-4o-mini",env.log)
         self._overlay_ctrl  = overlay_ctrl
         self._req_id        = 0
+
+        if env.gpu:
+            self._chat = HttpChatClient(env.chat_endpoint, env.log)
+        else:
+            self._chat = HuggingFaceChatClient(os.getenv("hf_api_key"), "mistralai/Mistral-7B-Instruct-v0.3", env.log)
+            #self._chat = OpenAiChatClient(os.getenv("oai_api_key"), "gpt-4o-mini", env.log)
     #----------------------------------------------------------------------------------------------
 
     def get_next_req_id(self):
@@ -221,6 +226,7 @@ class BackendService:
 
                             iadoc               = status.get()
                             iadoc_dict, iadoc   = BackendService.extract_dictionary(iadoc)
+                            self.log_info(iadoc_dict)
                             biadoc, btokens     = self._pretrained.generate_embeddings_from_iadoc(doc.name, iadoc_dict)
 
                             src_docs.append({   "filename":             doc.name,
