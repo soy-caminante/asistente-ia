@@ -572,7 +572,7 @@ class ClientesDocumentStore:
     def get_all_biadocs(self, owner) -> list[BIaDcoInfo]:
         ret = []
         for record in self._db.biadocs.find({"owner": self._validate_object_id(owner)}):
-            binary_content = self._fs.get(record["gridfs_file_id"]).read()
+            binary_content = self._fs.get(record["gridfs_file_id"])
             ret.append(BIaDcoInfo(
                 record["_id"],
                 record["owner"],
@@ -616,7 +616,13 @@ class ClientesDocumentStore:
         if not doc:
             self._log.warning(f"⚠️ Documento con _id {db_id} no encontrado en source_docs.")
             return None
-        return self._fs.get(doc["gridfs_file_id"]).read()
+        return self._fs.get(doc["gridfs_file_id"])
+    #----------------------------------------------------------------------------------------------
+
+    # ------------------ Tmp docs ---------------------
+
+    def add_tmp_biadoc(self, name:str, content) -> str:
+        return str(self._fs.put(content, filename=name, type="biadoc", metadata={"consolidado": False}))
     #----------------------------------------------------------------------------------------------
 
     # ------------------ Pretrained ---------------------

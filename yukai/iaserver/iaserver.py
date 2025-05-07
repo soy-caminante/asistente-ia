@@ -142,7 +142,6 @@ class StructureEmbeddings:
     #----------------------------------------------------------------------------------------------
 
     def get_embeddings(self, document: str):
-
         device      = self._explanation_embd.device
         embeddings  = [self._explanation_embd]
         embeddings.append(self._model.embed_prompt_tensor(document).to(device))
@@ -151,36 +150,6 @@ class StructureEmbeddings:
         # Concatena por el eje de tokens (dim 1)
         return torch.cat(embeddings, dim=1)  # shape: [1, total_seq_len, D]
     #----------------------------------------------------------------------------------------------
-#--------------------------------------------------------------------------------------------------
-
-class StructureOp(BaseModel):
-    type: Literal["structure"]
-    document: str
-    document_name: str
-#--------------------------------------------------------------------------------------------------
-
-class SummaryOp(BaseModel):
-    type: Literal["summary"]
-    documents: List[str]
-    question: str
-#--------------------------------------------------------------------------------------------------
-
-class ChatOp(BaseModel):
-    type: Literal["chat"]
-    documents: List[str]
-    question: str
-#--------------------------------------------------------------------------------------------------
-
-ArgsUnion = Union[StructureOp, SummaryOp, ChatOp]
-#--------------------------------------------------------------------------------------------------
-
-class EmbeddingRequest(BaseModel):
-    client: str
-    request_id: str
-    op: Literal["structure", "summary", "chat"]
-    args: ArgsUnion
-    max_tokens: int = 2048
-    temperature: float = 0.3
 #--------------------------------------------------------------------------------------------------
 
 class ChatEmbeddings:
@@ -205,14 +174,51 @@ class ChatEmbeddings:
         _, self._explanation_embd   = self._model.embed_prompt_tensor(self._explanation_str)
     #----------------------------------------------------------------------------------------------
 
-    def get_embeddings(self, document, question):
-        all_embeddings = []
-        all_embeddings.extend(self._explanation_embd)
-        all_embeddings.extend(document)
-        all_embeddings.extend(self._model.embed_prompt(f"user:{question}"))
-        
-        return all_embeddings
+    def get_embeddings(self, edad, sexo, documents, question):
+        device = self._explanation_embd.device
+        embeddings = [self._explanation_embd]
+        embeddings.append(self._model.embed_prompt_tensor(f"{edad}**{sexo}").to(device))
+        for doc in documents:
+            tag = "**"
+            emb = self._model.embed_prompt_tensor(tag).to(device)  # shape: [1, Nᵢ, D]
+            embeddings.append(emb)
+            embeddings.append(doc)
+
+        # Concatena por el eje de tokens (dim 1)
+        return torch.cat(embeddings, dim=1)  # shape: [1, total_seq_len, D]
     #----------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
+
+class StructureOp(BaseModel):
+    type: Literal["structure"]
+    document: str
+    document_name: str
+#--------------------------------------------------------------------------------------------------
+
+class SummaryOp(BaseModel):
+    type: Literal["summary"]
+    documents: List[str]
+    question: str
+#--------------------------------------------------------------------------------------------------
+
+class ChatOp(BaseModel):
+    type: Literal["chat"]
+    documents: List[str]
+    question: str
+    edad: str
+    sexo: str
+#--------------------------------------------------------------------------------------------------
+
+ArgsUnion = Union[StructureOp, SummaryOp, ChatOp]
+#--------------------------------------------------------------------------------------------------
+
+class EmbeddingRequest(BaseModel):
+    client: str
+    request_id: str
+    op: Literal["structure", "summary", "chat"]
+    args: ArgsUnion
+    max_tokens: int = 2048
+    temperature: float = 0.3
 #--------------------------------------------------------------------------------------------------
 
 class IAInferenceServer:
@@ -370,21 +376,25 @@ class IAInferenceServer:
                 start_time = time.time()
                 try:
                     if req.op == StructureEmbeddings.OP_NAME:
-                        embeddings                  = StructureEmbeddings.get_embeddings(req.args.document)
-                        iadoc                       = generate(embeddings)
-                        iadoc_dict, iadoc           = IAInferenceServer.extract_dictionary(iadoc)
-                        text                        = self.iacodec.encode(iadoc_dict, req.args.document_name)
-                        biadoc, btokens             = self.model_loader.embed_gridfs_prompt(text)
-                        result_holder["iadoc"]      = iadoc
-                        result_holder["tokens"]     = btokens
-                        
-                        # TODO: Guardar el biadoc en mongo
+                        st_args: StructureOp    = req.args
+                        embeddings              = self._stucture_embeddings.get_embeddings(st_args.document)
+                        iadoc                   = generate(embeddings)
+                        iadoc_dict, iadoc       = IAInferenceServer.extract_dictionary(iadoc)
+                        text                    = self.iacodec.encode(iadoc_dict, st_args.document_name)
+                        biadoc, btokens         = self.model_loader.embed_gridfs_prompt(text)
+                        result_holder["iadoc"]  = iadoc
+                        result_holder["tokens"] = btokens
+                        result_holder["biadoc"] = self._clientes_db.add_tmp_biadoc(st_args.document_name, biadoc)
+
+                        self.log_client_info(req.client, "biadoc generado")
                         
                     elif req.op == SummaryEmbeddings.OP_NAME:
-                        embeddings = SummaryEmbeddings.get_embeddings(req.documents, req.question)
+                        sm_args: SummaryOp  = req.args
+                        embeddings          = self._summary_embeddings.get_embeddings(sm_args.documents, sm_args.question)
                         self.log_holder_response(req.client, result_holder, generate(embeddings))
                     else:
-                        embeddings = ChatEmbeddings.get_embeddings(req.documents, req.question)
+                        ch_args: ChatOp = req.args
+                        embeddings      = self._chat_embeddings.get_embeddings(ch_args.documents, ch_args.question)
                         self.log_holder_response(req.client, result_holder, generate(embeddings))
 
                 except Exception as e:
