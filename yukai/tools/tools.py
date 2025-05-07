@@ -1,5 +1,6 @@
 import  datetime
 import  functools
+import  json
 import  os
 import  mimetypes
 import  pathlib
@@ -225,3 +226,18 @@ def timestamp_str_to_datetime(ref):
         print(f"Error al parsear la fecha: {e}")
         return None
 #--------------------------------------------------------------------------------------------------
+
+def load_configuration_file(file: pathlib.Path, target_class):
+    def normailize(d):
+        if isinstance(d, dict):
+            return {k.replace("-", "_"): normailize(v) for k, v in d.items()}
+        elif isinstance(d, list):
+            return [normailize(item) for item in d]
+        else:
+            return d
+
+    with open(file, "r", encoding="utf-8") as f:
+        json_dict = normailize(json.load(f))
+        return target_class(**json_dict)
+#--------------------------------------------------------------------------------------------------
+

@@ -1,0 +1,10 @@
+{
+    "test":             true,
+    "web-port":         8081,
+    "workers-num":      8,
+    "max-requests":     3,
+    "model-name":       "meta-llama/Meta-Llama-3.1-8B-Instruct",
+    "quantization":     "4bit",
+    "db-port":          27017,
+    "db-docker":        "docker/docker-compose.yml"
+}

@@ -15,27 +15,47 @@ class Logger:
     #----------------------------------------------------------------------------------------------
 
     class CallerInfoFilter(logging.Filter):
-        def __init__(self, base_dir):
-            self._base_dir = base_dir
+        def __init__(self):
+            self._excluded_locations    = { __file__: None }
         #------------------------------------------------------------------------------------------
 
-        def get_relative_path(self, ruta: pathlib.Path):
-            pieces = ruta.parts
-            
-            try:
-                token_index     = pieces.index(self._base_dir)
-                ruta_deseada    = pathlib.Path(*pieces[token_index + 1:])
-                return ruta_deseada
-            except ValueError:
-                return ""
+        def add_excluded_locations(self, file, locations):
+            if locations is not None:
+                if not isinstance(locations, list):
+                    locations = [ locations ]
+
+            if not file in self._excluded_locations.keys():
+                self._excluded_locations[file] = locations
+            else:
+                self._excluded_locations[file] += locations
+        #------------------------------------------------------------------------------------------
+
+        def get_frame(self):
+            stack = inspect.stack()
+            for index in range(7, len(stack)):
+                if stack[index].filename != __file__:
+                    if not stack[index].filename in self._excluded_locations.keys():
+                        return stack[index]
+                    else:
+                        locations = self._excluded_locations[stack[index].filename]
+                        if not locations and not stack[index].function.startswith("log_"):
+                            return stack[index]
+                        elif locations:
+                            if stack[index].function not in locations:
+                                return stack[index]
+            return None
         #------------------------------------------------------------------------------------------
 
         def filter(self, record):
-            frame           = inspect.stack()[7]
-            record.filename = self.get_relative_path(pathlib.Path(frame.filename))
-            record.lineno   = frame.lineno
+            frame           = self.get_frame()
 
-            return True
+            if frame:
+                record.filename = pathlib.Path(frame.filename)
+                record.lineno   = frame.lineno
+                record.funcName = frame.function
+
+                return True
+            return False
         #------------------------------------------------------------------------------------------
     #----------------------------------------------------------------------------------------------
 
@@ -46,18 +66,18 @@ class Logger:
         #------------------------------------------------------------------------------------------
 
         def format(self, record):
-            ruta = record.pathname
-            idx = ruta.find(self.subruta_clave)
+            ruta    = str(record.filename)
+            idx     = ruta.find(self.subruta_clave)
             if idx != -1:
-                record.pathname = ruta[idx:]
+                record.pathname = ruta[idx+len(self.subruta_clave)+1:]
             return super().format(record)
         #------------------------------------------------------------------------------------------
     #----------------------------------------------------------------------------------------------
 
     def __init__(self, enabled=True):
-        self._base_dir  = ""
         self._handlers  = [ logging.StreamHandler() ]   
         self._enabled   = enabled
+        self._filter    = self.CallerInfoFilter()
     #----------------------------------------------------------------------------------------------
 
     def setup(self, name: str, path: pathlib.Path, file_log_enabled=False, base_dir = "/"):
@@ -70,16 +90,20 @@ class Logger:
                 self._handlers.append(RotatingFileHandler(path/f"{name}.log",  maxBytes=10e6, backupCount=5))
 
             for h in self._handlers:
-                formatter = Logger.ShortPathFormatter(fmt="%(asctime)s - %(pathname)s:%(lineno)d %(message)s")
+                formatter = Logger.ShortPathFormatter(fmt="%(asctime)s - %(pathname)s:%(funcName)s:%(lineno)d %(message)s")
                 h.setFormatter(formatter)
                 self._logger.addHandler(h)
 
-            self._logger.addFilter(self.CallerInfoFilter(self._base_dir))
+            self._logger.addFilter(self._filter)
 
         return self
     #----------------------------------------------------------------------------------------------
 
     def remove_console_handler(self): self._logger.removeHandler(self._handlers[0])
+    #----------------------------------------------------------------------------------------------
+
+    def add_excluded_locations(self, file, locations):
+        self._filter.add_excluded_locations(file, locations)
     #----------------------------------------------------------------------------------------------
 
     def info(self, *args):

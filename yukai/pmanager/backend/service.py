@@ -64,23 +64,22 @@ class PretrainedManager:
             self._chat_explanation    = self._db_op.get_chat_explanation()
 
             if not self._summary_explanation:
-                self._summary_explanation, binary = self._model.embed_prompt_binary(SystemPromts.SUMMARY_EXPLANATION)
+                self._summary_explanation, binary = self._model.embed_gridfs_prompt(SystemPromts.SUMMARY_EXPLANATION)
                 self._db_op.set_summary_explanation(binary)
             
             if not self._summary_question:
-                self._summary_question, binary = self._model.embed_prompt_binary(SystemPromts.SUMMARY_QUESTION)
+                self._summary_question, binary = self._model.embed_gridfs_prompt(SystemPromts.SUMMARY_QUESTION)
                 self._db_op.set_summary_question(binary)
                 
             if not self._chat_explanation:
-                self._chat_explanation, binary = self._model.embed_prompt_binary(SystemPromts.CHAT_INFO_EXPLANATION)
+                self._chat_explanation, binary = self._model.embed_gridfs_prompt(SystemPromts.CHAT_INFO_EXPLANATION)
                 self._db_op.set_chat_explanation(binary)
     #----------------------------------------------------------------------------------------------
 
     def generate_embeddings_from_iadoc(self, doc_name, iadoc_dict):
         text = self._iacodec.encode(iadoc_dict, doc_name)
         if self._gpu_enabled:
-            tokens_list, binary = self._model.embed_prompt_binary(text)
-            return binary, len(tokens_list)
+            return self._model.embed_gridfs_prompt(text)
         
         tokenizer   = tiktoken.get_encoding("cl100k_base")
         num_tokens  = len(tokenizer.encode(text))
@@ -131,6 +130,8 @@ class BackendService:
         else:
             self._chat = HuggingFaceChatClient(os.getenv("hf_api_key"), "mistralai/Mistral-7B-Instruct-v0.3", env.log)
             #self._chat = OpenAiChatClient(os.getenv("oai_api_key"), "gpt-4o-mini", env.log)
+
+        self._env.log.add_excluded_locations(__file__, None)
     #----------------------------------------------------------------------------------------------
 
     def get_next_req_id(self):
@@ -226,7 +227,6 @@ class BackendService:
 
                             iadoc               = status.get()
                             iadoc_dict, iadoc   = BackendService.extract_dictionary(iadoc)
-                            self.log_info(iadoc_dict)
                             biadoc, btokens     = self._pretrained.generate_embeddings_from_iadoc(doc.name, iadoc_dict)
 
                             src_docs.append({   "filename":             doc.name,
