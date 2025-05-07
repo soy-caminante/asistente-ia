@@ -46,48 +46,6 @@ class DBOperator:
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
-class PretrainedManager:
-    def __init__(self,  db_operator: DBOperator, model_name: str, gpu_enabled: bool):
-        self._db_op                 = db_operator
-        self._model                 = ModelLoader(model_name) if gpu_enabled else None
-        self._summary_explanation   = None
-        self._summary_question      = None
-        self._chat_explanation      = None
-        self._gpu_enabled           = gpu_enabled
-        self._iacodec               = IACodec()
-    #----------------------------------------------------------------------------------------------
-
-    def load_pretrained(self):
-        if self._gpu_enabled:
-            self._summary_explanation = self._db_op.get_summary_explanation()
-            self._summary_question    = self._db_op.get_summary_question()
-            self._chat_explanation    = self._db_op.get_chat_explanation()
-
-            if not self._summary_explanation:
-                self._summary_explanation, binary = self._model.embed_gridfs_prompt(SystemPromts.SUMMARY_EXPLANATION)
-                self._db_op.set_summary_explanation(binary)
-            
-            if not self._summary_question:
-                self._summary_question, binary = self._model.embed_gridfs_prompt(SystemPromts.SUMMARY_QUESTION)
-                self._db_op.set_summary_question(binary)
-                
-            if not self._chat_explanation:
-                self._chat_explanation, binary = self._model.embed_gridfs_prompt(SystemPromts.CHAT_INFO_EXPLANATION)
-                self._db_op.set_chat_explanation(binary)
-    #----------------------------------------------------------------------------------------------
-
-    def generate_embeddings_from_iadoc(self, doc_name, iadoc_dict):
-        text = self._iacodec.encode(iadoc_dict, doc_name)
-        if self._gpu_enabled:
-            return self._model.embed_gridfs_prompt(text)
-        
-        tokenizer   = tiktoken.get_encoding("cl100k_base")
-        num_tokens  = len(tokenizer.encode(text))
-
-        return text.encode("utf-8"), num_tokens
-    #----------------------------------------------------------------------------------------------
-#--------------------------------------------------------------------------------------------------
-
 class BackendService:
     @staticmethod
     def extract_dictionary(text):
@@ -120,10 +78,10 @@ class BackendService:
                                                     env.db_port,
                                                     env.model_name if env.gpu else "no-gpu-db")
         self._db_operator   = DBOperator(self._clientes_db)
-        self._pretrained    = PretrainedManager(self._db_operator, env.model_name, env.gpu)
         self._incomming_db  = IncommingStorage(env.log, env.db_dir)
         self._overlay_ctrl  = overlay_ctrl
         self._req_id        = 0
+        self._client_id     = "pmanager"
 
         if env.gpu:
             self._chat = HttpChatClient(env.chat_endpoint, env.log)
@@ -166,13 +124,6 @@ class BackendService:
     def log_error_and_return(self, info): 
         self._env.log.error(info)
         return StatusInfo.error(info)
-    #----------------------------------------------------------------------------------------------
-
-    @try_catch(Environment.log_fcn, StatusInfo.error("Error al cargar los contextos preentrenados"))
-    def load_pretrained(self) -> StatusInfo[bool]:
-        with self._overlay_ctrl.wait("Cargando contextos preentrenados"):
-            self._pretrained.load_pretrained()
-            return StatusInfo.ok(True)
     #----------------------------------------------------------------------------------------------
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener los clientes"))
@@ -218,7 +169,7 @@ class BackendService:
                     if doc.is_plain_text:
                         self._overlay_ctrl.update(f"Cliente: {cliente.personal_info.id_interno}\nEstructurando el documento {doc.name}")
 
-                        status = self._chat.get_structured_document(self.get_next_req_id(), doc.content)
+                        status = self._chat.get_structured_document(self._client_id, self.get_next_req_id(), doc.content, doc.name)
 
                         if status:
                             #iadoc           = '```json\\n{\\n  "fecha": "3 de febrero de 2024",\\n  "motivo": "Revisión del tratamiento y evaluación de síntomas",\\n  "síntomas": "Mejoría en disnea, palpitaciones ocasionales, fatiga leve",\\n  "estado físico": {\\n    "presión arterial": "140/85 mmHg",\\n    "frecuencia cardíaca": "88 lpm",\\n    "peso": "83 kg",\\n    "IMC": "27.7"\\n  },\\n  "medicación": {\\n    "enalapril": "10 mg",\\n    "metoprolol": "50 mg"\\n  },\\n  "tratamiento": "Holter de 24 horas para evaluar palpitaciones",\\n  "recomendaciones": "Reforzar dieta y actividad física",\\n  "diagnósticos": "Mejora parcial en presión arterial y síntomas de disnea"\\n}\\n```'
@@ -258,7 +209,7 @@ class BackendService:
                 
                 if cliente_info is None:
                     self._overlay_ctrl.update(f"Cliente: {cliente.personal_info.id_interno}\nGenerando información predefinida")
-                    status = self._chat.get_summary(self.get_next_req_id(), iadocs)
+                    status = self._chat.get_summary(self._client_id, self.get_next_req_id(), iadocs)
                     
                     if status:
                         expediente: ExpedienteSummary = status.get()
@@ -294,7 +245,7 @@ class BackendService:
                                             "ts":           doc.ts,
                                             "tokens":       doc.tokens })
                     self._overlay_ctrl.update(f"Cliente: {cliente.personal_info.id_interno}\nGenerando información predefinida")
-                    status = self._chat.get_predefined_info(self.get_next_req_id(), aux_iadocs)
+                    status = self._chat.get_summary(self._client_id, self.get_next_req_id(), aux_iadocs)
 
                     if status:
                         expediente: ExpedienteSummary = status.get()
