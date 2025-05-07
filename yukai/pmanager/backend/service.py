@@ -10,7 +10,7 @@ from    database.incomming                  import  IncommingStorage, IncommingF
 from    difflib                             import  SequenceMatcher
 from    models.models                       import  *
 from    models.iacodec                      import  IACodec
-from    ia.client                           import  ModelLoader, SystemPromts, HttpChatClient, OpenAiChatClient, HuggingFaceChatClient
+from    ia.client                           import  ModelLoader, HttpChatClient, OpenAiChatClient, HuggingFaceChatClient, HttpStructuredDocument
 from    pmanager.backend.environment        import  Environment
 from    tools.tools                         import  StatusInfo, try_catch
 from    tools.viewtools                     import  OverlayCtrlWrapper
@@ -221,13 +221,12 @@ class BackendService:
                         status = self._chat.get_structured_document(self.get_next_req_id(), doc.content)
 
                         if status:
-                            self._overlay_ctrl.update(f"Cliente: {cliente.personal_info.id_interno}\nObteniendo embeddings de {doc.name}")
-
                             #iadoc           = '```json\\n{\\n  "fecha": "3 de febrero de 2024",\\n  "motivo": "Revisión del tratamiento y evaluación de síntomas",\\n  "síntomas": "Mejoría en disnea, palpitaciones ocasionales, fatiga leve",\\n  "estado físico": {\\n    "presión arterial": "140/85 mmHg",\\n    "frecuencia cardíaca": "88 lpm",\\n    "peso": "83 kg",\\n    "IMC": "27.7"\\n  },\\n  "medicación": {\\n    "enalapril": "10 mg",\\n    "metoprolol": "50 mg"\\n  },\\n  "tratamiento": "Holter de 24 horas para evaluar palpitaciones",\\n  "recomendaciones": "Reforzar dieta y actividad física",\\n  "diagnósticos": "Mejora parcial en presión arterial y síntomas de disnea"\\n}\\n```'
 
-                            iadoc               = status.get()
-                            iadoc_dict, iadoc   = BackendService.extract_dictionary(iadoc)
-                            biadoc, btokens     = self._pretrained.generate_embeddings_from_iadoc(doc.name, iadoc_dict)
+                            response: HttpStructuredDocument    = status.get()
+                            iadoc                               = response.iadoc
+                            biadoc                              = response.biadoc
+                            btokens                             = response.tokens
 
                             src_docs.append({   "filename":             doc.name,
                                                 "content":              doc.content.encode("utf-8"),
@@ -259,7 +258,7 @@ class BackendService:
                 
                 if cliente_info is None:
                     self._overlay_ctrl.update(f"Cliente: {cliente.personal_info.id_interno}\nGenerando información predefinida")
-                    status = self._chat.get_predefined_info(self.get_next_req_id(), iadocs)
+                    status = self._chat.get_summary(self.get_next_req_id(), iadocs)
                     
                     if status:
                         expediente: ExpedienteSummary = status.get()

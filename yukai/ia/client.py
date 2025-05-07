@@ -7,9 +7,11 @@ from    enum                                                    import  IntEnum
 from    huggingface_hub                                         import  InferenceClient
 from    huggingface_hub.inference._generated.types              import  ChatCompletionOutput
 from    ia.prompt                                               import  IndexerPrompt, DoctorPrompt
-from    iaserver.iaserver                                       import  SummaryEmbeddings, StructureEmbeddings, ChatEmbeddings
+from    iaserver.iaserver                                       import  IAInferenceServer, SummaryEmbeddings, StructureEmbeddings, ChatEmbeddings
 from    models.models                                           import  ExpedienteSummary, StructuredExpediente
+from    models.iacodec                                          import  IACodec
 from    openai                                                  import  OpenAI
+from    pydantic                                                import  BaseModel
 from    transformers                                            import  AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from    tools.tools                                             import  StatusInfo
 from    logger                                                  import  Logger
@@ -20,6 +22,21 @@ class Quatization(IntEnum):
     B4      = 0
     FP16    = 1
     FP32    = 2
+#--------------------------------------------------------------------------------------------------
+
+class HttpStructuredDocument(BaseModel):
+    iadoc:  str
+    tokens: int
+    biadoc: str
+
+    class Config:
+        extra="ignore"
+#--------------------------------------------------------------------------------------------------
+
+class HttpChatResponse(BaseModel):
+    response:  str
+    class Config:
+        extra="ignore"
 #--------------------------------------------------------------------------------------------------
 
 class ModelLoader:
@@ -129,9 +146,10 @@ class InferenceChatClient:
         self._client        = client
         self._model_name    = model_name
         self._log           = log
+        self._iacodec       = IACodec()
     #----------------------------------------------------------------------------------------------
 
-    def get_structured_document(self, request_id:str, document: str) -> StatusInfo[str]:
+    def get_structured_document(self, client: str, request_id:str, document: str, document_name: str) -> StatusInfo[HttpStructuredDocument]:
         messages     = \
         [
             {"role": "system", "content": f"{self.SUMMARY_EXPLANATION}: {document}"},
@@ -145,13 +163,24 @@ class InferenceChatClient:
                 messages    = messages, 
                 temperature = 0
             )
-            return StatusInfo.ok(completion.choices[0].message.content)
+
+            result_holder           = { }
+            iadoc                   = completion.choices[0].message.content
+            iadoc_dict, iadoc       = IAInferenceServer.extract_dictionary(iadoc)
+            text                    = self._iacodec.encode(iadoc_dict, document_name)
+            tokenizer               = tiktoken.get_encoding("cl100k_base")
+            btokens                 = len(tokenizer.encode(text))
+            result_holder["iadoc"]  = iadoc
+            result_holder["tokens"] = btokens
+            result_holder["biadoc"] = text.encode("utf-8")
+
+            return StatusInfo.ok(HttpStructuredDocument(**result_holder))
         except Exception as ex:
             self._log.exception(ex)
             return StatusInfo.error("Error al estructurar el expediente")
     #----------------------------------------------------------------------------------------------
 
-    def get_predefined_info(self, request_id:str, documents: list[str]) -> StatusInfo[ExpedienteSummary]:
+    def get_summary(self, client: str, request_id:str, documents: list[list]) -> StatusInfo[ExpedienteSummary]:
         riesgo          = [ None ]
         antecedentes    = [ None ]
         medicacion      = [ None ]
@@ -209,27 +238,39 @@ class InferenceChatClient:
                                                  visitas[0]))
     #----------------------------------------------------------------------------------------------
 
-    def chat(self, request_id: int, documents:list[str], question: str):
-        payload = \
-        {
-            "request_id":   request_id,
-            "op":           "predefined",
-            "documents":    documents,   
-            "question":     question
-        }
+    def chat(self, client: str, request_id: int, edad: int, sexo: str, documents:list[str], question: str) -> StatusInfo[HttpChatResponse]:
+        context = f"{edad}**{sexo}"
+
+        for d in documents: context += f"**{d}"
+        
+        messages     = \
+        [
+            {"role": "system", "content": f"{self.CHAT_EXPLANATION}: {context}"},
+            {"role": "user", "content": question}
+        ]
 
         try:
-            response = self._client.post(self._end_point, headers={"Content-Type": "application/json"}, json=payload, timeout=300)
-            
-            if response.status_code == 200:
-                data = response.json()
-                if "response" in data:
-                    return StatusInfo.ok(data["response"])
-                return StatusInfo.error(data.get("error", "Respuesta sin contenido"))
-            return StatusInfo.error(f"Error HTTP {response.status_code}")
+            completion: ChatCompletionOutput = self._client.chat.completions.create \
+            (
+                model       = self._model_name, 
+                messages    = messages, 
+                temperature = 0
+            )
+
+            result_holder           = { }
+            iadoc                   = completion.choices[0].message.content
+            iadoc_dict, iadoc       = IAInferenceServer.extract_dictionary(iadoc)
+            text                    = self._iacodec.encode(iadoc_dict, document_name)
+            tokenizer               = tiktoken.get_encoding("cl100k_base")
+            btokens                 = len(tokenizer.encode(text))
+            result_holder["iadoc"]  = iadoc
+            result_holder["tokens"] = btokens
+            result_holder["biadoc"] = text.encode("utf-8")
+
+            return StatusInfo.ok(HttpStructuredDocument(**result_holder))
         except Exception as ex:
             self._log.exception(ex)
-            return StatusInfo.error("Error al generar desde embeddings")
+            return StatusInfo.error("Error al estructurar el expediente")
     #----------------------------------------------------------------------------------------------
 
     def generate_from_embeddings(self, request_id: str, embeddings: list, max_tokens=128, temperature=0.7) -> StatusInfo[str]:
@@ -256,14 +297,18 @@ class HttpChatClient:
         self._log       = log
     #----------------------------------------------------------------------------------------------
 
-    def get_structured_document(self, client: str, request_id:str, document: str):
+    def get_structured_document(self, client: str, request_id:str, document: str, document_name: str) -> StatusInfo[HttpStructuredDocument]:
         payload = \
         {
             "client":       client,
             "request_id":   request_id,
             "op":           StructureEmbeddings.OP_NAME,
-            "documents":    [ document ],
-            "question":     None
+            "args":         \
+            {
+                "type":             StructureEmbeddings.OP_NAME,
+                "document":         document,
+                "document_name":    document_name
+            }
         }
 
         try:
@@ -271,38 +316,42 @@ class HttpChatClient:
             
             if response.status_code == 200:
                 data = response.json()
-                if "response" in data:
-                    return StatusInfo.ok(data["response"])
-                return StatusInfo.error(data.get("error", "Respuesta sin contenido"))
+                return StatusInfo.ok(HttpStructuredDocument(**data))
             return StatusInfo.error(f"Error HTTP {response.status_code}")
         except Exception as ex:
             self._log.exception(ex)
             return StatusInfo.error("Error al generar desde embeddings")
     #----------------------------------------------------------------------------------------------
 
-    def get_predefined_info(self, client: str, request_id:str, documents: list[list]) -> StatusInfo[ExpedienteSummary]:
+    def get_summary(self, client: str, request_id:str, documents: list[list]) -> StatusInfo[ExpedienteSummary]:
         payload = \
         {
             "client":       client,
             "request_id":   request_id,
             "op":           SummaryEmbeddings.OP_NAME,
-            "documents":    documents,
-            "question":     None   
+            "args":         \
+            {
+                "type":         SummaryEmbeddings.OP_NAME,
+                "documents":    documents,
+                "question":     None
+            }
         }
 
         try:
             map_info = { }
             
             for question in SummaryEmbeddings.QUESTIONS:
-                payload["question"] = question
+                payload["args"]["question"] = question
                 response = self._client.post(self._end_point, headers={"Content-Type": "application/json"}, json=payload, timeout=300)
                 
                 if response.status_code == 200:
                     data = response.json()
                     if "response" in data:
                         map_info[question] = data["response"]
-                    return StatusInfo.error(data.get("error", "Respuesta sin contenido"))
-                return StatusInfo.error(f"Error HTTP {response.status_code}")
+                    else:    
+                        return StatusInfo.error(data.get("error", "Respuesta sin contenido"))
+                else:
+                    return StatusInfo.error(f"Error HTTP {response.status_code}")
             return StatusInfo.ok(ExpedienteSummary( map_info[SummaryEmbeddings.ANTECEDENTES],
                                                     map_info[SummaryEmbeddings.RIESGO],
                                                     map_info[SummaryEmbeddings.MEDICACION],
@@ -314,14 +363,20 @@ class HttpChatClient:
             return StatusInfo.error("Error al generar desde embeddings")
     #----------------------------------------------------------------------------------------------
 
-    def chat(self, client: str, request_id: int, documents:list[list], question: str):
+    def chat(self, client: str, request_id: int, edad: int, sexo: str, documents:list[list], question: str) -> StatusInfo[HttpChatResponse]:
         payload = \
         {
             "client":       client,
             "request_id":   request_id,
             "op":           ChatEmbeddings.OP_NAME,
-            "question":     question,
-            "documents":    documents,
+            "args":         \
+            {
+                "type":         ChatEmbeddings.OP_NAME,
+                "documents":    documents,
+                "question":     question,
+                "edad":         edad,
+                "sexo":         sexo
+            }
         }
 
         try:
@@ -329,9 +384,7 @@ class HttpChatClient:
             
             if response.status_code == 200:
                 data = response.json()
-                if "response" in data:
-                    return StatusInfo.ok(data["response"])
-                return StatusInfo.error(data.get("error", "Respuesta sin contenido"))
+                return StatusInfo.ok(HttpChatResponse(**data))
             return StatusInfo.error(f"Error HTTP {response.status_code}")
         except Exception as ex:
             self._log.exception(ex)

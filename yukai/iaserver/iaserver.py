@@ -205,7 +205,7 @@ class ChatOp(BaseModel):
     type: Literal["chat"]
     documents: List[str]
     question: str
-    edad: str
+    edad: int
     sexo: str
 #--------------------------------------------------------------------------------------------------
 
@@ -213,12 +213,12 @@ ArgsUnion = Union[StructureOp, SummaryOp, ChatOp]
 #--------------------------------------------------------------------------------------------------
 
 class EmbeddingRequest(BaseModel):
-    client: str
-    request_id: str
-    op: Literal["structure", "summary", "chat"]
-    args: ArgsUnion
-    max_tokens: int = 2048
-    temperature: float = 0.3
+    client          : str
+    request_id      : str
+    op              : Literal["structure", "summary", "chat"]
+    args            : ArgsUnion
+    max_tokens      : int = 2048
+    temperature     : float = 0.3
 #--------------------------------------------------------------------------------------------------
 
 class IAInferenceServer:
