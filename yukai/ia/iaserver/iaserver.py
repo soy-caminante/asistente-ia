@@ -136,6 +136,7 @@ class StructureEmbeddings:
     def embed(self):
         self._explanation_embd   = self._model.embed_prompt_tensor(self._explanation_str)
         self._question_embd      = self._model.embed_prompt_tensor(self._question_str)
+        print(f"[embed] explanation: {self._explanation_embd.shape}, question: {self._question_embd.shape}")
     #----------------------------------------------------------------------------------------------
 
     def get_embeddings(self, document: str):
@@ -263,6 +264,7 @@ class IAInferenceServer:
                                                                 env.db_docker_file,
                                                                 env.db_port,
                                                                 env.db_name)
+        print("Embedding dim:", self.model_loader.model.get_input_embeddings().weight.shape[1])
         self._register_routes()
     #----------------------------------------------------------------------------------------------
 
@@ -361,21 +363,26 @@ class IAInferenceServer:
 
             def task():
                 def generate(embeddings):
+                    if not isinstance(embeddings, torch.Tensor):
+                        embeddings = torch.tensor(embeddings)
+                    embeds      = embeddings.to(self.model_loader.device)
+                    input_ids   = torch.full((1, 1), self.model_loader.tokenizer.pad_token_id).to(embeds.device)
 
-                        embeds  = torch.tensor(embeddings).unsqueeze(0).to(self.model_loader.model.device)
-                        outputs = self.model_loader.model.generate( inputs_embeds   = embeds,
-                                                                    max_new_tokens  = req.max_tokens,
-                                                                    temperature     = req.temperature,
-                                                                    do_sample       = True,
-                                                                    use_cache       = True)
-                        output_text = self.model_loader.tokenizer.decode(outputs[0], skip_special_tokens=True)
-                        return output_text
+                    outputs = self.model_loader.model.generate( inputs_embeds   = embeds,
+                                                                    input_ids      = input_ids,
+                                                                max_new_tokens  = req.max_tokens,
+                                                                temperature     = req.temperature,
+                                                                do_sample       = True,
+                                                                use_cache       = True)
+                    output_text = self.model_loader.tokenizer.decode(outputs[0], skip_special_tokens=True)
+                    return output_text
                 
                 start_time = time.time()
                 try:
                     if req.op == StructureEmbeddings.OP_NAME:
                         st_args: StructureOp    = req.args
-                        embeddings              = self._stucture_embeddings.get_embeddings(st_args.document)
+                        test="Who are you?"
+                        embeddings              = self._stucture_embeddings.get_embeddings(test)#st_args.document)
                         iadoc                   = generate(embeddings)
                         iadoc_dict, iadoc       = IAInferenceServer.extract_dictionary(iadoc)
                         text                    = self.iacodec.encode(iadoc_dict, st_args.document_name)
@@ -409,7 +416,7 @@ class IAInferenceServer:
             event.wait()
             return result_holder
         #------------------------------------------------------------------------------------------
-        
+
         @self.app.get("/ping")
         def ping():
             return {"status": "ok"}        

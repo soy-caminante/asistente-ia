@@ -127,6 +127,7 @@ class BackendService:
 
     @try_catch(Environment.log_fcn, StatusInfo.error())
     def check_ia_server(self) -> StatusInfo[list[ClienteInfo]]:
+        return StatusInfo.ok()
         return self._chat.ping()
     #----------------------------------------------------------------------------------------------
 

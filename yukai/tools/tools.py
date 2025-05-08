@@ -71,7 +71,7 @@ def get_elapsed_years(fecha_nacimiento):
 T = TypeVar('T')
 class StatusInfo(Generic[T]):
     @classmethod
-    def ok(cls, value: T=None):
+    def ok(cls, value: T=True):
         return cls(value)
     #----------------------------------------------------------------------------------------------
     @classmethod 

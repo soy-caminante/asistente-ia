@@ -19,6 +19,8 @@ class Environment(BaseModel):
     db_port             : int
     db_name             : str
     
+    _low_cpu_mem_usage  : bool
+    _ia_cache_dir       : pathlib.Path
     _db_docker_file     : pathlib.Path
     _log                : Logger = PrivateAttr(default=None)
     #----------------------------------------------------------------------------------------------
@@ -31,6 +33,14 @@ class Environment(BaseModel):
     def db_docker_file(self):  return self._db_docker_file
     #----------------------------------------------------------------------------------------------
 
+    @property
+    def ia_cache_dir(self):  return self._ia_cache_dir
+    #----------------------------------------------------------------------------------------------
+
+    @property
+    def low_cpu_mem_usage(self): return self._low_cpu_mem_usage
+    #----------------------------------------------------------------------------------------------
+
     class Config:
         extra = "ignore"
     #----------------------------------------------------------------------------------------------
@@ -40,7 +50,8 @@ class Environment(BaseModel):
         (self.runtime / "logs").mkdir(parents=True, exist_ok=True)
         self._log       = Logger().setup("iaserver", self.runtime / "logs", True)
 
-        self._db_docker_file = self.runtime / f"docker/docker-compose.yml"
+        self._db_docker_file    = self.runtime / f"docker/docker-compose.yml"
+        self._ia_cache_dir      = self.runtime / f"cache"
 
         if "4b" in self.quantization.lower() or "b4" in self.quantization.lower():
             self.quantization = Quatization.B4
@@ -53,11 +64,13 @@ class Environment(BaseModel):
         
         if self.test:
             self.quantization = Quatization.FP32
+            self._low_cpu_mem_usage = True
+        else:
+            self._low_cpu_mem_usage = False
 
         if isinstance(self.test, str):
             self.test = self.test.lower() == "on" or self.test.lower() == "true" or self.test.lower() == "enabled"
 
         return self
     #----------------------------------------------------------------------------------------------
-
 #--------------------------------------------------------------------------------------------------

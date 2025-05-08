@@ -220,14 +220,15 @@ class HuggingFaceChatClient(InferenceChatClient):
 
 class HttpChatClient:
     def __init__(self, end_point: str, log: Logger):
-        self._end_point = f"{end_point}/generate"
-        self._client    = httpx.Client()
-        self._log       = log
+        self._generate_end_point    = f"{end_point}/generate"
+        self._ping_end_point        = f"{end_point}/ping"
+        self._client                = httpx.Client()
+        self._log                   = log
     #----------------------------------------------------------------------------------------------
 
     def ping(self) -> StatusInfo[bool]:
         try:
-            httpx.get(self._end_point)
+            httpx.get(self._ping_end_point)
             return StatusInfo.ok()
         except Exception as ex:
             return StatusInfo.error()
@@ -248,11 +249,16 @@ class HttpChatClient:
         }
 
         try:
-            response = self._client.post(self._end_point, headers={"Content-Type": "application/json"}, json=payload, timeout=300)
+            response = self._client.post(self._generate_end_point, headers={"Content-Type": "application/json"}, json=payload, timeout=300)
             
             if response.status_code == 200:
                 data = response.json()
-                return StatusInfo.ok(HttpStructuredDocument(**data))
+
+                if not "error" in data.keys():
+                    return StatusInfo.ok(HttpStructuredDocument(**data))
+                else:
+                    self._log.error(f"Error en el servidor de IA: {data["error"]}")
+                    return StatusInfo.error("Error en el servidor de IA")
             return StatusInfo.error(f"Error HTTP {response.status_code}")
         except httpx.ConnectError as ex:
             self._log.error(f"Conneción rechazada {ex}")
@@ -281,7 +287,7 @@ class HttpChatClient:
             
             for question in SummaryEmbeddings.QUESTIONS:
                 payload["args"]["question"] = question
-                response = self._client.post(self._end_point, headers={"Content-Type": "application/json"}, json=payload, timeout=300)
+                response = self._client.post(self._generate_end_point, headers={"Content-Type": "application/json"}, json=payload, timeout=300)
                 
                 if response.status_code == 200:
                     data = response.json()
@@ -319,7 +325,7 @@ class HttpChatClient:
         }
 
         try:
-            response = self._client.post(self._end_point, headers={"Content-Type": "application/json"}, json=payload, timeout=300)
+            response = self._client.post(self._generate_end_point, headers={"Content-Type": "application/json"}, json=payload, timeout=300)
             
             if response.status_code == 200:
                 data = response.json()

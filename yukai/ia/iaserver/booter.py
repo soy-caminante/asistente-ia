@@ -65,7 +65,10 @@ class Booter:
         self._env.log.info("YUKAI: Servidor de inferencia")
         self._env.log.info(sys.argv)
         try:
-            model_loader        = ModelLoader(self._env.model_name, quantization=self._env.quantization)
+            model_loader        = ModelLoader(self._env.model_name, 
+                                              self._env.quantization, 
+                                              self._env.ia_cache_dir,
+                                              self._env.low_cpu_mem_usage)
             inference_server    = IAInferenceServer(model_loader, self._env)
             app                 = inference_server.app
             uvicorn.run(app, host="0.0.0.0", port=self._env.web_port)
