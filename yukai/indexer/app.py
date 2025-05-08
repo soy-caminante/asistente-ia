@@ -5,8 +5,7 @@ import  pathlib
 import  re
 
 from    database.context                import  *
-from    ia.client                       import  *
-from    ia.prompt                       import  *
+from    ia.iaclient.client              import  *
 from    indexer.environment             import  Environment
 from    indexer.gptstress               import  run_stress_test
 from    indexer.search_engine           import  *

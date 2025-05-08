@@ -80,9 +80,8 @@ class Logger:
         self._filter    = self.CallerInfoFilter()
     #----------------------------------------------------------------------------------------------
 
-    def setup(self, name: str, path: pathlib.Path, file_log_enabled=False, base_dir = "/"):
+    def setup(self, name: str, path: pathlib.Path, file_log_enabled=False):
         if self._enabled:
-            self._base_dir  = base_dir
             self._logger    = logging.getLogger(name)
             self._logger.setLevel(logging.INFO)
             

@@ -1,7 +1,9 @@
+from    __future__              import  annotations
 import  pathlib
 
 from    dataclasses             import  dataclass
 from    logger                  import  Logger
+from    pydantic                import  BaseModel, model_validator
 from    typing                  import  Callable, ClassVar
 #--------------------------------------------------------------------------------------------------
 
@@ -13,34 +15,64 @@ def dummy_fcn(*args):
     LogFwd.fwd_fcn(*args)
 #--------------------------------------------------------------------------------------------------
 
-@dataclass
-class Environment:
-    log_fcn:                    ClassVar[Callable[..., None]] = dummy_fcn
-    log:                        Logger
+class Environment(BaseModel):
     runtime:                    pathlib.Path
     model_name:                 str
     chat_endpoint:              str
-    db_port:                    str
-    gpu:                        bool
-    db_dir:                     pathlib.Path = None
-    db_docker_file:             pathlib.Path = None
+    db_port:                    int
+    db_name:                    str
+    iaserver:                   str
+
+    _session_id:                str = ""
+    _db_dir:                    pathlib.Path = None
+    _db_docker_file:            pathlib.Path = None
+    _log_fcn:                   ClassVar[Callable[..., None]] = dummy_fcn
+    _log:                       Logger = None
     #----------------------------------------------------------------------------------------------
 
-    def __post_init__(self):
-        LogFwd.fwd_fcn = self.log.exception
-        self.db_dir   = self.runtime / "clients"
-        self.db_docker_file = self.runtime / f"docker/docker-compose.yml"
-        self.db_dir.mkdir(parents=True, exist_ok=True)
+    @property
+    def session_id(self): return self._session_id
+    #----------------------------------------------------------------------------------------------
 
-        if "llama" in self.model_name.lower():
-            if "8b" in self.model_name.lower():
-                self.model_name ="meta-llama/Llama-3.1-8B-Instruct"
-            elif "3b" in self.model_name.lower():
-                self.model_name ="meta-llama/Meta-Llama-3.2-3B-Instruct"
-        elif "mistral" in self.model_name.lower():
-            self.model_name = "mistralai/Mistral-7B-Instruct-v0.3"
-        else:
-            self.log.error("Modelo de IA desconocido")
-            raise Exception("Model de IA desconocido")
+    @property
+    def log(self):  return self._log
+    #----------------------------------------------------------------------------------------------
+
+    @property
+    def log_fcn(self):  return self._log_fcn
+    #----------------------------------------------------------------------------------------------
+
+    @property
+    def db_dir(self):  return self._db_dir
+    #----------------------------------------------------------------------------------------------
+
+    @property
+    def db_docker_file(self):  return self._db_docker_file
+    #----------------------------------------------------------------------------------------------
+
+    def set_session_id(self, id):
+        self._session_id = f"cmanager-{id}"
+    #----------------------------------------------------------------------------------------------
+
+    def set_log(self, log: Logger):
+        (self.runtime / "logs").mkdir(parents=True, exist_ok=True)
+        self._log       = log
+        LogFwd.fwd_fcn  = self._log.exception
+    #----------------------------------------------------------------------------------------------
+
+    class Config:
+        extra = "ignore"
+    #----------------------------------------------------------------------------------------------
+
+    @model_validator(mode="after")
+    def post_init(self) -> Environment:
+        self._db_dir         = self.runtime / "clients"
+        self._db_docker_file = self.runtime / f"docker/docker-compose.yml"
+        self._db_dir.mkdir(parents=True, exist_ok=True)
+
+        if self.iaserver not in [ "openai", "huggingface", "yukai" ]:
+            raise Exception(f"Servidor de IA desconocido {self.iaserver}")
+
+        return self
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------

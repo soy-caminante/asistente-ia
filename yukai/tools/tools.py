@@ -88,6 +88,10 @@ class StatusInfo(Generic[T]):
         return self._value is not None
     #----------------------------------------------------------------------------------------------
     
+    def __str__(self):
+        return self._info
+    #----------------------------------------------------------------------------------------------
+
     def set_ok(self, value:T, info=None):
         self._value = value
         self._info  = info
@@ -227,7 +231,7 @@ def timestamp_str_to_datetime(ref):
         return None
 #--------------------------------------------------------------------------------------------------
 
-def load_configuration_file(file: pathlib.Path, target_class):
+def load_configuration_file(file: pathlib.Path, target_class, extra_keys={}):
     def normailize(d):
         if isinstance(d, dict):
             return {k.replace("-", "_"): normailize(v) for k, v in d.items()}
@@ -238,6 +242,8 @@ def load_configuration_file(file: pathlib.Path, target_class):
 
     with open(file, "r", encoding="utf-8") as f:
         json_dict = normailize(json.load(f))
+        for k,v in extra_keys.items():
+            json_dict[k] = v
         return target_class(**json_dict)
 #--------------------------------------------------------------------------------------------------
 

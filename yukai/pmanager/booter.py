@@ -6,10 +6,11 @@ from    dataclasses                     import  dataclass
 from    logger                          import  Logger
 from    pmanager.view.app               import  App
 from    pmanager.view.environment       import  Environment         as AppEnvironment
+from    pmanager.backend.environment    import  Environment         as BackendEnvironment
 from    pmanager.view.filedialog        import  set_filesaver_mngr
 from    pmanager.view.snackbar          import  set_snackbar_mngr
 from    tools.factories                 import  *
-from    tools.tools                     import  get_assets_dir_path
+from    tools.tools                     import  load_configuration_file
 from    tools.viewtools                 import  Factories, ColorPalette
 #--------------------------------------------------------------------------------------------------
 
@@ -26,123 +27,86 @@ class Args:
     gpu:            bool
 #--------------------------------------------------------------------------------------------------
 
-def load_args() -> Args:
+def load_args(target_class) -> AppEnvironment | BackendEnvironment:
     parser = argparse.ArgumentParser(description="YUKAI: Herramienta de gestión de clientes")
     parser.add_argument('--system',         help        = 'Sistema',    
                                             required    = True)
-    parser.add_argument('--runtime',        help        = 'Directorio de ejecución')
-    parser.add_argument('--assets',         help        = 'Directorio de recursos para la web')
-    parser.add_argument('--mode',           help        = 'GUI', 
-                                            choices     = [ 'web', 'console' ],    
+    parser.add_argument('--runtime',        help        = 'Directorio de ejecución',
                                             required    = True)
+    parser.add_argument('--assets',         help        = 'Directorio de recursos para la web')
+    parser.add_argument('--gui',            help        = 'GUI', 
+                                            choices     = [ 'web', 'console' ],    
+                                            required    = False)
     parser.add_argument('--web-port',       help        = 'Pueto web', 
                                             type        = int,
-                                            default     = 8081,
                                             required    = False)
-    parser.add_argument('--model',          help        = 'Model de IA', 
+    parser.add_argument('--model-name',     help        = 'Model de IA', 
                                             type        = str,
-                                            required    = True)
+                                            required    = False)
     parser.add_argument('--chat-endpoint',  help        = 'Localización del chat', 
                                             type        = str,
-                                            default     = "http://localhost:8081",
-                                            required    = True)
+                                            required    = False)
     parser.add_argument('--db-port',        help        = 'Localización de la base de datos', 
                                             type        = str,
-                                            default     = "27017",
                                             required    = False)
     parser.add_argument('--gpu',            help        = 'Modo de desarrollo', 
                                             type        = str,
-                                            default     = "on",
-                                            choices     = [ "on", "off" ],
                                             required    = False)
-
+    parser.add_argument('--db-name',        help        = 'Nombre de la base de datos', 
+                                            type        = str,
+                                            required    = False)
+    parser.add_argument('--ia-server',      help        = 'Servidor de IA', 
+                                            type        = str,
+                                            choices     = [ "huggingface", "openai", "yukai" ],
+                                            required    = False)
+    
     args            = parser.parse_known_args()
     pargs           = vars(args[0])
-    mode            = pargs["mode"]
-    port            = pargs["web_port"]
-    model           = pargs["model"]
-    chat_endpoint   = pargs["chat_endpoint"]
-    db_port         = pargs["db_port"]
-    gpu             = pargs["gpu"]
+    runtime         = pathlib.Path(pargs["runtime"])
+    
+    extra_args      = { "runtime": runtime.parent.parent }
+    for action in parser._actions:
+        if not action.required:
+            if pargs.get(action.dest, None) is not None:
+                extra_args[action.dest] = pargs[action.dest]
 
-    if "assets" in pargs.keys() and "runtime" in pargs.keys():
-        runtime = pathlib.Path(pargs["runtime"])
-        assets  = pargs["assets"]
-
-        if not assets:
-            target_path = (pathlib.Path(__file__).parent / "../webapp/static").resolve()
-            cwd         = pathlib.Path.cwd()
-
-            if target_path.is_relative_to(cwd):
-                assets = str(target_path.relative_to(cwd))
-            elif cwd.is_relative_to(target_path):
-                assets = str(cwd.relative_to(target_path))
-            assets = get_assets_dir_path(assets, True)
-    elif "assets" in pargs.keys():
-        assets  = pargs["assets"]
-        runtime = (pathlib.Path(__file__).parent / "../runtime").resolve()
-    elif "runtime" in pargs.keys():
-        runtime     = pathlib.Path(pargs["runtime"])
-        target_path = (pathlib.Path(__file__).parent / "../webapp/static").resolve()
-        cwd         = pathlib.Path.cwd()
-
-        if target_path.is_relative_to(cwd):
-            assets = str(target_path.relative_to(cwd))
-        elif cwd.is_relative_to(target_path):
-            assets = str(cwd.relative_to(target_path))
-        else:
-            assets = None
-        assets = get_assets_dir_path(assets, True)
-    else:
-        runtime = (pathlib.Path(__file__).parent / "../runtime").resolve()
-        assets  = str(pargs["assets"] / "assets")
-
-    (runtime / "logs").mkdir(parents=True, exist_ok=True)
-
-    return Args(mode, 
-                runtime, 
-                assets, 
-                Logger().setup("pmanager", runtime / "logs", True), 
-                port,
-                model,
-                chat_endpoint,
-                db_port,
-                gpu=="on")
+    env = load_configuration_file(runtime, target_class, extra_args)
+    
+    return env
 #--------------------------------------------------------------------------------------------------
 
 class Booter:
     def __init__(self):
-        self._args = load_args()
+        self._app_env = load_args(AppEnvironment)
     #----------------------------------------------------------------------------------------------
     
     def run(self):
-        self._args.log.info("YUKAI pmanager running")
-        self._args.log.info("assets: ", self._args.assets_dir)
+        self._app_env.log.info("YUKAI pmanager running")
+        self._app_env.log.info("assets: ", self._app_env.assets)
         
-        if self._args.mode == "console":    
+        if self._app_env.gui == "console":    
             ft.app( target      = self.run_app, 
-                    assets_dir  = self._args.assets_dir)
+                    assets_dir  = str(self._app_env.assets))
         else:
             ft.app( target      = self.run_app, 
-                    assets_dir  = str(self._args.assets_dir), 
+                    assets_dir  = str(self._app_env.assets), 
                     view        = ft.WEB_BROWSER, 
-                    port        = self._args.web_port)
+                    port        = self._app_env.web_port)
     #----------------------------------------------------------------------------------------------
 
     def run_app(self, page: ft.Page):
         set_snackbar_mngr(page)
         set_filesaver_mngr(page)
 
+        back_env = load_args(BackendEnvironment)
+        back_env.set_log(self._app_env.log)
+        back_env.set_session_id(page.session_id)
+
         Factories.setup(TextFactory("#54BAAD"), 
                         IconButtonFactory("#54BAAD"),
                         LogoFactory(),
                         ColorPalette("#54BAAD"))
 
-        App(page, AppEnvironment(   self._args.log, 
-                                    self._args.runtime, 
-                                    self._args.model,
-                                    self._args.chat_endpoint,
-                                    self._args.db_port,
-                                    self._args.gpu))
+        App(page, self._app_env, back_env)
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------

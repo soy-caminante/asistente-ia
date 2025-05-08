@@ -2,6 +2,7 @@ from    __future__                  import  annotations
 
 import  base64
 import  flet                        as      ft
+import  threading
 import  unicodedata
 
 from    dataclasses                 import  dataclass
@@ -105,7 +106,8 @@ class DocumentViewer(ft.Container, Factories):
                 ft.Container(ft.Text(src_text, selectable=True, overflow="auto", expand=True), padding=ft.padding.only(left=15, right=15))
             ],
             alignment   = ft.MainAxisAlignment.START,
-            expand      = True
+            expand      = True,
+            scroll      = ft.ScrollMode.AUTO
         )
         control_iadoc     = ft.Column \
         (
@@ -206,14 +208,22 @@ class DocumentViewer(ft.Container, Factories):
         (
             [
                 ft.Card(ft.Container(first_row, padding=10)),
-                ft.Container(self._documento, padding=ft.padding.only(left=15, right=15)),
-                ft.Container(self._fecha, padding=ft.padding.only(left=15, right=15)),
-                ft.Container(self._doc_len, padding=ft.padding.only(left=15, right=15)),
-                ft.Container(self._tokens, padding=ft.padding.only(left=15, right=15)),
-                ft.Divider(),
-                ft.Container(self._cliente, padding=ft.padding.only(left=15, right=15)),
-                ft.Container(self._dni, padding=ft.padding.only(left=15, right=15)),
-                ft.Container(self._edad, padding=ft.padding.only(left=15, right=15))
+                ft.Column \
+                (
+                    [
+                        ft.Container(self._documento, padding=ft.padding.only(left=15, right=15)),
+                        ft.Container(self._fecha, padding=ft.padding.only(left=15, right=15)),
+                        ft.Container(self._doc_len, padding=ft.padding.only(left=15, right=15)),
+                        ft.Container(self._tokens, padding=ft.padding.only(left=15, right=15)),
+                        ft.Divider(),
+                        ft.Container(self._cliente, padding=ft.padding.only(left=15, right=15)),
+                        ft.Container(self._dni, padding=ft.padding.only(left=15, right=15)),
+                        ft.Container(self._edad, padding=ft.padding.only(left=15, right=15))
+                    ],
+                    expand      = True,
+                    alignment   = ft.MainAxisAlignment.START,
+                    scroll      = ft.ScrollMode.AUTO
+                )
             ],
             expand      = True,
             alignment   = ft.MainAxisAlignment.START,
@@ -574,10 +584,18 @@ class ExpedienteViewer(ft.Container, Factories):
         (
             [
                 ft.Card(ft.Container(first_row, padding=10)),
-                ft.Container(self._cliente, padding=ft.padding.only(left=15, right=15)),
-                ft.Container(self._dni, padding=ft.padding.only(left=15, right=15)),
-                ft.Container(self._edad, padding=ft.padding.only(left=15, right=15)),
-                ft.Container(self._tokens, padding=ft.padding.only(left=15, right=15))
+                ft.Column \
+                (
+                    [
+                        ft.Container(self._cliente, padding=ft.padding.only(left=15, right=15)),
+                        ft.Container(self._dni, padding=ft.padding.only(left=15, right=15)),
+                        ft.Container(self._edad, padding=ft.padding.only(left=15, right=15)),
+                        ft.Container(self._tokens, padding=ft.padding.only(left=15, right=15))
+                    ],
+                    expand      = True,
+                    alignment   = ft.MainAxisAlignment.START,
+                    scroll      = ft.ScrollMode.AUTO
+                )
             ],
             expand      = 1,
             alignment   = ft.MainAxisAlignment.START,
@@ -898,8 +916,9 @@ class ClienteList(ft.Container, Factories):
                 ft.Container(self._list_ctrl),
                 ft.Container(expand=True)
             ],
-            expand         = True,
-            alignment      = ft.MainAxisAlignment.START
+            expand          = True,
+            alignment       = ft.MainAxisAlignment.START,
+            scroll          = ft.ScrollMode.AUTO
         )
 
         self.content    = column
@@ -945,7 +964,7 @@ class MainPanel(ft.Container, Factories):
         if status:
             self._src_list.set_values(status.get())
         else:
-            show_snackbar_error("Error en la recarga de los clientes")
+            show_snackbar_error(str(status))
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
@@ -954,7 +973,7 @@ class MainPanel(ft.Container, Factories):
         if status:
             self._con_list.set_values(status.get())
         else:
-            show_snackbar_error("Error en la recarga de los clientes")
+            show_snackbar_error(str(status))
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
@@ -966,7 +985,7 @@ class MainPanel(ft.Container, Factories):
             self.reload_src_clientes()
             show_snackbar("Consolidación finalizada")
         else:
-            show_snackbar_error("Error en la consolidación de los clientes")
+            show_snackbar_error(str(status))
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
@@ -987,7 +1006,7 @@ class MainPanel(ft.Container, Factories):
             if status:
                 self._src_list.set_values(status.get())
             else:
-                show_snackbar_error("Error en el borrado de los clientes")
+                show_snackbar_error(str(status))
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
@@ -998,7 +1017,7 @@ class MainPanel(ft.Container, Factories):
             if status:
                 self._con_list.set_values(status.get())
             else:
-                show_snackbar_error("Error en el borrado de los clientes")
+                show_snackbar_error(str(status))
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
@@ -1011,7 +1030,7 @@ class MainPanel(ft.Container, Factories):
             self._expediente_viewer.populate(status.get())
             self.update()
         else:
-            show_snackbar_error("Error al leer el expediente del clientes")
+            show_snackbar_error(str(status))
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
@@ -1024,7 +1043,7 @@ class MainPanel(ft.Container, Factories):
             self._expediente_viewer.populate(status.get())
             self.update()
         else:
-            show_snackbar_error("Error al leer el expediente del cliente")
+            show_snackbar_error(str(status))
     #----------------------------------------------------------------------------------------------
 
     def come_back(self):
@@ -1042,16 +1061,17 @@ class MainPanel(ft.Container, Factories):
         self.update()
 
         if not status:
-            show_snackbar_error("Error al cargar los clientes")        
+            show_snackbar_error(str(status))    
     #----------------------------------------------------------------------------------------------
 
     @void_try_catch(Environment.log_fcn)
     def build_ui(self):
         self._main_layout   = ft.Row \
         (
-            controls    = [ self._con_list, ft.VerticalDivider(), self._src_list ],
-            alignment   = ft.MainAxisAlignment.CENTER,
-            expand      = True
+            controls            = [ self._con_list, ft.VerticalDivider(), self._src_list ],
+            alignment           = ft.MainAxisAlignment.CENTER,
+            vertical_alignment  = ft.CrossAxisAlignment.START,
+            expand              = True
         )
 
         self._expediente_viewer = ExpedienteViewer(self._backend, self.come_back)
@@ -1073,15 +1093,32 @@ class MainPanel(ft.Container, Factories):
 class LandingView(ft.View, Factories):
     def __init__(self, page: ft.Page, route: str, env:Environment, overlay_ctrl: OverlayCtrl, backend:BackendService):
         super().__init__(route=route)
-        self.page           = page
-        self._env           = env
-        self._backend       = backend
-        self._overlay_ctrl  = overlay_ctrl
+        self.page               = page
+        self._env               = env
+        self._backend           = backend
+        self._overlay_ctrl      = overlay_ctrl
+        self._service_thread    = threading.Thread(target=self.service_task, daemon=True)
         self.build_ui()
+        self._service_thread.start()
     #----------------------------------------------------------------------------------------------
 
     @property
     def overlay_ctrl(self): return self._overlay_ctrl
+    #----------------------------------------------------------------------------------------------
+
+    def service_task(self):
+        while True:
+            try:
+                if self._backend.check_ia_server():
+                    new_color = ft.Colors.GREEN
+                else:
+                    new_color = ft.Colors.RED
+                if self._ia_server_status.bgcolor != new_color:
+                    self._ia_server_status.bgcolor = new_color
+                    self.update()
+            except:
+                pass
+            time.sleep(1)
     #----------------------------------------------------------------------------------------------
 
     def populate(self, scr_list: list[IncommingCliente], con_list: list[ClienteInfo]):
@@ -1089,10 +1126,6 @@ class LandingView(ft.View, Factories):
         self.update()
     #----------------------------------------------------------------------------------------------
     
-    def callback(self, fcn, *args):
-        pass
-    #----------------------------------------------------------------------------------------------
-
     def build_ui(self):
         logo_container          = self.lf.buil_logo(self.page, "/imgs/logo.png")
         self._main_panel        = MainPanel(self._overlay_ctrl, self._backend)
@@ -1114,13 +1147,37 @@ class LandingView(ft.View, Factories):
             padding         = 10
         )
 
+        self._ia_server_status = ft.Container \
+        (
+            width           =20,
+            height          =20,
+            bgcolor         =ft.colors.GREEN,
+            border_radius   =10  # Hace el contenedor circular
+        )
+
+        foot_row = ft.Container \
+        (
+            ft.Row \
+            (
+                [
+                    ft.Container(expand=True),
+                    self._ia_server_status,
+
+                ],
+                expand      = True,
+                alignment   = ft.MainAxisAlignment.START
+            ),
+            border          = ft.border.only(top=ft.BorderSide(2, self.cp.grey)),  
+            padding         = 10
+        )
 
         self._main_layout = ft.Column \
         (
             controls= \
             [
                 header_row,  # Fila con Datos del Cliente + Logo
-                self._main_panel
+                self._main_panel,
+                foot_row
             ],
             expand=True,
             alignment=ft.MainAxisAlignment.START

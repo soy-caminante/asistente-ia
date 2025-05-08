@@ -10,18 +10,12 @@ from    tools.viewtools                 import  OverlayCtrl, OverlayCtrlWrapper
 #--------------------------------------------------------------------------------------------------
 
 class App:
-    def __init__(self, page: ft.Page, env: Environment):
+    def __init__(self, page: ft.Page, env: Environment, benv: BackEnvironment):
         self._env       = env
         self._page      = page
         self._overlay   = OverlayCtrl()
         self._ov_wrap   = OverlayCtrlWrapper(self._overlay)
-        self._backend   = BackendService(   BackEnvironment(env.log, 
-                                                            env.runtime, 
-                                                            env.model,
-                                                            env.chat_endpoint,
-                                                            env.db_port, 
-                                                            env.gpu), 
-                                            self._ov_wrap)
+        self._backend   = BackendService(benv, self._ov_wrap)
         self._view      = LandingView(page, "/", env, self._overlay, self._backend)
 
         self.build_ui(page)
@@ -46,14 +40,11 @@ class App:
     def load_initial_data(self):
         con_list            = self._backend.load_all_consolidated_clientes()
         src_list            = self._backend.load_all_src_clientes()
-        pretrained_status   = self._backend.load_pretrained()
         
         if not con_list:
             self._env.log.error("No se ha podido cargar la lista de pacientes consolidados")
         if not src_list:
             self._env.log.error("No se ha podido cargar la lista de pacientes por consolidar")
-        if not pretrained_status:
-            self._env.log.error("No se han podido generar los contextos preentrenados")
 
         if not con_list or not src_list:
             status = self._backend.check_db()

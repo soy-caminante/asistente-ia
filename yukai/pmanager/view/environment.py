@@ -1,8 +1,9 @@
+from    __future__              import  annotations
 import  pathlib
 
-from    dataclasses             import  dataclass
 from    logger                  import  Logger
-from    typing                  import  Callable, ClassVar
+from    pydantic                import  BaseModel, model_validator
+from    typing                  import  Callable, ClassVar, Optional
 #--------------------------------------------------------------------------------------------------
 
 class LogFwd:
@@ -13,18 +14,43 @@ def dummy_fcn(*args):
     LogFwd.fwd_fcn(*args)
 #--------------------------------------------------------------------------------------------------
 
-@dataclass
-class Environment:
-    log_fcn:                    ClassVar[Callable[..., None]] = dummy_fcn
-    log:                        Logger
-    runtime:                    pathlib.Path
-    model:                      str
-    chat_endpoint:              str
-    db_port:                    str
-    gpu:                        bool
+class Environment(BaseModel):
+    runtime:                pathlib.Path
+    assets:                 Optional[pathlib.Path|str] = None
+    model_name:             str
+    chat_endpoint:          str
+    db_port:                int
+    web_port:               int
+    gui:                    str
+    
+    _log_fcn:               ClassVar[Callable[..., None]] = dummy_fcn
+    _log:                   Logger
     #----------------------------------------------------------------------------------------------
 
-    def __post_init__(self):
-        LogFwd.fwd_fcn = self.log.exception
+    @property
+    def log(self):  return self._log
+    #----------------------------------------------------------------------------------------------
+
+    @property
+    def log_fcn(self): return self._log_fcn
+    #----------------------------------------------------------------------------------------------
+
+    class Config:
+        extra = "ignore"
+    #----------------------------------------------------------------------------------------------
+
+    @model_validator(mode="after")
+    def post_init(self) -> Environment:
+        (self.runtime / "logs").mkdir(parents=True, exist_ok=True)
+        self._log       = Logger().setup("pmanager", self.runtime / "logs", True)
+        LogFwd.fwd_fcn  = self._log.exception
+        
+        if self.assets is None:
+            self.assets = self.runtime / "assets/static"
+        else:
+            self.assets = pathlib.Path(self.assets)
+            if not self.assets.is_absolute():
+                self.assets = self.runtime / self.assets
+        return self
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------

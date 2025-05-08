@@ -2,17 +2,15 @@ import  json
 import  pathlib
 import  re
 import  shutil
-import  tiktoken
 
-from    database.context                    import  ClienteInfo, ExpedienteFileInfo
+from    database.context                    import  ClienteInfo
 from    database.database                   import  ClientesDocumentStore
-from    database.incomming                  import  IncommingStorage, IncommingFileInfo, IncommingCliente
+from    database.incomming                  import  IncommingStorage, IncommingCliente
 from    difflib                             import  SequenceMatcher
 from    models.models                       import  *
-from    models.iacodec                      import  IACodec
-from    ia.client                           import  ModelLoader, HttpChatClient, OpenAiChatClient, HuggingFaceChatClient, HttpStructuredDocument
+from    ia.iaclient.client                  import  HttpChatClient, HuggingFaceChatClient, OpenAiChatClient, HttpStructuredDocument
 from    pmanager.backend.environment        import  Environment
-from    tools.tools                         import  StatusInfo, try_catch
+from    tools.tools                         import  StatusInfo, try_catch, void_try_catch
 from    tools.viewtools                     import  OverlayCtrlWrapper
 #--------------------------------------------------------------------------------------------------
 
@@ -76,19 +74,20 @@ class BackendService:
         self._clientes_db   = ClientesDocumentStore(env.log, 
                                                     env.db_docker_file,
                                                     env.db_port,
-                                                    env.model_name if env.gpu else "no-gpu-db")
+                                                    env.db_name)
         self._db_operator   = DBOperator(self._clientes_db)
         self._incomming_db  = IncommingStorage(env.log, env.db_dir)
         self._overlay_ctrl  = overlay_ctrl
         self._req_id        = 0
         self._client_id     = "pmanager"
 
-        if env.gpu:
-            self._chat = HttpChatClient(env.chat_endpoint, env.log)
-        else:
+        if env.iaserver == "openai":
+            self._chat = OpenAiChatClient(os.getenv("oai_api_key"), "gpt-4o-mini", env.log)
+        elif env.iaserver == "huggingface":
             self._chat = HuggingFaceChatClient(os.getenv("hf_api_key"), "mistralai/Mistral-7B-Instruct-v0.3", env.log)
-            #self._chat = OpenAiChatClient(os.getenv("oai_api_key"), "gpt-4o-mini", env.log)
-
+        else:
+            self._chat = HttpChatClient(env.chat_endpoint, env.log)
+            
         self._env.log.add_excluded_locations(__file__, None)
     #----------------------------------------------------------------------------------------------
 
@@ -124,6 +123,11 @@ class BackendService:
     def log_error_and_return(self, info): 
         self._env.log.error(info)
         return StatusInfo.error(info)
+    #----------------------------------------------------------------------------------------------
+
+    @try_catch(Environment.log_fcn, StatusInfo.error())
+    def check_ia_server(self) -> StatusInfo[list[ClienteInfo]]:
+        return self._chat.ping()
     #----------------------------------------------------------------------------------------------
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al obtener los clientes"))
@@ -196,7 +200,7 @@ class BackendService:
                                             "ts":                   doc.ts,
                                             "tokens":               btokens})
                         else:
-                            return self.log_error_and_return("Error al estructurar el documento")
+                            return self.log_error_and_return(f"Error al estructurar el documento: {status}")
 
                 for doc in cliente.docs:
                     if not doc.is_plain_text:
@@ -207,6 +211,7 @@ class BackendService:
                 
                 cliente_info: ClienteInfo = self._clientes_db.get_cliente_by_id_interno(cliente.personal_info.id_interno)
                 
+                # TODO: Ahora los biadocs se reciben con el db_id de mongo hay que actualizar eso en add_cliente y update_cliente
                 if cliente_info is None:
                     self._overlay_ctrl.update(f"Cliente: {cliente.personal_info.id_interno}\nGenerando información predefinida")
                     status = self._chat.get_summary(self._client_id, self.get_next_req_id(), iadocs)
