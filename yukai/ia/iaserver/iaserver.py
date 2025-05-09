@@ -17,6 +17,34 @@ from    pydantic                    import  BaseModel
 from    typing                      import  List, Union, Literal
 #--------------------------------------------------------------------------------------------------
 
+explanation_str       =   "Eres un asistente médico que estructura información clínica en las siguientes categorías, " \
+                                        "fecha: fecha consignada en el documento." \
+                                        "motivo: motivo de la visista." \
+                                        "síntomas: sintomatología referida por el paciente." + \
+                                        "esatdo físico: estado físico del paciente." + \
+                                        "medicación: medicación pautada o referida." + \
+                                        "tratamiento: tratamiento recomendado." + \
+                                        "recomendaciones: instrucciones dadas al paciente." + \
+                                        "ingresos: ingresos hospitalarios." + \
+                                        "comentarios: comentatios recogidos en el documento."  + \
+                                        "diagnósticos: diagnóstico efectuado." + \
+                                        "antecedentes familiares: antecedentes familiares." + \
+                                        "factores riesgo cardivascular: factores de riesgo cardiovascular del paciente." + \
+                                        "alergias: alergias del paciente." + \
+                                        "operaciones: operaciones sufridas por el paciente." + \
+                                        "implantes: implantes que tiene el paciente." + \
+                                        "otros: cualquier cosa no recogida en los campos anteriores." + \
+                                        "keywords: keywords del texto." + \
+                                        "tags: tags del texto. "
+
+document          = "**Consulta 2: Seguimiento a 1 semana**\n\n**INFORME MÉDICO**\n\n**Paciente:** Luis Ramírez López\n**Fecha de consulta:** 12 de enero de 2024\n**Motivo de consulta:** Seguimiento tras diagnóstico de cálculos renales.\n\n### **Evolución:**\nEl paciente refiere disminución del dolor, aunque persisten molestias ocasionales.\n\n### **Examen Físico:**\n- **Presión arterial:** 138/85 mmHg\n- Dolor leve a la palpación lumbar.\n\n### **Plan:**\n- Continuar con analgésicos según necesidad.\n- Realizar tomografía abdominal programada.\n\n**Firma:**\nDr. Mario Sánchez Pérez"
+
+question_str          =   "Retorna la información en un json." \
+                                        "si algún campo no está presente en el documento no lo incluyas en el json." + \
+                                        "condensa la información lo más posible. se sucinto y conciso." + \
+                                        "si alguna información no aparece o no se menciona, ni incluyas el campo ni lo indiques." + \
+                                        "retorna únicamente el json"
+
 class SummaryEmbeddings:
     OP_NAME     = "summary"
     
@@ -377,6 +405,50 @@ class IAInferenceServer:
             event = threading.Event()
 
             def task():
+                # Device
+                device = self.model_loader.device
+
+                # 1. Embedding del system prompt + documento
+                self.log_info("1. Embedding del system prompt + documento")
+                system_plus_doc = f"{explanation_str}: {document}"
+                system_embed = self.model_loader.embed_prompt_tensor(system_plus_doc).to(device)  # shape: [1, L₁, D]
+
+                # 2. Embedding de la pregunta
+                self.log_info("2. Embedding de la pregunta")
+                question_embed = self.model_loader.embed_prompt_tensor(question_str).to(device)   # shape: [1, L₂, D]
+
+                # 3. Concatenar en eje de tokens (dim=1)
+                self.log_info("3. Concatenar en eje de tokens (dim=1)")
+                full_embed = torch.cat([system_embed, question_embed], dim=1)  # shape: [1, L₁ + L₂, D]
+
+                # 4. Asegúrate de que el tokenizer tenga pad_token_id
+                self.log_info("4. Asegúrate de que el tokenizer tenga pad_token_id")
+                if self.model_loader.tokenizer.pad_token_id is None:
+                    self.model_loader.tokenizer.pad_token = self.model_loader.tokenizer.eos_token
+
+                # 5. Generar inputs ids
+                self.log_info("# 5. Generar inputs ids")
+                input_ids = torch.full((1, 1), self.model_loader.tokenizer.pad_token_id).to(device)
+
+                # 6. Generar texto
+                self.log_info("6. Generar texto")
+                output = self.model_loader.model.generate(
+                    inputs_embeds = full_embed,
+                    input_ids     = input_ids,
+                    max_new_tokens = 1024,
+                    temperature    = 0.3,
+                    do_sample      = True,
+                    use_cache      = True,
+                    pad_token_id   = self.model_loader.tokenizer.pad_token_id
+                )
+
+                response = self.model_loader.tokenizer.decode(output[0], skip_special_tokens=True)
+                self.log_info("6. Respuesta")
+                self.log_info(response)
+                
+                raise HTTPException(status_code=402, detail=f"Servidor en pruebas")
+            
+            def task_1():
                 def generate(embeddings):
                     self.log_info("Iniciando la generación...")
                     if not isinstance(embeddings, torch.Tensor):
