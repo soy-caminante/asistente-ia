@@ -1,5 +1,5 @@
 import  argparse
-
+import  sys
 
 from    dataclasses                         import  dataclass
 from    ia.iaserver.booter                  import  Booter      as  IAServerBooter
@@ -29,14 +29,20 @@ def load_args() -> MainArgs:
 
 def main():
     try:
+        print(sys.argv)
+
         cmd_args = load_args()
         if cmd_args.is_web():
+            print("Servicio: servidor web")
             pass
         elif cmd_args.is_indexer():
+            print("Servicio: indexer")
             IndexerBooter().run()
         elif cmd_args.is_cmanager():
+            print("Servicio: cmanager")
             ClientBooter().run()
         elif cmd_args.is_iaserver():
+            print("Servicio: iaserver")
             IAServerBooter().run()
 
     except Exception as ex:
