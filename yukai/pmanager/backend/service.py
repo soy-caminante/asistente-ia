@@ -50,8 +50,6 @@ class BackendService:
 
     @try_catch(Environment.log_fcn, StatusInfo.error("Base de datos no disponible"))
     def check_db(self) -> StatusInfo[bool]: 
-        #TODO: Eliminar cuando mongo funcione
-        #return True
         if self._clientes_db.is_mongo_ready():
             self._clientes_db.setup_db()
             return StatusInfo.ok()

@@ -47,9 +47,6 @@ class ClientesDocumentStore:
 
     def is_mongo_ready(self, uri=None, timeout=3):
         try:
-            client = MongoClient("mongodb://yukai:YukaiSecureP%40ss@localhost:27017/?authSource=admin&replicaSet=rs0")
-            client.admin.command("ping")
-
             self._client.admin.command("ping")
             return True
         except Exception as ex:

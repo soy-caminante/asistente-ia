@@ -380,8 +380,12 @@ class IAInferenceServer:
                 def generate(embeddings):
                     if not isinstance(embeddings, torch.Tensor):
                         embeddings = torch.tensor(embeddings)
-                    embeds      = embeddings.to(self.model_loader.device)
-                    input_ids   = torch.full((1, 1), self.model_loader.tokenizer.pad_token_id).to(embeds.device)
+                    embeds          = embeddings.to(self.model_loader.device)
+                    pad_token_id    = self.model_loader.tokenizer.pad_token_id
+                    if pad_token_id is None:
+                        pad_token_id = self.model_loader.tokenizer.eos_token_id
+
+                    input_ids   = torch.full((1, 1), pad_token_id).to(embeds.device)
 
                     outputs = self.model_loader.model.generate( inputs_embeds   = embeds,
                                                                     input_ids      = input_ids,
