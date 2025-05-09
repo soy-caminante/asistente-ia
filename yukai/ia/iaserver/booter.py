@@ -73,7 +73,7 @@ class Booter:
                                               self._env.low_cpu_mem_usage)
             inference_server    = IAInferenceServer(model_loader, self._env)
             app                 = inference_server.app
-            uvicorn.run(app, host="0.0.0.0", port=self._env.web_port)
+            uvicorn.run(app, host="0.0.0.0", port=self._env.web_port, reload=True)
         except Exception as ex:
             self._env.log.exception(ex)
     #----------------------------------------------------------------------------------------------
