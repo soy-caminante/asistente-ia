@@ -248,6 +248,9 @@ class IAInferenceServer:
     def __init__(self, model_loader: ModelLoader, env: Environment):
         env.log.add_excluded_locations(__file__, None)
 
+        env.log.info(f"Servidor de inferencia. Base de datos: {env.db_docker_file}")
+        env.log.info(f"Lanzar base de datos de manera automática: {env.run_db_on_start}")
+        
         self._env                       = env
         self.app                        = FastAPI()
         self.model_loader               = model_loader

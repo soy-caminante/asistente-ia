@@ -1,10 +1,10 @@
 {
     "model-name":       "meta-llama/Llama-3.1-8B-Instruct",
-    "chat-endpoint":    "http://localhost:8081",
-    "db-endpoint":      "mongodb://localhost:27017",
+    "chat-endpoint":    "http://185.216.22.150:8081",
+    "db-endpoint":      "mongodb://185.216.22.150:27017",
     "web-port":         8081,
     "gui":              "console",
     "db-name":          "yukai-test",
     "iaserver":         "yukai",
-    "run-db-on-start":  true
+    "run-db-on-start":  false
 }
