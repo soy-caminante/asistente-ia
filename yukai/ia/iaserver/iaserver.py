@@ -66,8 +66,10 @@ document = (
 
 question_str = (
     "Retorna la información en un json. "
-    "Si algún campo no está presente en el documento no lo incluyas en el json. "
-    "Condensa la información lo más posible. Sé sucinto y conciso. "
+    "No uses saltos de línea ni formato Markdown. "
+    "No incluyas campos que no estén presentes en el documento. "
+    "No pongas campos con valor null o similares. "
+    "Condensa la información lo máximo posible. "
     "Retorna únicamente el json. Añade al final el marcador <ÑÑÑ>."
 )
 class SummaryEmbeddings:
