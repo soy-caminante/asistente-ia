@@ -15,6 +15,14 @@ from    ia.iaserver.environment     import  Environment
 from    models.iacodec              import  IACodec
 from    pydantic                    import  BaseModel
 from    typing                      import  List, Union, Literal
+from transformers import StoppingCriteria, StoppingCriteriaList
+
+class StopOnEndToken(StoppingCriteria):
+    def __init__(self, tokenizer):
+        self.stop_token_id = tokenizer.convert_tokens_to_ids("<END>")
+
+    def __call__(self, input_ids, scores, **kwargs):
+        return self.stop_token_id in input_ids[0].tolist()
 #--------------------------------------------------------------------------------------------------
 
 explanation_str       =   "Eres un asistente médico que estructura información clínica en las siguientes categorías, " \
@@ -39,12 +47,11 @@ explanation_str       =   "Eres un asistente médico que estructura información
 
 document          = "**Consulta 2: Seguimiento a 1 semana**\n\n**INFORME MÉDICO**\n\n**Paciente:** Luis Ramírez López\n**Fecha de consulta:** 12 de enero de 2024\n**Motivo de consulta:** Seguimiento tras diagnóstico de cálculos renales.\n\n### **Evolución:**\nEl paciente refiere disminución del dolor, aunque persisten molestias ocasionales.\n\n### **Examen Físico:**\n- **Presión arterial:** 138/85 mmHg\n- Dolor leve a la palpación lumbar.\n\n### **Plan:**\n- Continuar con analgésicos según necesidad.\n- Realizar tomografía abdominal programada.\n\n**Firma:**\nDr. Mario Sánchez Pérez"
 
-question_str          =   "Retorna la información en un json." \
-                                        "si algún campo no está presente en el documento no lo incluyas en el json." + \
-                                        "condensa la información lo más posible. se sucinto y conciso." + \
-                                        "si alguna información no aparece o no se menciona, ni incluyas el campo ni lo indiques." + \
-                                        "retorna únicamente el json"
-
+question_str          =     "Retorna la información en un json." \
+                            "condensa la información lo más posible. se sucinto y conciso." + \
+                            "los campos del json que no tengan información no lo incluyas. no indiques las omisiones." + \
+                            "Al final del texto útil, añade el marcador especial <END> para indicar el final. " + \
+                            "No generes nada después de <END>."
 class SummaryEmbeddings:
     OP_NAME     = "summary"
     
@@ -407,37 +414,41 @@ class IAInferenceServer:
             def task():
                 start_time = time.time()
 
-                start_time = time.time()
+                tokenizer = self.model_loader.tokenizer
+                model     = self.model_loader.model
 
-            # 1. Embeddings
-                explanation_embd = self.model_loader.embed_prompt_tensor(explanation_str)
-                document_embd    = self.model_loader.embed_prompt_tensor(document)
-                question_embd    = self.model_loader.embed_prompt_tensor(question_str)
+                # Asegurarse de que <END> está en el vocabulario
+                if "<END>" not in tokenizer.get_vocab():
+                    tokenizer.add_special_tokens({'additional_special_tokens': ['<END>']})
+                    model.resize_token_embeddings(len(tokenizer))
 
-                # 2. Concatenar en dimensión 1 (tokens)
-                embedding_concat = torch.cat([explanation_embd, document_embd, question_embd], dim=1).to(self.model_loader.device)
+                # Convertir embeddings si es necesario
+                if not isinstance(embeddings, torch.Tensor):
+                    embeddings = torch.tensor(embeddings)
 
-                # 3. Preparar input_ids y atención
-                input_ids = torch.full((1, 1), self.model_loader.tokenizer.pad_token_id).to(self.model_loader.device)
-                attention_mask = torch.ones(embedding_concat.shape[:2], dtype=torch.long).to(self.model_loader.device)
+                embeds    = embeddings.to(self.model_loader.device)
+                input_ids = torch.full((1, 1), tokenizer.pad_token_id or tokenizer.eos_token_id, device=embeds.device)
 
-                # 4. Generación sin early_stopping
-                output_ids = self.model_loader.model.generate(
-                    inputs_embeds=embedding_concat,
-                    input_ids=input_ids,
-                    attention_mask=attention_mask,
-                    max_new_tokens=512,
-                    temperature=0.3,
-                    do_sample=True,
-                    use_cache=True,
-                    eos_token_id=self.model_loader.tokenizer.eos_token_id
+                # Criterio de parada: al encontrar <END>
+                stop_criteria = StoppingCriteriaList([StopOnEndToken(tokenizer)])
+
+                outputs = model.generate(
+                    inputs_embeds    = embeds,
+                    input_ids        = input_ids,
+                    max_new_tokens   = req.max_tokens,
+                    temperature      = req.temperature,
+                    do_sample        = True,
+                    use_cache        = True,
+                    stopping_criteria= stop_criteria
                 )
 
-                # 5. Decodificar
-                response = self.model_loader.tokenizer.decode(output_ids[0], skip_special_tokens=True)
+                # Decodificar y recortar hasta <END>
+                decoded     = tokenizer.decode(outputs[0], skip_special_tokens=True)
+                clean_text  = decoded.split("<END>")[0].strip()
+
                 duration = time.time() - start_time
                 self.log_info(f"Respuesta: {duration:.2f}s")
-                self.log_info(response)
+                self.log_info(clean_text)
                 raise HTTPException(status_code=402, detail=f"Servidor en pruebas")
 
             def task_2():
