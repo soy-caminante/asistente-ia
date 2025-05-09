@@ -181,7 +181,7 @@ class PatitentView(AppView):
                         content= ft.Container
                         (  # 🔹 Contenedor interno para que el fondo solo enmarque el texto
                             content         = ft.Text(msg, size=20, color="black", no_wrap=False),
-                            bgcolor         = ft.colors.GREY_300,  # Fondo gris solo en el texto
+                            bgcolor         = ft.Colors.GREY_300,  # Fondo gris solo en el texto
                             padding         = 10,  # Margen interno
                             border_radius   = 10,  # Bordes redondeados
                         ),
@@ -214,7 +214,7 @@ class PatitentView(AppView):
                         (
                             gen_time,
                             size        = 12,
-                            color       = ft.colors.GREY_600,
+                            color       = ft.Colors.GREY_600,
                             text_align  = ft.TextAlign.LEFT
                         )
                     ],
@@ -259,7 +259,7 @@ class PatitentView(AppView):
         (
             content         = self._datos_paciente,
             padding         = 10,
-            border          = ft.border.all(1, ft.colors.GREY_300),
+            border          = ft.border.all(1, ft.Colors.GREY_300),
             border_radius   = 10,
             expand          = True
         )
@@ -296,7 +296,7 @@ class PatitentView(AppView):
             ),
             expand          = 1,
             padding         = 10,
-            border          = ft.border.all(1, ft.colors.GREY_300),
+            border          = ft.border.all(1, ft.Colors.GREY_300),
             border_radius   = 10,
             alignment       = ft.alignment.top_left  
         )
@@ -345,7 +345,7 @@ class PatitentView(AppView):
                     ]
                 ),
                 padding         = 10,
-                border          = ft.border.all(1, ft.colors.GREY_300),
+                border          = ft.border.all(1, ft.Colors.GREY_300),
                 border_radius   = 10
             ),
             elevation=2
@@ -365,7 +365,7 @@ class PatitentView(AppView):
             ),
             expand          = 2,  # Ocupará 2 partes del espacio total (doble que la izquierda)
             padding         = 10,
-            border          = ft.border.all(1, ft.colors.GREY_300),
+            border          = ft.border.all(1, ft.Colors.GREY_300),
             border_radius   = 10
         )
 

@@ -217,7 +217,7 @@ class OverlayCtrl(ft.Container, Factories):
 
         bg_ctrl = ft.Container \
         (
-            bgcolor            = ft.colors.BLACK54,
+            bgcolor            = ft.Colors.BLACK54,
             opacity            = 0.7,
             animate_opacity    = 300,
             expand             = True

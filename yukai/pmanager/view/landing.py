@@ -845,31 +845,31 @@ class ClienteList(ft.Container, Factories):
                     label_field,
                     ft.Container(expand=True),
                     ft.IconButton(  ft.icons.REPLAY, 
-                                    icon_color  = ft.colors.BLUE_900, 
+                                    icon_color  = ft.Colors.BLUE_900, 
                                     tooltip     = "Recargar lista de clientes", 
                                     on_click    = self.reload,
                                     visible     = self._reload_fcn is not None),
 
                     ft.IconButton(  ft.icons.PLAY_ARROW, 
-                                    icon_color  = ft.colors.BLUE_900, 
+                                    icon_color  = ft.Colors.BLUE_900, 
                                     tooltip     = "Consolidar seleccionados", 
                                     on_click    = self.consolidate,
                                     visible     = self._consolidate_fcn is not None),
                     
                     ft.IconButton(  ft.icons.PLAY_CIRCLE, 
-                                    icon_color  = ft.colors.BLUE_900, 
+                                    icon_color  = ft.Colors.BLUE_900, 
                                     tooltip     = "Consolidar todos", 
                                     on_click    = self.consolidate_all,
                                     visible     = self._consolidate_fcn is not None),
 
                     ft.IconButton(  ft.icons.FIND_IN_PAGE, 
-                                    icon_color  = ft.colors.BLUE_900, 
+                                    icon_color  = ft.Colors.BLUE_900, 
                                     tooltip     = "Buscar repetidos", 
                                     on_click    = self.search_duplicated,
                                     visible     = self._duplicate_fcn is not None),
 
                     ft.IconButton(  ft.icons.DELETE, 
-                                    icon_color  = ft.colors.BLUE_900, 
+                                    icon_color  = ft.Colors.BLUE_900, 
                                     tooltip     = "Eliminar cliente", 
                                     on_click    = self.remove_selected,
                                     visible     = self._delete_fcn is not None)                
@@ -885,19 +885,19 @@ class ClienteList(ft.Container, Factories):
                     label_field,
                     ft.Container(expand=True),
                     ft.IconButton(  ft.icons.REPLAY, 
-                                    icon_color  = ft.colors.BLUE_900, 
+                                    icon_color  = ft.Colors.BLUE_900, 
                                     tooltip     = "Recargar lista de clientes", 
                                     on_click    = self.reload,
                                     visible     = self._reload_fcn is not None),
 
                     ft.IconButton(  ft.icons.FIND_IN_PAGE, 
-                                    icon_color  = ft.colors.BLUE_900, 
+                                    icon_color  = ft.Colors.BLUE_900, 
                                     tooltip     = "Buscar repetidos", 
                                     on_click    = self.search_duplicated,
                                     visible     = self._duplicate_fcn is not None),
 
                     ft.IconButton(  ft.icons.DELETE, 
-                                    icon_color  = ft.colors.BLUE_900, 
+                                    icon_color  = ft.Colors.BLUE_900, 
                                     tooltip     = "Eliminar cliente", 
                                     on_click    = self.remove_selected,
                                     visible     = self._delete_fcn is not None)                
@@ -1152,7 +1152,7 @@ class LandingView(ft.View, Factories):
         (
             width           =20,
             height          =20,
-            bgcolor         =ft.colors.GREEN,
+            bgcolor         =ft.Colors.GREEN,
             border_radius   =10  # Hace el contenedor circular
         )
 

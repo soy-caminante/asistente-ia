@@ -21,17 +21,17 @@ class WaitControl(ft.Container):
         super().__init__ \
         (
             alignment   = ft.alignment.center,  # Alineación centrada
-            bgcolor     = ft.colors.with_opacity(0.5, ft.colors.BLACK),  # Fondo semi-transparente
+            bgcolor     = ft.Colors.with_opacity(0.5, ft.Colors.BLACK),  # Fondo semi-transparente
             expand      = True,  # Ocupa toda la pantalla
             visible     = False  # Inicialmente oculto
         )
 
         # Elementos UI internos
         self.progress_ring  = ft.ProgressRing(width=80, height=80)  # Indicador de carga
-        self.error_text     = ft.Text("", size=24, color=ft.colors.YELLOW, text_align="center")  # Mensaje de error
+        self.error_text     = ft.Text("", size=24, color=ft.Colors.YELLOW, text_align="center")  # Mensaje de error
         self.accept_button  = ft.ElevatedButton \
         (
-            content     = ft.Text("Aceptar", size=24, color=ft.colors.BLACK, text_align="center"),
+            content     = ft.Text("Aceptar", size=24, color=ft.Colors.BLACK, text_align="center"),
             on_click    = self.hide, 
             width       = 200,
             height      = 50,

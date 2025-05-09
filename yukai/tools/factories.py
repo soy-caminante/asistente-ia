@@ -63,7 +63,7 @@ class CircularButtonFactory:
 #--------------------------------------------------------------------------------------------------
 
 class IconButtonFactory:
-    def __init__(self, style_color=ft.colors.BLUE_900):
+    def __init__(self, style_color=ft.Colors.BLUE_900):
         self._style_color = style_color
     #----------------------------------------------------------------------------------------------
     
