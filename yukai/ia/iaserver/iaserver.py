@@ -407,6 +407,10 @@ class IAInferenceServer:
                 try:
                     if req.op == StructureEmbeddings.OP_NAME:
                         st_args: StructureOp    = req.args
+                        
+                        self.log_info(f"Estructurando el documento {st_args.document_name}")
+                        self.log_info(f"{st_args.document}")
+
                         embeddings              = self._stucture_embeddings.get_embeddings(st_args.document)
                         iadoc                   = generate(embeddings)
 
