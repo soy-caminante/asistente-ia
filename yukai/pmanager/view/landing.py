@@ -439,7 +439,7 @@ class ExpedienteViewer(ft.Container, Factories):
                                                                                                     on_consolidate      = None,
                                                                                                     on_inspect          = self.inspect,
                                                                                                     on_delete           = self.delete),
-                                                                        subtitle= ft.Text(f"{d.mime}, {d.size_str}, {d.tokens if d.tokens else "-"} tokens\n{d.ts_str}")))
+                                                                        subtitle= ft.Text(f"{d.mime}, {d.size_str}, {d.tokens if d.tokens else '-'} tokens\n{d.ts_str}")))
                 self._tokens.value = str(tokens)
                 self._expediente.set_value \
                 (
