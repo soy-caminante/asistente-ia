@@ -432,9 +432,12 @@ class IAInferenceServer:
 
                 # 6. Generar texto
                 self.log_info("6. Generar texto")
+                seq_len = full_embed.shape[1]
+                attention_mask = torch.ones((1, seq_len), dtype=torch.long).to(device)
                 output = self.model_loader.model.generate(
-                    inputs_embeds = full_embed,
-                    input_ids     = input_ids,
+                    inputs_embeds  = full_embed,
+                    attention_mask = attention_mask,
+                    input_ids      = input_ids,
                     max_new_tokens = 1024,
                     temperature    = 0.3,
                     do_sample      = True,
