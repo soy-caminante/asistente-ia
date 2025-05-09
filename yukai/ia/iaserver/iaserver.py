@@ -383,9 +383,11 @@ class IAInferenceServer:
 
                     embeds          = embeddings.to(self.model_loader.device)
                     input_ids       = torch.full((1, 1), self.model_loader.tokenizer.eos_token_id).to(embeds.device)
+                    attention_mask  = torch.ones(embeds.shape[:-1], dtype=torch.long, device=embeds.device)
 
                     outputs = self.model_loader.model.generate( inputs_embeds   = embeds,
                                                                 input_ids       = input_ids,
+                                                                attention_mask  = attention_mask,
                                                                 max_new_tokens  = req.max_tokens,
                                                                 temperature     = req.temperature,
                                                                 do_sample       = True,
