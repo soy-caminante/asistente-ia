@@ -4,3 +4,5 @@ Cosa que he hecho:
 3. export PATH=$PATH:/home/ubuntu/.local/bin
 4. scp -i /home/caminante/.ssh/id_rsa -r /home/caminante/Documentos/proyectos/yukai-tests/test-service-llama-3.2-3B.py ubuntu@38.128.232.243:/home/ubuntu/tests/test-service-llama-3.2-3B.py
 5  scp -i /home/caminante/.ssh/id_rsa -r /home/caminante/Documentos/proyectos/iA/yukai-tests/ ubuntu@38.80.122.143:/home/ubuntu
+6. Acceder a mongo: docker exec -it mongodb mongosh -u yukai -p YukaiSecureP@ss --authenticationDatabase admin
+
