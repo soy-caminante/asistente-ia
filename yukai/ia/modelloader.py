@@ -44,7 +44,7 @@ class ModelLoader:
     def _load_model(self):
         kwargs = {
             "cache_dir":            str(self._cache_dir),
-            "low_cpu_mem_usage":    self._low_cpu_mem_usage
+            "low_cpu_mem_usage":    True #self._low_cpu_mem_usage
         }
 
         if self._quantization == Quatization.B4:
