@@ -2,8 +2,6 @@ import  datetime
 import  gridfs
 import  os
 import  pathlib
-import  subprocess
-import  time
 
 from    bson                        import  ObjectId
 from    contextlib                  import  contextmanager
@@ -11,7 +9,6 @@ from    logger                      import  Logger
 from    models.models               import  ClienteInfo, SrcDocInfo, IaDcoInfo, BIaDcoInfo, ExpedienteSummary
 from    pymongo                     import  MongoClient, ReturnDocument
 from    pymongo.database            import  Database
-from    pymongo.errors              import  ServerSelectionTimeoutError
 from    urllib.parse                import  quote_plus
 #--------------------------------------------------------------------------------------------------
 
@@ -199,12 +196,10 @@ class ClientesDocumentStore:
 
                     iadoc_ref   = res.inserted_id
                     biadoc      = biadocs[index]
-                    content     = biadoc["content"]
-                    file_id     = self._fs.put(content, filename=biadoc["filename"], type="biadoc")
                     doc = {
                         "owner":                owner_id,
                         "filename":             biadoc["filename"],
-                        "gridfs_file_id":       file_id,
+                        "gridfs_file_id":       self._validate_object_id(biadoc["content"]),
                         "source_ref":           self._validate_object_id(souce_ref),
                         "iadoc_ref":            self._validate_object_id(iadoc_ref),
                         "source_mime":          biadoc["source_mime"],
@@ -329,12 +324,11 @@ class ClientesDocumentStore:
             # BIADOCs
             for biadoc in biadocs:
                 creation_ts = datetime.datetime.now(datetime.timezone.utc)
-                file_id = self._fs.put(biadoc["content"], filename=biadoc["filename"], type="biadoc")
 
                 doc_data = {
                     "owner":                db_id,
                     "filename":             biadoc["filename"],
-                    "gridfs_file_id":       file_id,
+                    "gridfs_file_id":       self._validate_object_id(biadoc["content"]),
                     "source_ref":           self._validate_object_id(biadoc["source_ref"]),
                     "iadoc_ref":            self._validate_object_id(biadoc["iadoc_ref"]),
                     "source_mime":          biadoc["source_mime"],
@@ -584,7 +578,7 @@ class ClientesDocumentStore:
         return ret
     #----------------------------------------------------------------------------------------------
 
-    def get_biadoc_content_by_id(self, db_id: str) -> bytes | None:
+    def get_biadoc_content_by_db_id(self, db_id: str) -> bytes | None:
         """Devuelve el contenido en bytes de un documento en source_docs dado su _id."""
         obj_id  = self._validate_object_id(db_id)
         doc     = self._db.biadocs.find_one({"_id": obj_id})

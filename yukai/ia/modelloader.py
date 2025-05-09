@@ -24,6 +24,9 @@ class ModelLoader:
         self._tokenizer         = AutoTokenizer.from_pretrained(model_name, cache_dir=str(cache_dir))
         self._device            = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self._model             = self._load_model()
+
+        if self._tokenizer.pad_token_id is None:
+            self._tokenizer.pad_token_id = self._tokenizer.eos_token_id
     #----------------------------------------------------------------------------------------------
 
     @property

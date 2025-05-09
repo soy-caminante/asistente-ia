@@ -380,15 +380,12 @@ class IAInferenceServer:
                 def generate(embeddings):
                     if not isinstance(embeddings, torch.Tensor):
                         embeddings = torch.tensor(embeddings)
-                    embeds          = embeddings.to(self.model_loader.device)
-                    pad_token_id    = self.model_loader.tokenizer.pad_token_id
-                    if pad_token_id is None:
-                        pad_token_id = self.model_loader.tokenizer.eos_token_id
 
-                    input_ids   = torch.full((1, 1), pad_token_id).to(embeds.device)
+                    embeds          = embeddings.to(self.model_loader.device)
+                    input_ids       = torch.full((1, 1), self.model_loader.tokenizer.eos_token_id).to(embeds.device)
 
                     outputs = self.model_loader.model.generate( inputs_embeds   = embeds,
-                                                                    input_ids      = input_ids,
+                                                                input_ids       = input_ids,
                                                                 max_new_tokens  = req.max_tokens,
                                                                 temperature     = req.temperature,
                                                                 do_sample       = True,
@@ -417,8 +414,15 @@ class IAInferenceServer:
                         self.log_holder_response(req.client, result_holder, generate(embeddings))
                     else:
                         ch_args: ChatOp = req.args
-                        # TODO: Leer los biadocs de la base de datos
-                        embeddings      = self._chat_embeddings.get_embeddings(ch_args.documents, ch_args.question)
+                        biadocs         = [ ]
+
+                        for doc in ch_args.documents:
+                            biadoc = self._clientes_db.get_biadoc_content_by_db_id(doc)
+                            if biadoc is not None:
+                                tensor = torch.load(biadoc).to(self.model_loader.device)
+                                biadoc.append(tensor)
+
+                        embeddings = self._chat_embeddings.get_embeddings(biadocs, ch_args.question)
                         self.log_holder_response(req.client, result_holder, generate(embeddings))
 
                 except Exception as e:

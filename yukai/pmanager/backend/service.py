@@ -359,7 +359,7 @@ class BackendService:
     @try_catch(Environment.log_fcn, StatusInfo.error("Error al cargar el documento"))
     def load_conslidated_biadoc(self, db_id: str) -> StatusInfo[bytes]:
         self.log_info(f"Cargar el documento biadoc consolidado {db_id}")
-        return self.log_info_and_return("Documento cargado", self._clientes_db.get_biadoc_content_by_id(db_id))
+        return self.log_info_and_return("Documento cargado", self._clientes_db.get_biadoc_content_by_db_id(db_id))
     #----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
