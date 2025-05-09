@@ -407,55 +407,38 @@ class IAInferenceServer:
             def task():
                 start_time = time.time()
 
-                # Paso 1: Embeddings
-                self.log_info("Paso 1")
-                explanation_embd  = self.model_loader.embed_prompt_tensor(explanation_str)  # [1, seq_expl, D]
-                document_embd     = self.model_loader.embed_prompt_tensor(document)        # [1, seq_doc, D]
-                question_embd     = self.model_loader.embed_prompt_tensor(question_str)    # [1, seq_q, D]
+                start_time = time.time()
 
-                # Paso 2: Concatenación
-                self.log_info("Paso 2")
-                device = self.model_loader.device
-                embedding_concat = torch.cat(
-                    [explanation_embd.to(device), document_embd.to(device), question_embd.to(device)],
-                    dim=1
-                )  # -> [1, total_seq_len, D]
+            # 1. Embeddings
+                explanation_embd = self.model_loader.embed_prompt_tensor(explanation_str)
+                document_embd    = self.model_loader.embed_prompt_tensor(document)
+                question_embd    = self.model_loader.embed_prompt_tensor(question_str)
 
-                # Paso 3: Construcción de input_ids ficticio (requerido para uso correcto de generate con embeddings)
-                self.log_info("Paso 3")
-                bos_id = self.model_loader.tokenizer.bos_token_id or self.model_loader.tokenizer.pad_token_id
-                input_ids = torch.tensor([[bos_id]], device=device)
+                # 2. Concatenar en dimensión 1 (tokens)
+                embedding_concat = torch.cat([explanation_embd, document_embd, question_embd], dim=1).to(self.model_loader.device)
 
-                # Paso 4: attention_mask necesario para evitar warnings y repeticiones
-                self.log_info("Paso 4")
-                attention_mask = torch.ones((1, embedding_concat.shape[1]), dtype=torch.long, device=device)
+                # 3. Preparar input_ids y atención
+                input_ids = torch.full((1, 1), self.model_loader.tokenizer.pad_token_id).to(self.model_loader.device)
+                attention_mask = torch.ones(embedding_concat.shape[:2], dtype=torch.long).to(self.model_loader.device)
 
-                # Paso 5: Definición de eos_token_id
-                self.log_info("Paso 5")
-                eos_token_id = self.model_loader.tokenizer.eos_token_id or self.model_loader.tokenizer.pad_token_id
+                # 4. Generación sin early_stopping
+                output_ids = self.model_loader.model.generate(
+                    inputs_embeds=embedding_concat,
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    max_new_tokens=512,
+                    temperature=0.7,
+                    do_sample=True,
+                    use_cache=True,
+                    eos_token_id=self.model_loader.tokenizer.eos_token_id
+                )
 
-                # Paso 6: Generación
-                self.log_info("Paso 6")
-                with torch.no_grad():
-                    output_ids = self.model_loader.model.generate(
-                        inputs_embeds=embedding_concat,
-                        input_ids=input_ids,
-                        attention_mask=attention_mask,
-                        max_new_tokens=512,
-                        temperature=0.7,
-                        do_sample=True,
-                        use_cache=True,
-                        early_stopping=True,
-                        eos_token_id=eos_token_id
-                    )
-
-                # Paso 7: Decodificación
-
-                self.log_info("Paso 7")
-                output_text = self.model_loader.tokenizer.decode(output_ids[0], skip_special_tokens=True)
+                # 5. Decodificar
+                response = self.model_loader.tokenizer.decode(output_ids[0], skip_special_tokens=True)
                 duration = time.time() - start_time
                 self.log_info(f"Respuesta: {duration:.2f}s")
-                self.log_info(output_text)
+                self.log_info(response)
+                raise HTTPException(status_code=402, detail=f"Servidor en pruebas")
 
             def task_2():
                 # Device
