@@ -7,6 +7,7 @@ from    pmanager.backend.service        import  BackendService
 from    pmanager.view.environment       import  Environment
 from    pmanager.view.landing           import  LandingView
 from    tools.viewtools                 import  OverlayCtrl, OverlayCtrlWrapper
+from    tools.tools                     import  StatusInfo
 #--------------------------------------------------------------------------------------------------
 
 class App:
@@ -38,7 +39,8 @@ class App:
     #----------------------------------------------------------------------------------------------
 
     def load_initial_data(self):
-        con_list            = self._backend.load_all_consolidated_clientes()
+        #TODO Eliminar cuando mongo funcione
+        con_list            = StatusInfo.ok([]) #self._backend.load_all_consolidated_clientes()
         src_list            = self._backend.load_all_src_clientes()
         
         if not con_list:

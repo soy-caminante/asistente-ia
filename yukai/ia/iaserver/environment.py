@@ -16,7 +16,10 @@ class Environment(BaseModel):
     max_requests        : int
     model_name          : str
     quantization        : str|Quatization
-    db_endpoint         : str
+    db_port             : int
+    db_host             : str
+    db_user             : str
+    db_password         : str
     db_name             : str
     run_db_on_start     : bool
     

@@ -1,6 +1,7 @@
 import  datetime
 import  gridfs
 import  os
+import  pathlib
 import  subprocess
 import  time
 
@@ -11,19 +12,24 @@ from    models.models               import  ClienteInfo, SrcDocInfo, IaDcoInfo, 
 from    pymongo                     import  MongoClient, ReturnDocument
 from    pymongo.database            import  Database
 from    pymongo.errors              import  ServerSelectionTimeoutError
+from    urllib.parse                import  quote_plus
 #--------------------------------------------------------------------------------------------------
 
 # Abrir el shell de mongo en el docker:
 #    docker exec -it mongodb mongosh
 
 class ClientesDocumentStore:
-    def __init__(self, log: Logger,
-                       docker_file  = None,
-                       db_endpoint  = "mongodb://localhost:27017",
-                       db_name      = "docstore"):
+    def __init__(self, log:             Logger,
+                       docker_file:     pathlib.Path,
+                       db_port:         int,
+                       db_host:         str,
+                       db_user:         str,
+                       db_pwd:          str,
+                       db_name:         str):
+        
         self._log           = log
         self._docker_file   = docker_file
-        self._mongo_uri     = db_endpoint
+        self._mongo_uri     = f"mongodb://{db_user}:{quote_plus(db_pwd)}@{db_host}:{db_port}"
         self._client        = MongoClient(self._mongo_uri)
         self._db: Database  = self._client[db_name]
         self._fs            = gridfs.GridFS(self._db)
@@ -41,40 +47,11 @@ class ClientesDocumentStore:
 
     def is_mongo_ready(self, uri=None, timeout=3):
         try:
-            if uri is None: uri = self._mongo_uri
-            client = MongoClient(uri, serverSelectionTimeoutMS=timeout * 1000)
-            client.admin.command('ping')
+            self._client.admin.command("ping")
             return True
-        except ServerSelectionTimeoutError:
+        except Exception as ex:
+            self._log.error(ex)
             return False
-    #----------------------------------------------------------------------------------------------
-
-    def ensure_mongo_ready(self, uri=None):
-        if uri is None: 
-            uri = self._mongo_uri
-        else: 
-            self._mongo_uri = uri
-
-        self._log.info(f"Comprobando el estado de MongoDB")
-        self._log.info(f"Mongo URI: {uri}")
-
-        if self.is_mongo_ready(uri):
-            self._log.info("✅ MongoDB ya está disponible.")
-            return True
-
-        self._log.info("🚀 MongoDB no está disponible. Iniciando con Docker Compose...")
-
-        if self._docker_file:
-            subprocess.run(["docker", "compose", "-f", self._docker_file, "up", "-d", "mongo"], check=True)
-
-        for i in range(20):
-            if self.is_mongo_ready(uri):
-                self._log.info("✅ MongoDB está listo.")
-                return True
-            self._log.info(f"⏳ Esperando que MongoDB arranque... ({i+1}/20)")
-            time.sleep(2)
-
-        return False
     #----------------------------------------------------------------------------------------------
 
     def setup_db(self):
@@ -85,7 +62,6 @@ class ClientesDocumentStore:
 
     @contextmanager
     def transaction(self):
-        self.ensure_mongo_ready()
         with self._client.start_session() as session:
             try:
                 with session.start_transaction():

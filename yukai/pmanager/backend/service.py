@@ -19,7 +19,10 @@ class BackendService:
         self._env           = env
         self._clientes_db   = ClientesDocumentStore(env.log, 
                                                     env.db_docker_file if env.run_db_on_start else None,
-                                                    env.db_endpoint,
+                                                    env.db_port,
+                                                    env.db_host,
+                                                    env.db_user,
+                                                    env.db_password,
                                                     env.db_name)
         self._incomming_db  = IncommingStorage(env.log, env.db_dir)
         self._overlay_ctrl  = overlay_ctrl
@@ -45,11 +48,15 @@ class BackendService:
         return f"pmanager-{self._req_id}"
     #----------------------------------------------------------------------------------------------
 
-    def check_db(self) -> bool: 
-        if self._clientes_db.ensure_mongo_ready():
+    @try_catch(Environment.log_fcn, StatusInfo.error("Base de datos no disponible"))
+    def check_db(self) -> StatusInfo[bool]: 
+        #TODO: Eliminar cuando mongo funcione
+        #return True
+        if self._clientes_db.is_mongo_ready():
             self._clientes_db.setup_db()
-            return True
-        return False
+            return StatusInfo.ok()
+        return StatusInfo.error("Base de datos no disponible")
+        
     #----------------------------------------------------------------------------------------------
 
     def log_info(self, info): self._env.log.info(info)
@@ -76,7 +83,7 @@ class BackendService:
 
     @try_catch(Environment.log_fcn, StatusInfo.error())
     def check_ia_server(self) -> StatusInfo[list[ClienteInfo]]:
-        return StatusInfo.ok()
+        #return StatusInfo.ok()
         return self._chat.ping()
     #----------------------------------------------------------------------------------------------
 

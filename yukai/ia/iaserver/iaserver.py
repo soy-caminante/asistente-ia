@@ -265,7 +265,10 @@ class IAInferenceServer:
         self.iacodec                    = IACodec()
         self._clientes_db               = ClientesDocumentStore(env.log, 
                                                                 env.db_docker_file if env.run_db_on_start else None,
-                                                                env.db_endpoint,
+                                                                env.db_port,
+                                                                env.db_host,
+                                                                env.db_user,
+                                                                env.db_password,
                                                                 env.db_name)
         self._register_routes()
     #----------------------------------------------------------------------------------------------
@@ -352,15 +355,25 @@ class IAInferenceServer:
             raise HTTPException(status_code=429, detail=f"Número máximo de peticiones por minuto excedido")
     #----------------------------------------------------------------------------------------------
     
+    def _check_db(self):
+        if not self._clientes_db.is_mongo_ready():
+            raise HTTPException(status_code=429, detail=f"Servidor de base de datos no disponible")
+    #----------------------------------------------------------------------------------------------
+    
+    def run_integrity_checks(self, req):
+        self._check_embeddings(req)
+        self._check_overload(req)
+        self._check_db()
+    #----------------------------------------------------------------------------------------------
+
     def _register_routes(self):
         @self.app.post("/generate")
         def enqueue_request(req: EmbeddingRequest):
             self.log_info(f"Nueva petición {req.client}:{req.request_id}")
             result_holder   = { }
 
-            self._check_embeddings(req)
-            self._check_overload(req)
-                    
+            self.run_integrity_checks(req)
+                 
             event = threading.Event()
 
             def task():

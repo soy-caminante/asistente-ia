@@ -19,7 +19,10 @@ class Environment(BaseModel):
     runtime:                    pathlib.Path
     model_name:                 str
     chat_endpoint:              str
-    db_endpoint:                str
+    db_port:                    int
+    db_host:                    str
+    db_user:                    str
+    db_password:                str
     db_name:                    str
     iaserver:                   str
     run_db_on_start:            bool

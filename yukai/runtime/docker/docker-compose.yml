@@ -6,9 +6,13 @@ services:
     container_name: mongodb
     ports:
       - "27017:27017"
-    command: ["--replSet", "rs0"]
+    command: ["--replSet", "rs0", "--bind_ip_all", "--keyFile", "/etc/mongo-keyfile"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: yukai
+      MONGO_INITDB_ROOT_PASSWORD: YukaiSecureP@ss
     volumes:
       - mongodb_data:/data/db
+      - ./mongo-keyfile:/etc/mongo-keyfile:ro
     restart: unless-stopped
 
 volumes:

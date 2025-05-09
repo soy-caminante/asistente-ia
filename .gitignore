@@ -168,3 +168,4 @@ web/data/src-docs/
 *.tmp
 demo/
 yukai/runtime/cache
+yukai/runtime/docker/mongo-keyfile
