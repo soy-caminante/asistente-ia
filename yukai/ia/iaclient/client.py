@@ -257,7 +257,7 @@ class HttpChatClient:
                 if not "error" in data.keys():
                     return StatusInfo.ok(HttpStructuredDocument(**data))
                 else:
-                    self._log.error(f"Error en el servidor de IA: {data["error"]}")
+                    self._log.error(f"Error en el servidor de IA: {data['error']}")
                     return StatusInfo.error("Error en el servidor de IA")
             return StatusInfo.error(f"Error HTTP {response.status_code}")
         except httpx.ConnectError as ex:
