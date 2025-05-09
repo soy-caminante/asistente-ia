@@ -427,7 +427,7 @@ class IAInferenceServer:
                     input_ids=input_ids,
                     attention_mask=attention_mask,
                     max_new_tokens=512,
-                    temperature=0.7,
+                    temperature=0,
                     do_sample=True,
                     use_cache=True,
                     eos_token_id=self.model_loader.tokenizer.eos_token_id
