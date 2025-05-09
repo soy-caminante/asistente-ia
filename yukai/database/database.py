@@ -29,7 +29,7 @@ class ClientesDocumentStore:
         
         self._log           = log
         self._docker_file   = docker_file
-        self._mongo_uri     = f"mongodb://{db_user}:{quote_plus(db_pwd)}@{db_host}:{db_port}"
+        self._mongo_uri     = f"mongodb://{db_user}:{quote_plus(db_pwd)}@{db_host}:{db_port}/?authSource=admin&replicaSet=rs0"
         self._client        = MongoClient(self._mongo_uri)
         self._db: Database  = self._client[db_name]
         self._fs            = gridfs.GridFS(self._db)
@@ -47,6 +47,9 @@ class ClientesDocumentStore:
 
     def is_mongo_ready(self, uri=None, timeout=3):
         try:
+            client = MongoClient("mongodb://yukai:YukaiSecureP%40ss@localhost:27017/?authSource=admin&replicaSet=rs0")
+            client.admin.command("ping")
+
             self._client.admin.command("ping")
             return True
         except Exception as ex:
