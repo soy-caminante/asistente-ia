@@ -167,3 +167,4 @@ web/data/src-docs/
 .iA.code-workspace
 *.tmp
 demo/
+yukai/runtime/cache
