@@ -17,12 +17,19 @@ from    pydantic                    import  BaseModel
 from    typing                      import  List, Union, Literal
 from transformers import StoppingCriteria, StoppingCriteriaList
 
-class StopOnEndToken(StoppingCriteria):
-    def __init__(self, tokenizer):
-        self.stop_token_id = tokenizer.convert_tokens_to_ids("<ÑÑÑ>")
 
-    def __call__(self, input_ids, scores, **kwargs):
-        return self.stop_token_id in input_ids[0].tolist()
+class StopOnStringCriteria(StoppingCriteria):
+    def __init__(self, tokenizer, stop_string="<ÑÑÑ>"):
+        super().__init__()
+        self.tokenizer = tokenizer
+        self.stop_string = stop_string
+        self.generated_so_far = ""
+
+    def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs) -> bool:
+        new_text = self.tokenizer.decode(input_ids[0], skip_special_tokens=True)
+        if self.stop_string in new_text:
+            return True
+        return False
 #--------------------------------------------------------------------------------------------------
 
 explanation_str = (
@@ -451,7 +458,9 @@ class IAInferenceServer:
                     temperature        = 0.3,
                     do_sample          = True,
                     use_cache          = True,
-                    stopping_criteria  = StoppingCriteriaList([StopOnEndToken(self.model_loader.tokenizer)])
+                    stopping_criteria = StoppingCriteriaList([
+        StopOnStringCriteria(self.model_loader.tokenizer, stop_string="<ÑÑÑ>")
+    ])
                 )
 
                 # 6. Cortar en el marcador explícito
