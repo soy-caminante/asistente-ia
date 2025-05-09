@@ -19,7 +19,7 @@ from transformers import StoppingCriteria, StoppingCriteriaList
 
 class StopOnEndToken(StoppingCriteria):
     def __init__(self, tokenizer):
-        self.stop_token_id = tokenizer.convert_tokens_to_ids("<END>")
+        self.stop_token_id = tokenizer.convert_tokens_to_ids("<ÑÑÑ>")
 
     def __call__(self, input_ids, scores, **kwargs):
         return self.stop_token_id in input_ids[0].tolist()
@@ -61,7 +61,7 @@ question_str = (
     "Retorna la información en un json. "
     "Si algún campo no está presente en el documento no lo incluyas en el json. "
     "Condensa la información lo más posible. Sé sucinto y conciso. "
-    "Retorna únicamente el json. Añade al final el marcador <END>."
+    "Retorna únicamente el json. Añade al final el marcador <ÑÑÑ>."
 )
 class SummaryEmbeddings:
     OP_NAME     = "summary"
@@ -425,23 +425,27 @@ class IAInferenceServer:
             def task():
                 start_time = time.time()
 
-            # 1. Embeddings
-                explanation_embd = self.model_loader.embed_prompt_tensor(explanation_str)
-                document_embd    = self.model_loader.embed_prompt_tensor(document)
-                question_embd    = self.model_loader.embed_prompt_tensor(question_str)
+                # 1. Preparar embeddings
+                explanation_embd = self.model_loader.embed_prompt_tensor(explanation_str).to(self.model_loader.device)
+                document_embd    = self.model_loader.embed_prompt_tensor(document).to(self.model_loader.device)
+                question_embd    = self.model_loader.embed_prompt_tensor(question_str).to(self.model_loader.device)
 
-                # 2. Concatenar en dimensión 1 (tokens)
-                embedding_concat = torch.cat([explanation_embd, document_embd, question_embd], dim=1).to(self.model_loader.device)
+                # 2. Concatenar los embeddings [1, tokens, dim]
+                embedding_concat = torch.cat([explanation_embd, document_embd, question_embd], dim=1)
 
+                # 3. Fijar pad_token_id si no lo está
+                if self.model_loader.tokenizer.pad_token_id is None:
+                    self.model_loader.tokenizer.pad_token = self.model_loader.tokenizer.eos_token
 
-                if "<END>" not in self.model_loader.tokenizer.get_vocab():
-                    self.model_loader.tokenizer.add_special_tokens({'additional_special_tokens': ['<END>']})
-                    self.model_loader.model.resize_token_embeddings(len(self.model_loader.tokenizer))
+                # 4. Crear input_ids y attention_mask dummy
+                # Generación con embeddings necesita input_ids y atención explícita por bug en algunos modelos
+                input_ids = torch.full((1, 1), self.model_loader.tokenizer.pad_token_id).to(self.model_loader.device)
+                attention_mask = torch.ones(embedding_concat.shape[:-1], dtype=torch.long).to(self.model_loader.device)
 
-                input_ids = torch.full((1, 1), self.model_loader.tokenizer.pad_token_id or self.model_loader.tokenizer.eos_token_id).to(self.model_loader.device)
-
+                # 5. Generar con parada en (END)
                 outputs = self.model_loader.model.generate(
                     inputs_embeds      = embedding_concat,
+                    attention_mask     = attention_mask,
                     input_ids          = input_ids,
                     max_new_tokens     = 1024,
                     temperature        = 0.3,
@@ -450,9 +454,10 @@ class IAInferenceServer:
                     stopping_criteria  = StoppingCriteriaList([StopOnEndToken(self.model_loader.tokenizer)])
                 )
 
-                response = self.model_loader.tokenizer.decode(outputs[0], skip_special_tokens=True).split("<END>")[0].strip()
+                # 6. Cortar en el marcador explícito
+                response = self.model_loader.tokenizer.decode(outputs[0], skip_special_tokens=True).split("(END)")[0].strip()
 
-                # 5. Decodificar
+                # 7. Log
                 duration = time.time() - start_time
                 self.log_info(f"Respuesta: {duration:.2f}s")
                 self.log_info(response)
