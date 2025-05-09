@@ -261,10 +261,9 @@ class IAInferenceServer:
         self._embeddings_ready          = self.generate_embeddings()
         self.iacodec                    = IACodec()
         self._clientes_db               = ClientesDocumentStore(env.log, 
-                                                                env.db_docker_file,
-                                                                env.db_port,
+                                                                env.db_docker_file if env.run_db_on_start else None,
+                                                                env.db_endpoint,
                                                                 env.db_name)
-        print("Embedding dim:", self.model_loader.model.get_input_embeddings().weight.shape[1])
         self._register_routes()
     #----------------------------------------------------------------------------------------------
 
@@ -381,8 +380,7 @@ class IAInferenceServer:
                 try:
                     if req.op == StructureEmbeddings.OP_NAME:
                         st_args: StructureOp    = req.args
-                        test="Who are you?"
-                        embeddings              = self._stucture_embeddings.get_embeddings(test)#st_args.document)
+                        embeddings              = self._stucture_embeddings.get_embeddings(st_args.document)
                         iadoc                   = generate(embeddings)
                         iadoc_dict, iadoc       = IAInferenceServer.extract_dictionary(iadoc)
                         text                    = self.iacodec.encode(iadoc_dict, st_args.document_name)

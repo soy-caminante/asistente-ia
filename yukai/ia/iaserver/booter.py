@@ -4,9 +4,8 @@ import  uvicorn
 import  sys
 
 from    ia.modelloader                  import  ModelLoader
-from    ia.iaserver.environment            import  Environment
-from    ia.iaserver.iaserver               import  IAInferenceServer
-from    logger                          import  Logger
+from    ia.iaserver.environment         import  Environment
+from    ia.iaserver.iaserver            import  IAInferenceServer
 from    tools.tools                     import  load_configuration_file
 #--------------------------------------------------------------------------------------------------
 
@@ -16,9 +15,9 @@ def load_args() -> Environment:
                                             required    = True)
     parser.add_argument('--runtime',        help        = 'Directorio de ejecución',
                                             required    = True)
-    parser.add_argument('--test',           help        = 'Modo de prueba',
-                                            type        = bool,
-                                            required    = False)
+    parser.add_argument('--test',           default     = False, 
+                                            required    = False,
+                                            action      = argparse.BooleanOptionalAction)
     parser.add_argument('--workers-num',    help        = 'Número de peticiones concurrentes',
                                             type        = int,
                                             required    = False)
@@ -31,8 +30,8 @@ def load_args() -> Environment:
     parser.add_argument('--max-requests',   help        = 'Número máximo de peticiones por minuto para un usuario',
                                             type        = int,
                                             required    = False)
-    parser.add_argument('--db-port',        help        = 'Puerto de conexión a la base de datos',
-                                            type        = int,
+    parser.add_argument('--db-endpoint',    help        = 'Localización de la base de datos',
+                                            type        = str,
                                             required    = False)
     parser.add_argument('--quantization',   help        = 'Cuantización del modelo de IA',
                                             type        = str,
@@ -41,6 +40,9 @@ def load_args() -> Environment:
     parser.add_argument('--db-name',        help        = 'Nombre de la base de datos', 
                                             type        = str,
                                             required    = False)
+    parser.add_argument('--run-db-on-start',default     = True, 
+                                            required    = False,
+                                            action      = argparse.BooleanOptionalAction)
 
     args            = parser.parse_known_args()
     pargs           = vars(args[0])

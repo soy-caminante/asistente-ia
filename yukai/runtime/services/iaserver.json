@@ -4,6 +4,7 @@
     "max-requests":     3,
     "model-name":       "meta-llama/Meta-Llama-3.1-8B-Instruct",
     "quantization":     "b4",
-    "db-port":          27017,
-    "db-name":          "yukai-test"
+    "db-endpoint":      "mongodb://localhost:27017",
+    "db-name":          "yukai-test",
+    "run-db-on-start":  true
 }

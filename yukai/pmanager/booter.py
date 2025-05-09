@@ -46,7 +46,7 @@ def load_args(target_class) -> AppEnvironment | BackendEnvironment:
     parser.add_argument('--chat-endpoint',  help        = 'Localización del chat', 
                                             type        = str,
                                             required    = False)
-    parser.add_argument('--db-port',        help        = 'Localización de la base de datos', 
+    parser.add_argument('--db-endpoint',    help        = 'Localización de la base de datos', 
                                             type        = str,
                                             required    = False)
     parser.add_argument('--gpu',            help        = 'Modo de desarrollo', 
@@ -59,6 +59,9 @@ def load_args(target_class) -> AppEnvironment | BackendEnvironment:
                                             type        = str,
                                             choices     = [ "huggingface", "openai", "yukai" ],
                                             required    = False)
+    parser.add_argument('--run-db-on-start',default     = True, 
+                                            required    = False,
+                                            action      = argparse.BooleanOptionalAction)
     
     args            = parser.parse_known_args()
     pargs           = vars(args[0])

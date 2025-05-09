@@ -17,9 +17,6 @@ def dummy_fcn(*args):
 class Environment(BaseModel):
     runtime:                pathlib.Path
     assets:                 Optional[pathlib.Path|str] = None
-    model_name:             str
-    chat_endpoint:          str
-    db_port:                int
     web_port:               int
     gui:                    str
     

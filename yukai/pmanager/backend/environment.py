@@ -19,9 +19,10 @@ class Environment(BaseModel):
     runtime:                    pathlib.Path
     model_name:                 str
     chat_endpoint:              str
-    db_port:                    int
+    db_endpoint:                str
     db_name:                    str
     iaserver:                   str
+    run_db_on_start:            bool
 
     _session_id:                str = ""
     _db_dir:                    pathlib.Path = None

@@ -16,8 +16,9 @@ class Environment(BaseModel):
     max_requests        : int
     model_name          : str
     quantization        : str|Quatization
-    db_port             : int
+    db_endpoint         : str
     db_name             : str
+    run_db_on_start     : bool
     
     _low_cpu_mem_usage  : bool
     _ia_cache_dir       : pathlib.Path

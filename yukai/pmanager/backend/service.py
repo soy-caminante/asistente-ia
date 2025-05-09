@@ -14,77 +14,26 @@ from    tools.tools                         import  StatusInfo, try_catch, void_
 from    tools.viewtools                     import  OverlayCtrlWrapper
 #--------------------------------------------------------------------------------------------------
 
-class DBOperator:
-    def __init__(self,  db: ClientesDocumentStore):
-        self._db    = db
-    #----------------------------------------------------------------------------------------------
-
-    def get_summary_explanation(self):
-        return self._db.get_pretrained_by_filename("summary-explanation")
-    #----------------------------------------------------------------------------------------------
-
-    def get_summary_question(self):
-        return self._db.get_pretrained_by_filename("summary-question")
-    #----------------------------------------------------------------------------------------------
-
-    def get_chat_explanation(self):
-        return self._db.get_pretrained_by_filename("chat-explanation")
-    #----------------------------------------------------------------------------------------------
-
-    def set_summary_explanation(self, content: bytes):
-        return self._db.add_pretrained("summary-explanation", content)
-    #----------------------------------------------------------------------------------------------
-
-    def set_summary_question(self, content: bytes):
-        return self._db.add_pretrained("summary-question", content)
-    #----------------------------------------------------------------------------------------------
-
-    def set_chat_explanation(self, content: bytes):
-        return self._db.add_pretrained("chat-explanation", content)
-    #----------------------------------------------------------------------------------------------
-#--------------------------------------------------------------------------------------------------
-
 class BackendService:
-    @staticmethod
-    def extract_dictionary(text):
-        """
-        Intenta extraer un JSON válido desde una cadena, aunque esté escapada o tenga formato Markdown.
-        """
-        # 1. Eliminar delimitadores Markdown y etiquetas como ```json
-        clean_text = re.sub(r'```(?:json)?', '', text, flags=re.IGNORECASE)
-        clean_text = clean_text.strip('` \n')
-
-        # 2. Si parece estar escapado (muchos \\n, \\") lo desescapamos
-        if '\\n' in clean_text or '\\"' in clean_text:
-            # Reemplazos básicos seguros
-            clean_text = clean_text.replace('\\\\', '\\')  # primero dobles backslashes
-            clean_text = clean_text.replace('\\n', '\n')
-            clean_text = clean_text.replace('\\"', '"')
-
-        clean_text = clean_text.strip()
-        # 3. Intentar decodificar como JSON
-        try:
-            return json.loads(clean_text), clean_text
-        except json.JSONDecodeError as e:
-            raise ValueError(f"No se pudo interpretar el texto como JSON: {e}")
-    #----------------------------------------------------------------------------------------------
-
     def __init__(self, env: Environment, overlay_ctrl: OverlayCtrlWrapper):
         self._env           = env
         self._clientes_db   = ClientesDocumentStore(env.log, 
-                                                    env.db_docker_file,
-                                                    env.db_port,
+                                                    env.db_docker_file if env.run_db_on_start else None,
+                                                    env.db_endpoint,
                                                     env.db_name)
-        self._db_operator   = DBOperator(self._clientes_db)
         self._incomming_db  = IncommingStorage(env.log, env.db_dir)
         self._overlay_ctrl  = overlay_ctrl
         self._req_id        = 0
         self._client_id     = "pmanager"
 
         if env.iaserver == "openai":
-            self._chat = OpenAiChatClient(os.getenv("oai_api_key"), "gpt-4o-mini", env.log)
+            self._chat = OpenAiChatClient(os.getenv("oai_api_key"), "gpt-4o-mini", 
+                                          env.model_name,
+                                          env.log)
         elif env.iaserver == "huggingface":
-            self._chat = HuggingFaceChatClient(os.getenv("hf_api_key"), "mistralai/Mistral-7B-Instruct-v0.3", env.log)
+            self._chat = HuggingFaceChatClient(os.getenv("hf_api_key"), 
+                                               env.model_name, 
+                                               env.log)
         else:
             self._chat = HttpChatClient(env.chat_endpoint, env.log)
             

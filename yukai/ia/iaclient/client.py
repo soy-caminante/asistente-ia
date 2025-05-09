@@ -65,7 +65,7 @@ class InferenceChatClient:
                                 "Formato de cada documento: cada campo se codifica como n.valor. Campos múltiples separados por |. Listas separadas por ;.Delimitadores internos reemplazados por ¬.Fin de documento ||. Mapeo:0:nombre documento,1=fecha documento,2=motivo,3=síntomas,4=estado físico,5=medicación,6=tratamiento,7=recomendaciones,8=ingresos,9=comentarios,19=diagnósticos,11=antecedentes familiares,12=factores riesgo cardiovascular,13=alergias,14=operaciones,15=implantes,16=otros."
     #----------------------------------------------------------------------------------------------
 
-    def __init__(self,  client: OpenAI | InferenceClient,
+    def __init__(self,  client:     OpenAI | InferenceClient,
                         model_name: str,
                         log:        Logger):
         self._client        = client

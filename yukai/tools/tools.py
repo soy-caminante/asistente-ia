@@ -1,8 +1,9 @@
+import  argparse
 import  datetime
 import  functools
 import  json
-import  os
 import  mimetypes
+import  os
 import  pathlib
 import  re
 import  sys
@@ -229,6 +230,17 @@ def timestamp_str_to_datetime(ref):
     except (ValueError, TypeError) as e:
         print(f"Error al parsear la fecha: {e}")
         return None
+#--------------------------------------------------------------------------------------------------
+
+def str2bool(v: str|bool):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
 #--------------------------------------------------------------------------------------------------
 
 def load_configuration_file(file: pathlib.Path, target_class, extra_keys={}):

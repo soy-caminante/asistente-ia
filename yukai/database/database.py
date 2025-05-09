@@ -19,11 +19,11 @@ from    pymongo.errors              import  ServerSelectionTimeoutError
 class ClientesDocumentStore:
     def __init__(self, log: Logger,
                        docker_file  = None,
-                       mongo_port   = "27017",
+                       db_endpoint  = "mongodb://localhost:27017",
                        db_name      = "docstore"):
         self._log           = log
         self._docker_file   = docker_file
-        self._mongo_uri     = self.get_mongo_uri(mongo_port)
+        self._mongo_uri     = db_endpoint
         self._client        = MongoClient(self._mongo_uri)
         self._db: Database  = self._client[db_name]
         self._fs            = gridfs.GridFS(self._db)
@@ -66,8 +66,6 @@ class ClientesDocumentStore:
 
         if self._docker_file:
             subprocess.run(["docker", "compose", "-f", self._docker_file, "up", "-d", "mongo"], check=True)
-        else:
-            subprocess.run(["docker", "compose", "up", "-d", "mongo"], check=True)
 
         for i in range(20):
             if self.is_mongo_ready(uri):
@@ -98,6 +96,7 @@ class ClientesDocumentStore:
     #----------------------------------------------------------------------------------------------
 
     # ------------------ Helpers ---------------------
+    
     def _validate_object_id(self, value):
         try:
             return ObjectId(value)
