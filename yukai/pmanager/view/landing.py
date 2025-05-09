@@ -1107,16 +1107,19 @@ class LandingView(ft.View, Factories):
     #----------------------------------------------------------------------------------------------
 
     def service_task(self):
+        do = True
         while True:
             try:
-                status = self._backend.check_ia_server()
-                if status:
-                    new_color = ft.Colors.GREEN
-                else:
-                    new_color = ft.Colors.RED
-                if self._ia_server_status.bgcolor != new_color:
-                    self._ia_server_status.bgcolor = new_color
-                    self.update()
+                if do:
+                    status = self._backend.check_ia_server()
+                    if status:
+                        new_color = ft.Colors.GREEN
+                    else:
+                        new_color = ft.Colors.RED
+                    if self._ia_server_status.bgcolor != new_color:
+                        self._ia_server_status.bgcolor = new_color
+                        self.update()
+                    do = False
             except:
                 pass
             time.sleep(1)
