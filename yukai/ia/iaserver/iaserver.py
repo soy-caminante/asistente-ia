@@ -378,12 +378,16 @@ class IAInferenceServer:
 
             def task():
                 def generate(embeddings):
+                    self.log_info("Iniciando la generación...")
                     if not isinstance(embeddings, torch.Tensor):
                         embeddings = torch.tensor(embeddings)
+
 
                     embeds          = embeddings.to(self.model_loader.device)
                     input_ids       = torch.full((1, 1), self.model_loader.tokenizer.eos_token_id).to(embeds.device)
                     attention_mask  = torch.ones(embeds.shape[:-1], dtype=torch.long, device=embeds.device)
+
+                    self.log_info("...Etapa 1...")
 
                     outputs = self.model_loader.model.generate( inputs_embeds   = embeds,
                                                                 input_ids       = input_ids,
@@ -392,7 +396,11 @@ class IAInferenceServer:
                                                                 temperature     = req.temperature,
                                                                 do_sample       = True,
                                                                 use_cache       = True)
+
+                    self.log_info("...Etapa 2...")
                     output_text = self.model_loader.tokenizer.decode(outputs[0], skip_special_tokens=True)
+                    self.log_info("...Etapa 3...")
+
                     return output_text
                 
                 start_time = time.time()
@@ -401,14 +409,26 @@ class IAInferenceServer:
                         st_args: StructureOp    = req.args
                         embeddings              = self._stucture_embeddings.get_embeddings(st_args.document)
                         iadoc                   = generate(embeddings)
+
+                        self.log_info(f"IADOC disponible {iadoc}")
+
                         iadoc_dict, iadoc       = IAInferenceServer.extract_dictionary(iadoc)
                         text                    = self.iacodec.encode(iadoc_dict, st_args.document_name)
+                        
+                        self.log_info(f"Calculando el biadoc...")
+
                         biadoc, btokens         = self.model_loader.embed_gridfs_prompt(text)
+
+                        self.log_info(f"...biadoc generado")
+
                         result_holder["iadoc"]  = iadoc
                         result_holder["tokens"] = btokens
+
+                        self.log_info(f"Guardando el biadoc")
+
                         result_holder["biadoc"] = self._clientes_db.add_tmp_biadoc(st_args.document_name, biadoc)
 
-                        self.log_client_info(req.client, "biadoc generado")
+                        self.log_client_info(req.client, "Generación de BIADOC finalizada")
                         
                     elif req.op == SummaryEmbeddings.OP_NAME:
                         sm_args: SummaryOp  = req.args
