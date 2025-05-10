@@ -512,9 +512,11 @@ class IAInferenceServer:
                         embeddings  = self._stucture_embeddings.get_embeddings(question_str)#st_args.document)
                         iadoc       = generate(embeddings)
 
-                        self.log_info(f"IADOC disponible {iadoc}")
+                        duration = time.time() - start_time
+                        self.log_info(f"Respuesta: {duration:.2f}s")
 
-                        pass
+                        self.log_info(f"IADOC disponible {iadoc}")
+                        raise HTTPException(status_code=402, detail=f"Servidor en pruebas")
                         # iadoc_dict, iadoc       = IAInferenceServer.extract_dictionary(iadoc)
                         # text                    = self.iacodec.encode(iadoc_dict, st_args.document_name)
                         
