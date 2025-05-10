@@ -72,6 +72,61 @@ question_str = (
     "Condensa la información lo máximo posible. "
     "Retorna únicamente el json. Añade al final el marcador <ÑÑÑ>."
 )
+
+class StructureEmbeddings:
+    OP_NAME = "structure"
+    #----------------------------------------------------------------------------------------------
+
+    def __init__(self, model: ModelLoader):
+        self._model                 =   model
+        self._explanation_str       =   \
+        (
+            "Eres un asistente médico que estructura información clínica en las siguientes categorías. "
+            "fecha: fecha consignada en el documento. "
+            "motivo: motivo de la visita. "
+            "síntomas: sintomatología referida por el paciente. "
+            "estado físico: estado físico del paciente. "
+            "medicación: medicación pautada o referida. "
+            "tratamiento: tratamiento recomendado. "
+            "recomendaciones: instrucciones dadas al paciente. "
+            "ingresos: ingresos hospitalarios. "
+            "comentarios: comentarios recogidos en el documento. "
+            "diagnósticos: diagnóstico efectuado. "
+            "antecedentes familiares: antecedentes familiares. "
+            "factores riesgo cardiovascular: factores de riesgo cardiovascular del paciente. "
+            "alergias: alergias del paciente. "
+            "operaciones: operaciones sufridas por el paciente. "
+            "implantes: implantes que tiene el paciente. "
+            "otros: cualquier cosa no recogida en los campos anteriores. "
+            "keywords: keywords del texto. "
+            "tags: tags del texto. "
+        )
+        
+        self._question_str =  \
+        (
+            "Retorna la información en un json. "
+            "No uses saltos de línea ni formato Markdown. "
+            "No incluyas campos que no estén presentes en el documento. "
+            "No pongas campos con valor null o similares. "
+            "Condensa la información lo máximo posible. "
+            "Retorna únicamente el json. Añade al final el marcador <ÑÑÑ>."
+        )
+        
+        self._explanation_embd      = None
+        self._question_embd         = None
+    #----------------------------------------------------------------------------------------------
+
+    def embed(self):
+        self._explanation_embd   = self._model.embed_prompt_tensor(self._explanation_str).to(self._model.device)
+        self._question_embd      = self._model.embed_prompt_tensor(self._question_str).to(self._model.device)
+    #----------------------------------------------------------------------------------------------
+
+    def get_embeddings(self, document: str):
+        document_embd    = self._model.embed_prompt_tensor(document).to(self._model.device)
+        return torch.cat([ self._explanation_embd, document_embd, self._question_embd], dim=1)
+    #----------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------
+
 class SummaryEmbeddings:
     OP_NAME     = "summary"
     
@@ -112,93 +167,36 @@ class SummaryEmbeddings:
     #----------------------------------------------------------------------------------------------
 
     def embed(self):
-        self._riesgo_embd       = self._model.embed_prompt_tensor(self._riesgo_str)
-        self._antecedentes_embd = self._model.embed_prompt_tensor(self._antecedentes_str)
-        self._alergias_embd     = self._model.embed_prompt_tensor(self._alergias_str)
-        self._medicacion_embd   = self._model.embed_prompt_tensor(self._medicacion_str)
-        self._visitas_embd      = self._model.embed_prompt_tensor(self._visitas_str)
-        self._ingresos_embd     = self._model.embed_prompt_tensor(self._ingresos_str)        
+        self._riesgo_embd       = self._model.embed_prompt_tensor(self._riesgo_str).to(self._model.device)
+        self._antecedentes_embd = self._model.embed_prompt_tensor(self._antecedentes_str).to(self._model.device)
+        self._alergias_embd     = self._model.embed_prompt_tensor(self._alergias_str).to(self._model.device)
+        self._medicacion_embd   = self._model.embed_prompt_tensor(self._medicacion_str).to(self._model.device)
+        self._visitas_embd      = self._model.embed_prompt_tensor(self._visitas_str).to(self._model.device)
+        self._ingresos_embd     = self._model.embed_prompt_tensor(self._ingresos_str).to(self._model.device)
     #----------------------------------------------------------------------------------------------
 
     def get_embeddings(self, documents, question):
-        question_embeddings = None
+        question_embd = None
         if question == "riesgo":
-            question_embeddings = self._riesgo_embd
+            question_embd = self._riesgo_embd
         elif question == "antecedentes":
-            question_embeddings = self._antecedentes_embd
+            question_embd = self._antecedentes_embd
         elif question == "alergias":
-            question_embeddings = self._alergias_embd
+            question_embd = self._alergias_embd
         elif question == "medicacion":
-            question_embeddings = self._medicacion_embd
+            question_embd = self._medicacion_embd
         elif question == "visitas":
-            question_embeddings = self._visitas_embd
+            question_embd = self._visitas_embd
         elif question == "ingresos":
-            question_embeddings = self._ingresos_embd
+            question_embd = self._ingresos_embd
 
-
-        device = self._explanation_embd.device
         embeddings = [self._explanation_embd]
 
         for i, doc in enumerate(documents, start=1):
-            tag = f"Documento {i}<<<"
-            emb = self._model.embed_prompt_tensor(tag).to(device)  # shape: [1, Nᵢ, D]
-            embeddings.append(emb)
-            embeddings.append(doc)
-        embeddings.append(question_embeddings)
-
-        # Concatena por el eje de tokens (dim 1)
-        return torch.cat(embeddings, dim=1)  # shape: [1, total_seq_len, D]
-    #----------------------------------------------------------------------------------------------
-#--------------------------------------------------------------------------------------------------
-
-class StructureEmbeddings:
-    OP_NAME = "structure"
-    #----------------------------------------------------------------------------------------------
-
-    def __init__(self, model: ModelLoader):
-        self._model                 =   model
-        self._explanation_str       =   "system:" \
-                                        "Eres un asistente médico que estructura información clínica en las siguientes categorías, " \
-                                        "fecha: fecha consignada en el documento." \
-                                        "motivo: motivo de la visista." \
-                                        "síntomas: sintomatología referida por el paciente." + \
-                                        "esatdo físico: estado físico del paciente." + \
-                                        "medicación: medicación pautada o referida." + \
-                                        "tratamiento: tratamiento recomendado." + \
-                                        "recomendaciones: instrucciones dadas al paciente." + \
-                                        "ingresos: ingresos hospitalarios." + \
-                                        "comentarios: comentatios recogidos en el documento."  + \
-                                        "diagnósticos: diagnóstico efectuado." + \
-                                        "antecedentes familiares: antecedentes familiares." + \
-                                        "factores riesgo cardivascular: factores de riesgo cardiovascular del paciente." + \
-                                        "alergias: alergias del paciente." + \
-                                        "operaciones: operaciones sufridas por el paciente." + \
-                                        "implantes: implantes que tiene el paciente." + \
-                                        "otros: cualquier cosa no recogida en los campos anteriores." + \
-                                        "keywords: keywords del texto." + \
-                                        "tags: tags del texto. "
-        
-        self._question_str          =   "user:Retorna la información en un json." \
-                                        "si algún campo no está presente en el documento no lo incluyas en el json." + \
-                                        "condensa la información lo más posible. se sucinto y conciso." + \
-                                        "si alguna información no aparece o no se menciona, ni incluyas el campo ni lo indiques." + \
-                                        "retorna únicamente el json"
-        
-        self._explanation_embd      = None
-        self._question_embd         = None
-    #----------------------------------------------------------------------------------------------
-
-    def embed(self):
-        self._explanation_embd   = self._model.embed_prompt_tensor(self._explanation_str)
-        self._question_embd      = self._model.embed_prompt_tensor(self._question_str)
-        print(f"[embed] explanation: {self._explanation_embd.shape}, question: {self._question_embd.shape}")
-    #----------------------------------------------------------------------------------------------
-
-    def get_embeddings(self, document: str):
-        device      = self._explanation_embd.device
-        embeddings  = [self._explanation_embd]
-        embeddings.append(self._model.embed_prompt_tensor(document).to(device))
-        embeddings.append(self._question_embd)
+            ext_doc  = f"Documento {i}<<<{doc}"
+            doc_embd = self._model.embed_prompt_tensor(ext_doc).to(self._model.device)  # shape: [1, Nᵢ, D]
+            embeddings.append(doc_embd)
+        embeddings.append(question_embd)
 
         # Concatena por el eje de tokens (dim 1)
         return torch.cat(embeddings, dim=1)  # shape: [1, total_seq_len, D]
@@ -211,31 +209,31 @@ class ChatEmbeddings:
 
     def __init__(self, model: ModelLoader):
         self._model             =   model
-        self._explanation_str   =   "system:" \
-                                    "Eres un asistente médico experto en interpretación de historiales clínicos. Responde a las preguntas sobre este historial." \
-                                    "Responde solo sobre el contenido del expediente. No inventes ni interpoles ni supongas nada."  \
-                                    "Siempre que sea posible indica la fecha de la información que suministras." \
-                                    "Formatea la respuesta en markdown. No resumas al final." \
-                                    "El historial está estructurado de la siguiente manera:" \
-                                    "edad del paciente**sexo del paciente**documento 1**documento 2**...**documento N" \
-                                    "Formato de cada documento: cada campo se codifica como n.valor. Campos múltiples separados por |. Listas separadas por ;.Delimitadores internos reemplazados por ¬.Fin de documento ||. Mapeo:0:nombre documento,1=fecha documento,2=motivo,3=síntomas,4=estado físico,5=medicación,6=tratamiento,7=recomendaciones,8=ingresos,9=comentarios,19=diagnósticos,11=antecedentes familiares,12=factores riesgo cardiovascular,13=alergias,14=operaciones,15=implantes,16=otros." \
-                                    "Documento:"
         self._explanation_embd  = None        
+        self._explanation_str   =   \
+        (
+            "Eres un asistente médico experto en interpretación de historiales clínicos. Responde a las preguntas sobre este historial. "
+            "Responde solo sobre el contenido del expediente. No inventes ni interpoles ni supongas nada. "
+            "Siempre que sea posible indica la fecha de la información que suministras. "
+            "Formatea la respuesta en markdown. No resumas al final. "
+            "El historial está estructurado de la siguiente manera: "
+            "edad del paciente**sexo del paciente**documento 1**documento 2**...**documento N. "
+            "Formato de cada documento: cada campo se codifica como n.valor. Campos múltiples separados por |. Listas separadas por ;.Delimitadores internos reemplazados por ¬.Fin de documento ||. Mapeo:0:nombre documento,1=fecha documento,2=motivo,3=síntomas,4=estado físico,5=medicación,6=tratamiento,7=recomendaciones,8=ingresos,9=comentarios,19=diagnósticos,11=antecedentes familiares,12=factores riesgo cardiovascular,13=alergias,14=operaciones,15=implantes,16=otros. "
+            "Documento:"
+        )
     #----------------------------------------------------------------------------------------------
 
     def embed(self):
         if self._model:
-            self._explanation_embd   = self._model.embed_prompt_tensor(self._explanation_str)
+            self._explanation_embd   = self._model.embed_prompt_tensor(self._explanation_str).to(self._model.device)
     #----------------------------------------------------------------------------------------------
 
     def get_embeddings(self, edad, sexo, documents, question):
-        device = self._explanation_embd.device
-        embeddings = [self._explanation_embd]
-        embeddings.append(self._model.embed_prompt_tensor(f"{edad}**{sexo}").to(device))
+        embeddings = [ self._explanation_embd ]
+        embeddings.append(self._model.embed_prompt_tensor(f"{edad}**{sexo}").to(self._model.device))
         for doc in documents:
-            tag = "**"
-            emb = self._model.embed_prompt_tensor(tag).to(device)  # shape: [1, Nᵢ, D]
-            embeddings.append(emb)
+            tag_embd = self._model.embed_prompt_tensor("**").to(self._model.device)  # shape: [1, Nᵢ, D]
+            embeddings.append(tag_embd)
             embeddings.append(doc)
 
         # Concatena por el eje de tokens (dim 1)
@@ -325,6 +323,12 @@ class IAInferenceServer:
                                                                 env.db_user,
                                                                 env.db_password,
                                                                 env.db_name)
+        
+        if self.model_loader.tokenizer.pad_token_id is None:
+            self.model_loader.tokenizer.pad_token = self.model_loader.tokenizer.eos_token
+
+        self._input_ids = torch.full((1, 1), self.model_loader.tokenizer.pad_token_id).to(self.model_loader.device)
+
         self._register_routes()
     #----------------------------------------------------------------------------------------------
 
@@ -431,7 +435,7 @@ class IAInferenceServer:
                  
             event = threading.Event()
 
-            def task():
+            def task_1():
                 start_time = time.time()
 
                 # 1. Preparar embeddings
@@ -474,110 +478,60 @@ class IAInferenceServer:
                 self.log_info(response)
                 raise HTTPException(status_code=402, detail=f"Servidor en pruebas")
 
-            def task_2():
-                # Device
-                device = self.model_loader.device
-
-                # 1. Embedding del system prompt + documento
-                self.log_info("1. Embedding del system prompt + documento")
-                system_plus_doc = f"{explanation_str}: {document}"
-                system_embed = self.model_loader.embed_prompt_tensor(system_plus_doc).to(device)  # shape: [1, L₁, D]
-
-                # 2. Embedding de la pregunta
-                self.log_info("2. Embedding de la pregunta")
-                question_embed = self.model_loader.embed_prompt_tensor(question_str).to(device)   # shape: [1, L₂, D]
-
-                # 3. Concatenar en eje de tokens (dim=1)
-                self.log_info("3. Concatenar en eje de tokens (dim=1)")
-                full_embed = torch.cat([system_embed, question_embed], dim=1)  # shape: [1, L₁ + L₂, D]
-
-                # 4. Asegúrate de que el tokenizer tenga pad_token_id
-                self.log_info("4. Asegúrate de que el tokenizer tenga pad_token_id")
-                if self.model_loader.tokenizer.pad_token_id is None:
-                    self.model_loader.tokenizer.pad_token = self.model_loader.tokenizer.eos_token
-
-                # 5. Generar inputs ids
-                self.log_info("# 5. Generar inputs ids")
-                input_ids = torch.full((1, 1), self.model_loader.tokenizer.pad_token_id).to(device)
-
-                # 6. Generar texto
-                self.log_info("6. Generar texto")
-                seq_len = full_embed.shape[1]
-                attention_mask = torch.ones((1, seq_len), dtype=torch.long).to(device)
-                output = self.model_loader.model.generate(
-                    inputs_embeds  = full_embed,
-                    attention_mask = attention_mask,
-                    input_ids      = input_ids,
-                    max_new_tokens = 1024,
-                    temperature    = 0.3,
-                    do_sample      = True,
-                    use_cache      = True,
-                    pad_token_id   = self.model_loader.tokenizer.pad_token_id
-                )
-
-                response = self.model_loader.tokenizer.decode(output[0], skip_special_tokens=True)
-                self.log_info("6. Respuesta")
-                self.log_info(response)
-                
-                raise HTTPException(status_code=402, detail=f"Servidor en pruebas")
-            
-            def task_1():
+            def task():
                 def generate(embeddings):
-                    self.log_info("Iniciando la generación...")
-                    if not isinstance(embeddings, torch.Tensor):
-                        embeddings = torch.tensor(embeddings)
+                    # Generación con embeddings necesita input_ids y atención explícita por bug en algunos modelos
+                    attention_mask = torch.ones(embeddings.shape[:-1], dtype=torch.long).to(self.model_loader.device)
 
+                    outputs = self.model_loader.model.generate\
+                    (
+                        inputs_embeds      = embeddings,
+                        attention_mask     = attention_mask,
+                        input_ids          = self._input_ids,
+                        max_new_tokens     = 1024,
+                        temperature        = 0.3,
+                        do_sample          = True,
+                        use_cache          = True,
+                        stopping_criteria = StoppingCriteriaList \
+                                            ([
+                                                StopOnStringCriteria(self.model_loader.tokenizer, stop_string="<ÑÑÑ>")
+                                            ])
+                    )
 
-                    embeds          = embeddings.to(self.model_loader.device)
-                    input_ids       = torch.full((1, 1), self.model_loader.tokenizer.eos_token_id).to(embeds.device)
-                    attention_mask  = torch.ones(embeds.shape[:-1], dtype=torch.long, device=embeds.device)
+                    
+                    return self.model_loader.tokenizer.decode(outputs[0], skip_special_tokens=True).split("(END)")[0].strip()
 
-                    self.log_info("...Etapa 1...")
-
-                    outputs = self.model_loader.model.generate( inputs_embeds   = embeds,
-                                                                input_ids       = input_ids,
-                                                                attention_mask  = attention_mask,
-                                                                max_new_tokens  = req.max_tokens,
-                                                                temperature     = req.temperature,
-                                                                do_sample       = True,
-                                                                use_cache       = True)
-
-                    self.log_info("...Etapa 2...")
-                    output_text = self.model_loader.tokenizer.decode(outputs[0], skip_special_tokens=True)
-                    self.log_info("...Etapa 3...")
-
-                    return output_text
-                
                 start_time = time.time()
+
                 try:
                     if req.op == StructureEmbeddings.OP_NAME:
-                        st_args: StructureOp    = req.args
+                        st_args: StructureOp = req.args
                         
                         self.log_info(f"Estructurando el documento {st_args.document_name}")
-                        self.log_info(f"{st_args.document}")
 
-                        embeddings              = self._stucture_embeddings.get_embeddings(st_args.document)
-                        iadoc                   = generate(embeddings)
+                        embeddings  = self._stucture_embeddings.get_embeddings(question_str)#st_args.document)
+                        iadoc       = generate(embeddings)
 
                         self.log_info(f"IADOC disponible {iadoc}")
 
-                        iadoc_dict, iadoc       = IAInferenceServer.extract_dictionary(iadoc)
-                        text                    = self.iacodec.encode(iadoc_dict, st_args.document_name)
+                        pass
+                        # iadoc_dict, iadoc       = IAInferenceServer.extract_dictionary(iadoc)
+                        # text                    = self.iacodec.encode(iadoc_dict, st_args.document_name)
                         
-                        self.log_info(f"Calculando el biadoc...")
+                        # self.log_info(f"Calculando el biadoc...")
 
-                        biadoc, btokens         = self.model_loader.embed_gridfs_prompt(text)
+                        # biadoc, btokens         = self.model_loader.embed_gridfs_prompt(text)
 
-                        self.log_info(f"...biadoc generado")
+                        # self.log_info(f"...biadoc generado")
 
-                        result_holder["iadoc"]  = iadoc
-                        result_holder["tokens"] = btokens
+                        # result_holder["iadoc"]  = iadoc
+                        # result_holder["tokens"] = btokens
 
-                        self.log_info(f"Guardando el biadoc")
+                        # self.log_info(f"Guardando el biadoc")
 
-                        result_holder["biadoc"] = self._clientes_db.add_tmp_biadoc(st_args.document_name, biadoc)
+                        # result_holder["biadoc"] = self._clientes_db.add_tmp_biadoc(st_args.document_name, biadoc)
 
-                        self.log_client_info(req.client, "Generación de BIADOC finalizada")
+                        # self.log_client_info(req.client, "Generación de BIADOC finalizada")
                         
                     elif req.op == SummaryEmbeddings.OP_NAME:
                         sm_args: SummaryOp  = req.args

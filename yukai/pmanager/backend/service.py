@@ -131,8 +131,6 @@ class BackendService:
                         status = self._chat.get_structured_document(self._client_id, self.get_next_req_id(), doc.content, doc.name)
 
                         if status:
-                            #iadoc           = '```json\\n{\\n  "fecha": "3 de febrero de 2024",\\n  "motivo": "Revisión del tratamiento y evaluación de síntomas",\\n  "síntomas": "Mejoría en disnea, palpitaciones ocasionales, fatiga leve",\\n  "estado físico": {\\n    "presión arterial": "140/85 mmHg",\\n    "frecuencia cardíaca": "88 lpm",\\n    "peso": "83 kg",\\n    "IMC": "27.7"\\n  },\\n  "medicación": {\\n    "enalapril": "10 mg",\\n    "metoprolol": "50 mg"\\n  },\\n  "tratamiento": "Holter de 24 horas para evaluar palpitaciones",\\n  "recomendaciones": "Reforzar dieta y actividad física",\\n  "diagnósticos": "Mejora parcial en presión arterial y síntomas de disnea"\\n}\\n```'
-
                             response: HttpStructuredDocument    = status.get()
                             iadoc                               = response.iadoc
                             biadoc                              = response.biadoc
@@ -166,7 +164,6 @@ class BackendService:
                 
                 cliente_info: ClienteInfo = self._clientes_db.get_cliente_by_id_interno(cliente.personal_info.id_interno)
                 
-                # TODO: Ahora los biadocs se reciben con el db_id de mongo hay que actualizar eso en add_cliente y update_cliente
                 if cliente_info is None:
                     self._overlay_ctrl.update(f"Cliente: {cliente.personal_info.id_interno}\nGenerando información predefinida")
                     status = self._chat.get_summary(self._client_id, self.get_next_req_id(), iadocs)

@@ -1,5 +1,5 @@
 Cosa que he hecho:
-1. ssh -i /home/caminante/.ssh/id_rsa ubuntu@38.80.122.143
+1. ssh -i /home/caminante/.ssh/id_rsa ubuntu@38.128.233.144
 2. scp -i /home/caminante/.ssh/id_rsa -r /home/caminante/Documentos/proyectos/yukai-tests/ ubuntu@185.216.22.163:/home/ubuntu
 3. export PATH=$PATH:/home/ubuntu/.local/bin
 4. scp -i /home/caminante/.ssh/id_rsa -r /home/caminante/Documentos/proyectos/yukai-tests/test-service-llama-3.2-3B.py ubuntu@38.128.232.243:/home/ubuntu/tests/test-service-llama-3.2-3B.py
