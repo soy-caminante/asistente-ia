@@ -87,8 +87,7 @@ class StructureEmbeddings:
 
     def __init__(self, model: ModelLoader):
         self._model                 =   model
-        self._explanation_str       =   "system:" \
-                                        "Eres un asistente médico que estructura información clínica en las siguientes categorías, " \
+        self._explanation_str       =   "Eres un asistente médico que estructura información clínica en las siguientes categorías, " \
                                         "fecha: fecha consignada en el documento." \
                                         "motivo: motivo de la visista." \
                                         "síntomas: sintomatología referida por el paciente." + \
@@ -108,7 +107,7 @@ class StructureEmbeddings:
                                         "keywords: keywords del texto." + \
                                         "tags: tags del texto. "
         
-        self._question_str          =   "user:Retorna la información en un json." \
+        self._question_str          =   "Retorna la información en un json." \
                                         "si algún campo no está presente en el documento no lo incluyas en el json." + \
                                         "condensa la información lo más posible. se sucinto y conciso." + \
                                         "si alguna información no aparece o no se menciona, ni incluyas el campo ni lo indiques." + \
