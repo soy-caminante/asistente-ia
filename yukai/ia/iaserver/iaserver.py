@@ -54,7 +54,7 @@ explanation_str = (
     "tags: tags del texto. "
 )
 
-document = (
+document_str = (
     "**Consulta 2: Seguimiento a 1 semana**\n\n**INFORME MÉDICO**\n\n"
     "**Paciente:** Luis Ramírez López\n**Fecha de consulta:** 12 de enero de 2024\n"
     "**Motivo de consulta:** Seguimiento tras diagnóstico de cálculos renales.\n\n"
@@ -508,8 +508,9 @@ class IAInferenceServer:
                         st_args: StructureOp = req.args
                         
                         self.log_info(f"Estructurando el documento {st_args.document_name}")
+                        self.log_info(document_str)
 
-                        embeddings  = self._stucture_embeddings.get_embeddings(question_str)#st_args.document)
+                        embeddings  = self._stucture_embeddings.get_embeddings(document_str)#st_args.document)
                         iadoc       = generate(embeddings)
 
                         duration = time.time() - start_time
